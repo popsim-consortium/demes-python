@@ -1,0 +1,17 @@
+# Tools for describing and manipulating demographic models.
+
+A demographic model describes one or more demes (or popululations),
+how they change over time, and their relationships to one another.
+`demes` provides a self-contained and unambiguous in-memory description
+of a demographic model.
+
+## Goals
+- Robust validation of models and reporting of errors for invalid models.
+- Agnostic to choice of time-parameterisation (forwards, backwards,
+  continuous, discrete).
+- Incremental. A model can be constructed incrementally, remaining valid
+  at each step of construction.
+- Extensible. It should be easy to extend the in-memory description with
+  additional properties.
+- Mutable. When modifying an existing model, changes should cascade naturally
+  through to dependent properties. Incompatibilities should be reported.
