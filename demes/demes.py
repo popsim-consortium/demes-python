@@ -55,6 +55,22 @@ def optional(func):
 
 @attr.s(auto_attribs=True)
 class Epoch:
+    """
+    Population size parameters for a deme in a specified time period.
+    Times follow the backwards-in-time convention (time values increase
+    from the present towards the past).
+
+    :ivar start_time: The start time of the epoch.
+    :ivar end_time: The end time of the epoc.
+    :ivar initial_size: Population size at ``start_time``.
+    :ivar final_size: Population size at ``end_time``.
+        If ``initial_size != final_size``, the population size changes
+        monotonically between the start and end times.
+        TODO: traditionally, this is an exponential increase or decrease,
+              due to tractibility under the coalescent. But other functions
+              may be reasonable choices, particularly for non-coalescent
+              simulators.
+    """
     start_time: Time = attr.ib(validator=[non_negative, finite])
     end_time: Time = attr.ib(default=None, validator=optional(non_negative))
     initial_size: Size = attr.ib(default=None, validator=optional([positive, finite]))
@@ -74,11 +90,25 @@ class Epoch:
 
     @property
     def dt(self):
+        """
+        The time span of the epoch.
+        """
         return self.end_time - self.start_time
 
 
 @attr.s(auto_attribs=True)
 class Migration:
+    """
+    Parameters for continuous migration from one deme to another.
+    Source and destination demes follow the backwards-in-time coalescent
+    convention.
+
+    :ivar source: The source deme.
+    :ivar dest: The destination deme.
+    :ivar time: The time at which the migration rate becomes activate.
+    :ivar rate: The rate of migration. Set to zero to disable migrations after
+        the given time.
+    """
     source: ID = attr.ib()
     dest: ID = attr.ib()
     time: Time = attr.ib(validator=[non_negative, finite])
@@ -91,6 +121,18 @@ class Migration:
 
 @attr.s(auto_attribs=True)
 class Pulse:
+    """
+    Parameters for a pulse of migration from one deme to another.
+    Source and destination demes follow the backwards-in-time coalescent
+    convention.
+
+    :ivar source: The source deme.
+    :ivar dest: The destination deme.
+    :ivar time: The time of migration.
+    :ivar proportion: At the instant after migration, this is the proportion
+        of individuals in the destination deme made up of individuals from
+        the source deme.
+    """
     source: ID = attr.ib()
     dest: ID = attr.ib()
     time: Time = attr.ib(validator=[non_negative, finite])
@@ -103,6 +145,17 @@ class Pulse:
 
 @attr.s(auto_attribs=True)
 class Deme:
+    """
+    A collection of individuals that are exchangeable at any fixed time.
+
+    :ivar id: A string identifier for the deme.
+    :ivar ancestor: The string identifier of the ancestor of this deme.
+        If the deme has no ancestor, this should be ``None``.
+    :ivar epochs: A list of epochs, which define the population size(s) of
+        the deme. The deme must be created with exactly one epoch.
+        Additional epochs may be added with :meth:`.add_epoch`
+    :vartype epochs: list of :class:`.Epoch`
+    """
     id: ID = attr.ib()
     ancestor: ID = attr.ib()
     epochs: List[Epoch] = attr.ib()
@@ -120,6 +173,12 @@ class Deme:
             raise ValueError(f"{self.id} cannot be its own ancestor")
 
     def add_epoch(self, epoch: Epoch):
+        """
+        Add an epoch to the deme's epoch list.
+        Epochs must be non overlapping and added in time-increasing order.
+
+        :param .Epoch epoch: The epoch to add.
+        """
         assert len(self.epochs) > 0
         prev_epoch = self.epochs[len(self.epochs) - 1]
         if epoch.start_time < prev_epoch.start_time:
@@ -137,19 +196,56 @@ class Deme:
 
     @property
     def start_time(self):
+        """
+        The start time of the deme's existence.
+        """
         return self.epochs[0].start_time
 
     @property
     def end_time(self):
+        """
+        The end time of the deme's existence.
+        """
         return self.epochs[-1].end_time
 
     @property
     def dt(self):
+        """
+        The time span over which the deme exists.
+        """
         return self.end_time - self.start_time
 
 
 @attr.s(auto_attribs=True)
 class DemeGraph:
+    """
+    A directed graph that describes a demography. Vertices are demes and edges
+    correspond to ancestor/descendent relations. Edges are directed from
+    descendents to ancestors.
+
+    :ivar description: A human readable description of the demography.
+    :ivar time_units: The units of time used for the demography. This is
+        commonly ``years`` or ``generations``, but can be any string.
+    :ivar generation_time: The generation time of demes.
+        TODO: The units of generation_time are undefined if
+        ``time_units="generations"``, so we likely need an additional
+        ``generation_time_units`` attribute.
+    :ivar default_Ne: The default population size to use when creating new
+        demes with :meth:`.deme`. May be ``None``.
+    :ivar doi: If the deme graph describes a published demography, the DOI
+        should be be given here. May be ``None``.
+    :ivar demes: A list of demes in the demography.
+        Not intended to be passed when the deme graph is instantiated.
+        Use :meth:`.deme` instead.
+    :vartype demes: list of :class:`.Deme`
+    :ivar migrations: A list of continuous migrations for the demography.
+        Not intended to be passed when the deme graph is instantiated.
+        Use :meth:`migration` or :meth:`symmetric_migration` instead.
+    :vartype migrations: list of :class:`.Migration`
+    :ivar pulses: A list of migration pulses for the demography.
+        Not intended to be passed when the deme graph is instantiated.
+        Use :meth:`pulse` instead.
+    """
     description: str = attr.ib()
     time_units: str = attr.ib()
     generation_time: Time = attr.ib(validator=[positive, finite])
@@ -163,9 +259,15 @@ class DemeGraph:
         self._deme_map: Mapping[ID, Deme] = dict()
 
     def __getitem__(self, deme_id):
+        """
+        Return the :class:`.Deme` with the specified id.
+        """
         return self._deme_map[deme_id]
 
     def __contains__(self, deme_id):
+        """
+        Check if the deme graph contains a deme with the specified id.
+        """
         return deme_id in self._deme_map
 
     def deme(
@@ -179,7 +281,21 @@ class DemeGraph:
         epochs=None,
     ):
         """
-        Add deme to the graph.
+        Add a deme to the graph.
+
+        :param str id: A string identifier for the deme.
+        :param str ancestor: The string identifier of the ancestor of this deme.
+            May be ``None``.
+        :param start_time: The time at which this deme begins existing.
+        :param end_time: The time at which this deme stops existing.
+            If the deme has an ancestor the ``end_time`` will be set to the
+            ancestor's ``start_time``.
+        :param initial_size: The initial population size of the deme. If ``None``,
+            this is taken from the deme graph's ``default_Ne`` field.
+        :param final_size: The final population size of the deme. If ``None``,
+            the deme has a constant ``initial_size`` population size.
+        :param epochs: Additional epochs that define population size changes for
+            the deme.
         """
         if initial_size is None:
             initial_size = self.default_Ne
@@ -219,7 +335,13 @@ class DemeGraph:
 
     def symmetric_migration(self, *demes, rate=0, start_time=None, end_time=None):
         """
-        Add continuous (symmetric) migration from ``start_time``.
+        Add continuous symmetric migrations between all pairs of demes in a list.
+
+        :param demes: list of deme IDs. Migration is symmetric between all
+            pairs of demes in this list.
+        :param rate: The rate of migration per ``time_units``.
+        :param start_time: The time at which the migration rate is enabled.
+        :param end_time: The time at which the migration rate is disabled.
         """
         if len(demes) < 2:
             raise ValueError("must specify two or more demes")
@@ -228,7 +350,19 @@ class DemeGraph:
 
     def migration(self, source, dest, rate=0, start_time=None, end_time=None):
         """
-        Add continuous migration from ``start_time``.
+        Add continuous migration from one deme to another.
+        Source and destination demes follow the backwards-in-time coalescent
+        convention.
+
+        :param source: The source deme.
+        :param dest: The destination deme.
+        :param rate: The rate of migration per ``time_units``.
+        :param start_time: The time at which the migration rate is enabled.
+            If ``None``, the start time is defined by the earliest time at
+            which the demes coexist.
+        :param end_time: The time at which the migration rate is disabled.
+            If ``None``, the end time is defined by the latest time at which
+            the demes coexist.
         """
         for deme_id in (source, dest):
             if deme_id not in self:
@@ -243,7 +377,16 @@ class DemeGraph:
 
     def pulse(self, source, dest, proportion, time):
         """
-        Add a pulse of migration at a fixed point in ``time``.
+        Add a pulse of migration at a fixed time.
+        Source and destination demes follow the backwards-in-time coalescent
+        convention.
+
+        :param source: The source deme.
+        :param dest: The destination deme.
+        :param proportion: At the instant after migration, this is the proportion
+            of individuals in the destination deme made up of individuals from
+            the source deme.
+        :param time: The time at which migrations occur.
         """
         for deme_id in (source, dest):
             if deme_id not in self:
@@ -268,6 +411,21 @@ class DemeGraph:
         Add a new deme to the graph. The new deme may have multiple ``ancestors``,
         which connect the new deme to the graph via pulse migrations with the
         supplied ``proportions``.
+
+        GG: I'm not sure this is really a subgraph, but I couldn't think of a
+        more appropriate name.
+        TODO: The semantics when ``end_time=None`` are likely broken!
+
+        :param deme_id: A string identifier for the deme at the root of the subgraph.
+        :param ancestors: The ancestor(s) of the subgraph's root deme.
+        :paramtype ancestors: list of str
+        :param proportions: The ancestry proportion for each ancestor.
+        :paramtype proportions: list of float
+        :param start_time: See :meth:`.deme`.
+        :param end_time: See :meth:`.deme`.
+        :param initial_size: See :meth:`.deme`.
+        :param final_size: See :meth:`.deme`.
+        :param epochs: See :meth:`.deme`.
         """
         if len(ancestors) != len(proportions):
             raise ValueError("len(ancestors) != len(proportions)")

@@ -69,6 +69,17 @@ _deme_graph_schema = Map(
 
 
 def loads(string):
+    """
+    Load a deme graph from a yaml-formatted string.
+
+    :param str string: the ``yaml`` string to be loaded.
+    :return: A deme graph.
+    :rtype: .DemeGraph
+
+    .. todo:: Describe demes' yaml format. The semantics in the yaml
+        follow that of the :class:`.DemeGraph` demography construction
+        methods.
+    """
     yaml = dirty_load(string, schema=_deme_graph_schema, allow_flow_style=True)
     d = yaml.data  # data dict
     g = demes.DemeGraph(
@@ -92,16 +103,36 @@ def loads(string):
 
 
 def load(filename):
+    """
+    Load a deme graph from a yaml-formatted file.
+
+    :param str filename: the name of the ``yaml`` file to load.
+    :return: A deme graph.
+    :rtype: .DemeGraph
+    """
     with open(filename) as f:
         return loads(f.read())
 
 
-def dumps(demes_graph):
-    d = demes_graph.asdict_compact()
+def dumps(deme_graph):
+    """
+    Return a yaml-formatted string of the specified deme graph.
+
+    :param .DemeGraph deme_graph: The deme graph to dump.
+    :return: A yaml-formatted string.
+    :rtype: str
+    """
+    d = deme_graph.asdict_compact()
     doc = as_document(d, schema=_deme_graph_schema)
     return doc.as_yaml()
 
 
-def dump(demes_graph, filename):
+def dump(deme_graph, filename):
+    """
+    Dump the specified deme graph to a yaml-formatted file.
+
+    :param .DemeGraph deme_graph: The deme graph to dump.
+    :param str filename: Name of the output file.
+    """
     with open(filename, "w") as f:
-        f.write(dumps(demes_graph))
+        f.write(dumps(deme_graph))
