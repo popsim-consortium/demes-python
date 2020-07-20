@@ -1,4 +1,4 @@
-from typing import List, Mapping, Union
+from typing import List, Dict, Union, Callable, Any, Tuple, Optional
 import itertools
 import math
 import collections
@@ -16,27 +16,30 @@ Proportion = float
 # Validator functions.
 
 
-def positive(self, attribute, value):
+def positive(self: Any, attribute: attr.Attribute, value: Number) -> None:
     if value <= 0:
         raise ValueError(f"{attribute.name} must be greater than zero")
 
 
-def non_negative(self, attribute, value):
+def non_negative(self: Any, attribute: attr.Attribute, value: Number) -> None:
     if value < 0:
         raise ValueError(f"{attribute.name} must be non-negative")
 
 
-def finite(self, attribute, value):
+def finite(self: Any, attribute: attr.Attribute, value: Number) -> None:
     if math.isinf(value):
         raise ValueError(f"{attribute.name} must be finite")
 
 
-def unit_interval(self, attribute, value):
+def unit_interval(self: Any, attribute: attr.Attribute, value: Number) -> None:
     if not (0 <= value <= 1):
         raise ValueError(f"must have 0 <= {attribute.name} <= 1")
 
 
-def optional(func):
+ValidatorFunc = Callable[[Any, attr.Attribute, Number], None]
+
+
+def optional(func: Union[ValidatorFunc, List[ValidatorFunc]]) -> ValidatorFunc:
     """
     Wraps one or more validator functions with an "if not None" clause.
     """
@@ -45,7 +48,7 @@ def optional(func):
     else:
         func_list = [func]
 
-    def validator(self, attribute, value):
+    def validator(self: Any, attribute: attr.Attribute, value: Any) -> None:
         if value is not None:
             for func in func_list:
                 func(self, attribute, value)
@@ -71,12 +74,13 @@ class Epoch:
               may be reasonable choices, particularly for non-coalescent
               simulators.
     """
+
     start_time: Time = attr.ib(validator=[non_negative, finite])
     end_time: Time = attr.ib(default=None, validator=optional(non_negative))
     initial_size: Size = attr.ib(default=None, validator=optional([positive, finite]))
     final_size: Size = attr.ib(default=None, validator=optional([positive, finite]))
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         if self.initial_size is None and self.final_size is None:
             raise ValueError("must set either initial_size or final_size")
         if (
@@ -89,7 +93,7 @@ class Epoch:
             self.final_size = self.initial_size
 
     @property
-    def dt(self):
+    def dt(self) -> Number:
         """
         The time span of the epoch.
         """
@@ -109,12 +113,13 @@ class Migration:
     :ivar rate: The rate of migration. Set to zero to disable migrations after
         the given time.
     """
+
     source: ID = attr.ib()
     dest: ID = attr.ib()
     time: Time = attr.ib(validator=[non_negative, finite])
     rate: Rate = attr.ib(validator=[non_negative, finite])
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         if self.source == self.dest:
             raise ValueError("source and dest cannot be the same deme")
 
@@ -133,12 +138,13 @@ class Pulse:
         of individuals in the destination deme made up of individuals from
         the source deme.
     """
+
     source: ID = attr.ib()
     dest: ID = attr.ib()
     time: Time = attr.ib(validator=[non_negative, finite])
     proportion: Proportion = attr.ib(validator=unit_interval)
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         if self.source == self.dest:
             raise ValueError("source and dest cannot be the same deme")
 
@@ -156,23 +162,24 @@ class Deme:
         Additional epochs may be added with :meth:`.add_epoch`
     :vartype epochs: list of :class:`.Epoch`
     """
+
     id: ID = attr.ib()
-    ancestor: ID = attr.ib()
+    ancestor: Optional[ID] = attr.ib()
     epochs: List[Epoch] = attr.ib()
 
     @epochs.validator
-    def _check_epochs(self, attribute, value):
+    def _check_epochs(self, attribute: attr.Attribute, value: List[Epoch]) -> None:
         if len(self.epochs) != 1:
             raise ValueError(
                 "Deme must be created with exactly one epoch."
                 "Use add_epoch() to supply additional epochs."
             )
 
-    def __attrs_post_init__(self):
+    def __attrs_post_init__(self) -> None:
         if self.id == self.ancestor:
             raise ValueError(f"{self.id} cannot be its own ancestor")
 
-    def add_epoch(self, epoch: Epoch):
+    def add_epoch(self, epoch: Epoch) -> None:
         """
         Add an epoch to the deme's epoch list.
         Epochs must be non overlapping and added in time-increasing order.
@@ -195,21 +202,21 @@ class Deme:
         self.epochs.append(epoch)
 
     @property
-    def start_time(self):
+    def start_time(self) -> Number:
         """
         The start time of the deme's existence.
         """
         return self.epochs[0].start_time
 
     @property
-    def end_time(self):
+    def end_time(self) -> Number:
         """
         The end time of the deme's existence.
         """
         return self.epochs[-1].end_time
 
     @property
-    def dt(self):
+    def dt(self) -> Number:
         """
         The time span over which the deme exists.
         """
@@ -246,6 +253,7 @@ class DemeGraph:
         Not intended to be passed when the deme graph is instantiated.
         Use :meth:`pulse` instead.
     """
+
     description: str = attr.ib()
     time_units: str = attr.ib()
     generation_time: Time = attr.ib(validator=[positive, finite])
@@ -255,16 +263,16 @@ class DemeGraph:
     migrations: List[Migration] = attr.ib(factory=list)
     pulses: List[Pulse] = attr.ib(factory=list)
 
-    def __attrs_post_init__(self):
-        self._deme_map: Mapping[ID, Deme] = dict()
+    def __attrs_post_init__(self) -> None:
+        self._deme_map: Dict[ID, Deme] = dict()
 
-    def __getitem__(self, deme_id):
+    def __getitem__(self, deme_id: ID) -> Deme:
         """
         Return the :class:`.Deme` with the specified id.
         """
         return self._deme_map[deme_id]
 
-    def __contains__(self, deme_id):
+    def __contains__(self, deme_id: ID) -> bool:
         """
         Check if the deme graph contains a deme with the specified id.
         """
@@ -272,14 +280,14 @@ class DemeGraph:
 
     def deme(
         self,
-        id,
-        ancestor=None,
-        start_time=0,
-        end_time=float("inf"),
-        initial_size=None,
-        final_size=None,
-        epochs=None,
-    ):
+        id: ID,
+        ancestor: Optional[ID] = None,
+        start_time: Number = 0,
+        end_time: Number = float("inf"),
+        initial_size: Optional[Number] = None,
+        final_size: Optional[Number] = None,
+        epochs: Optional[List[Epoch]] = None,
+    ) -> None:
         """
         Add a deme to the graph.
 
@@ -317,9 +325,11 @@ class DemeGraph:
         self._deme_map[deme.id] = deme
         self.demes.append(deme)
 
-    def check_time_intersection(self, deme1, deme2, time, closed=False):
-        deme1 = self[deme1]
-        deme2 = self[deme2]
+    def check_time_intersection(
+        self, deme_id1: ID, deme_id2: ID, time: Optional[Number], closed: bool = False
+    ) -> Tuple[Number, Number]:
+        deme1 = self[deme_id1]
+        deme2 = self[deme_id2]
         time_lo = max(deme1.start_time, deme2.start_time)
         time_hi = min(deme1.end_time, deme2.end_time)
         if time is not None:
@@ -333,7 +343,13 @@ class DemeGraph:
                 )
         return time_lo, time_hi
 
-    def symmetric_migration(self, *demes, rate=0, start_time=None, end_time=None):
+    def symmetric_migration(
+        self,
+        *demes: ID,
+        rate: Number = 0,
+        start_time: Optional[Number] = None,
+        end_time: Optional[Number] = None,
+    ) -> None:
         """
         Add continuous symmetric migrations between all pairs of demes in a list.
 
@@ -348,7 +364,14 @@ class DemeGraph:
         for source, dest in itertools.permutations(demes, 2):
             self.migration(source, dest, rate, start_time, end_time)
 
-    def migration(self, source, dest, rate=0, start_time=None, end_time=None):
+    def migration(
+        self,
+        source: ID,
+        dest: ID,
+        rate: Number = 0,
+        start_time: Optional[Number] = None,
+        end_time: Optional[Number] = None,
+    ) -> None:
         """
         Add continuous migration from one deme to another.
         Source and destination demes follow the backwards-in-time coalescent
@@ -375,7 +398,7 @@ class DemeGraph:
             self.check_time_intersection(source, dest, end_time)
             self.migrations.append(Migration(source, dest, end_time, 0))
 
-    def pulse(self, source, dest, proportion, time):
+    def pulse(self, source: ID, dest: ID, proportion: Number, time: Number) -> None:
         """
         Add a pulse of migration at a fixed time.
         Source and destination demes follow the backwards-in-time coalescent
@@ -398,15 +421,15 @@ class DemeGraph:
 
     def subgraph(
         self,
-        deme_id,
+        deme_id: ID,
         ancestors: List[ID],
         proportions: List[Rate],
-        start_time=0,
-        end_time=None,
-        initial_size=None,
-        final_size=None,
-        epochs=None,
-    ):
+        start_time: Number = 0,
+        end_time: Optional[Number] = None,
+        initial_size: Optional[Number] = None,
+        final_size: Optional[Number] = None,
+        epochs: Optional[List[Epoch]] = None,
+    ) -> None:
         """
         Add a new deme to the graph. The new deme may have multiple ``ancestors``,
         which connect the new deme to the graph via pulse migrations with the
@@ -431,6 +454,8 @@ class DemeGraph:
             raise ValueError("len(ancestors) != len(proportions)")
         if not math.isclose(sum(proportions), 1.0):
             raise ValueError("proportions must sum to 1")
+        if end_time is None:
+            end_time = max(self[anc].start_time for anc in ancestors)
         self.deme(
             deme_id,
             start_time=start_time,
@@ -444,18 +469,18 @@ class DemeGraph:
             self.pulse(source=deme_id, dest=ancestor, proportion=p, time=end_time)
         assert p == 1
 
-    def asdict(self):
+    def asdict(self) -> Dict[str, Any]:
         """
         Return a dict representation of the deme graph.
         """
         return attr.asdict(self)
 
-    def asdict_compact(self):
+    def asdict_compact(self) -> Dict[str, Any]:
         """
         Return a dict representation of the deme graph, with default and
         implicit values removed.
         """
-        d = dict(
+        d: Dict[str, Any] = dict(
             description=self.description,
             time_units=self.time_units,
             generation_time=self.generation_time,
@@ -468,7 +493,7 @@ class DemeGraph:
         assert len(self.demes) > 0
         d.update(demes=dict())
         for deme in self.demes:
-            deme_dict = dict()
+            deme_dict: Dict[str, Any] = dict()
             if deme.ancestor is not None:
                 deme_dict.update(ancestor=deme.ancestor)
             assert len(deme.epochs) > 0
@@ -480,7 +505,7 @@ class DemeGraph:
 
             e_list = []
             for j, epoch in enumerate(deme.epochs):
-                e = dict()
+                e: Dict[str, Any] = dict()
                 if epoch.start_time > 0:
                     e.update(start_time=epoch.start_time)
                 if epoch.initial_size == epoch.final_size:

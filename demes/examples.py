@@ -1,7 +1,9 @@
+from typing import Optional, Union
+
 from demes import DemeGraph, Epoch
 
 
-def zigzag():
+def zigzag() -> DemeGraph:
     N1 = 14312
     N2 = 1431
     g = DemeGraph(
@@ -25,7 +27,7 @@ def zigzag():
     return g
 
 
-def gutenkunst_ooa():
+def gutenkunst_ooa() -> DemeGraph:
     g = DemeGraph(
         description="Gutenkunst et al. (2009) three-population model.",
         doi="10.1371/journal.pgen.1000695",
@@ -45,7 +47,7 @@ def gutenkunst_ooa():
     return g
 
 
-def browning_america():
+def browning_america() -> DemeGraph:
     g = DemeGraph(
         description="Browning et al. (2011) model of admixture in the Americas.",
         doi="10.1371/journal.pgen.1007385",
@@ -74,7 +76,7 @@ def browning_america():
     return g
 
 
-def jacobs_papuans():
+def jacobs_papuans() -> DemeGraph:
     N_archaic = 13249
     N_DeniAnc = 100
     N_ghost = 8516
@@ -173,7 +175,13 @@ def jacobs_papuans():
     return g
 
 
-def IM(num_demes, N, m, time_units="generations", generation_time=1):
+def IM(
+    num_demes: int,
+    N: int,
+    m: float,
+    time_units: str = "generations",
+    generation_time: Union[float, int] = 1,
+) -> DemeGraph:
     g = DemeGraph(
         description="Isolation with migration.",
         time_units=time_units,

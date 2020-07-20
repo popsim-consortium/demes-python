@@ -7,7 +7,7 @@ import demes.examples
 class TestExamples(unittest.TestCase):
     maxDiff = None
 
-    def dump_and_load(self, g):
+    def dump_and_load(self, g: demes.DemeGraph) -> None:
         s = demes.dumps(g)
         g2 = demes.loads(s)
         s2 = demes.dumps(g2)
@@ -15,17 +15,17 @@ class TestExamples(unittest.TestCase):
         self.assertEqual(g2, g3)
         self.assertEqual(s, s2)
 
-    def test_zigzag(self):
+    def test_zigzag(self) -> None:
         self.dump_and_load(demes.examples.zigzag())
 
-    def test_gutenkunst_ooa(self):
+    def test_gutenkunst_ooa(self) -> None:
         self.dump_and_load(demes.examples.gutenkunst_ooa())
 
-    def test_browning_america(self):
+    def test_browning_america(self) -> None:
         self.dump_and_load(demes.examples.browning_america())
 
-    def test_jacobs_papuans(self):
+    def test_jacobs_papuans(self) -> None:
         self.dump_and_load(demes.examples.jacobs_papuans())
 
-    def test_IM(self):
+    def test_IM(self) -> None:
         self.dump_and_load(demes.examples.IM(10, 10000, 1e-5))

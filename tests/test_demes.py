@@ -1,10 +1,11 @@
+from typing import Union
 import unittest
 
 from demes import Epoch, Migration, Pulse, Deme, DemeGraph
 
 
 class TestEpoch(unittest.TestCase):
-    def test_bad_time(self):
+    def test_bad_time(self) -> None:
         for start_time in (-10000, -1, -1e-9, float("inf")):
             with self.assertRaises(ValueError):
                 Epoch(start_time=start_time, initial_size=1)
@@ -12,24 +13,24 @@ class TestEpoch(unittest.TestCase):
             with self.assertRaises(ValueError):
                 Epoch(start_time=0, end_time=end_time, initial_size=1)
 
-    def test_bad_time_span(self):
+    def test_bad_time_span(self) -> None:
         with self.assertRaises(ValueError):
             Epoch(start_time=1, end_time=1, initial_size=1)
         with self.assertRaises(ValueError):
             Epoch(start_time=2, end_time=1, initial_size=1)
 
-    def test_bad_size(self):
+    def test_bad_size(self) -> None:
         for size in (-10000, -1, -1e-9, 0, float("inf")):
             with self.assertRaises(ValueError):
                 Epoch(start_time=0, initial_size=size)
             with self.assertRaises(ValueError):
                 Epoch(start_time=0, initial_size=1, final_size=size)
 
-    def test_missing_size(self):
+    def test_missing_size(self) -> None:
         with self.assertRaises(ValueError):
             Epoch(start_time=0)
 
-    def test_valid_epochs(self):
+    def test_valid_epochs(self) -> None:
         Epoch(start_time=0, initial_size=1)
         Epoch(start_time=0, end_time=float("inf"), initial_size=1)
         Epoch(start_time=0, end_time=10, initial_size=1)
@@ -42,51 +43,51 @@ class TestEpoch(unittest.TestCase):
 
 
 class TestMigration(unittest.TestCase):
-    def test_bad_time(self):
+    def test_bad_time(self) -> None:
         for time in (-10000, -1, -1e-9, float("inf")):
             with self.assertRaises(ValueError):
                 Migration("a", "b", time=time, rate=0.1)
 
-    def test_bad_rate(self):
+    def test_bad_rate(self) -> None:
         for rate in (-10000, -1, -1e-9, float("inf")):
             with self.assertRaises(ValueError):
                 Migration("a", "b", time=0, rate=rate)
 
-    def test_bad_demes(self):
+    def test_bad_demes(self) -> None:
         with self.assertRaises(ValueError):
             Migration("a", "a", time=0, rate=0.1)
 
-    def test_valid_migration(self):
+    def test_valid_migration(self) -> None:
         Migration("a", "b", time=0, rate=1e-9)
         Migration("a", "b", time=100, rate=0.9)
 
 
 class TestPulse(unittest.TestCase):
-    def test_bad_time(self):
+    def test_bad_time(self) -> None:
         for time in (-10000, -1, -1e-9, float("inf")):
             with self.assertRaises(ValueError):
                 Pulse("a", "b", time=time, proportion=0.1)
 
-    def test_bad_proportion(self):
+    def test_bad_proportion(self) -> None:
         for proportion in (-10000, -1, -1e-9, 1.2, 100, float("inf")):
             with self.assertRaises(ValueError):
                 Pulse("a", "b", time=1, proportion=proportion)
 
-    def test_bad_demes(self):
+    def test_bad_demes(self) -> None:
         with self.assertRaises(ValueError):
             Pulse("a", "a", time=1, proportion=0.1)
 
-    def test_valid_pulse(self):
+    def test_valid_pulse(self) -> None:
         Pulse("a", "b", time=1, proportion=1e-9)
         Pulse("a", "b", time=100, proportion=0.9)
 
 
 class TestDeme(unittest.TestCase):
-    def test_bad_ancestor(self):
+    def test_bad_ancestor(self) -> None:
         with self.assertRaises(ValueError):
             Deme("a", "a", [Epoch(start_time=0, end_time=float("inf"), initial_size=1)])
 
-    def test_properties(self):
+    def test_properties(self) -> None:
         deme = Deme(
             "a", "b", [Epoch(start_time=0, end_time=float("inf"), initial_size=1)]
         )
@@ -103,11 +104,11 @@ class TestDeme(unittest.TestCase):
         self.assertEqual(deme.start_time, 1)
         self.assertEqual(deme.end_time, 30)
 
-    def test_no_epochs(self):
+    def test_no_epochs(self) -> None:
         with self.assertRaises(ValueError):
             Deme("a", "b", [])
 
-    def test_two_epochs(self):
+    def test_two_epochs(self) -> None:
         with self.assertRaises(ValueError):
             Deme(
                 "a",
@@ -118,14 +119,14 @@ class TestDeme(unittest.TestCase):
                 ],
             )
 
-    def test_epochs_out_of_order(self):
+    def test_epochs_out_of_order(self) -> None:
         deme = Deme("a", "b", [Epoch(start_time=10, initial_size=1)])
         for start_time in (1, 9):
             with self.assertRaises(ValueError):
                 deme.add_epoch(Epoch(start_time=start_time, initial_size=100))
         deme.add_epoch(Epoch(start_time=11, initial_size=100))
 
-    def test_epochs_are_a_partition(self):
+    def test_epochs_are_a_partition(self) -> None:
         for start_time, end_time in [(0, float("inf")), (1, 200)]:
             deme = Deme(
                 "a",
@@ -134,7 +135,7 @@ class TestDeme(unittest.TestCase):
             )
             for t in (5, 10, 50, 100):
                 deme.add_epoch(Epoch(start_time=t, initial_size=t))
-            prev_end_time = start_time
+            prev_end_time: Union[float, int] = start_time
             for epoch in deme.epochs:
                 self.assertEqual(epoch.start_time, prev_end_time)
                 prev_end_time = epoch.end_time
@@ -142,7 +143,7 @@ class TestDeme(unittest.TestCase):
 
 
 class TestDemeGraph(unittest.TestCase):
-    def test_bad_generation_time(self):
+    def test_bad_generation_time(self) -> None:
         for generation_time in (-100, -1e-9, 0, float("inf")):
             with self.assertRaises(ValueError):
                 DemeGraph(
@@ -151,7 +152,7 @@ class TestDemeGraph(unittest.TestCase):
                     generation_time=generation_time,
                 )
 
-    def test_bad_default_Ne(self):
+    def test_bad_default_Ne(self) -> None:
         for N in (-100, -1e-9, 0, float("inf")):
             with self.assertRaises(ValueError):
                 DemeGraph(

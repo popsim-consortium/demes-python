@@ -68,7 +68,7 @@ _deme_graph_schema = Map(
 )
 
 
-def loads(string):
+def loads(string: str) -> demes.DemeGraph:
     """
     Load a deme graph from a yaml-formatted string.
 
@@ -102,7 +102,7 @@ def loads(string):
     return g
 
 
-def load(filename):
+def load(filename: str) -> demes.DemeGraph:
     """
     Load a deme graph from a yaml-formatted file.
 
@@ -114,7 +114,7 @@ def load(filename):
         return loads(f.read())
 
 
-def dumps(deme_graph):
+def dumps(deme_graph: demes.DemeGraph) -> str:
     """
     Return a yaml-formatted string of the specified deme graph.
 
@@ -127,7 +127,7 @@ def dumps(deme_graph):
     return doc.as_yaml()
 
 
-def dump(deme_graph, filename):
+def dump(deme_graph: demes.DemeGraph, filename: str) -> None:
     """
     Dump the specified deme graph to a yaml-formatted file.
 
