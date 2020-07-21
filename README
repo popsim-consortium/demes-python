@@ -6,6 +6,8 @@ how they change over time, and their relationships to one another.
 of a demographic model.
 
 ## Goals
+- A simple declarative format for specifying a demographic model.
+- Unify the specification of demographic models across different frameworks.
 - Robust validation of models and reporting of errors for invalid models.
 - Agnostic to choice of time-parameterisation (forwards, backwards,
   continuous, discrete).
