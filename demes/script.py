@@ -17,6 +17,7 @@ from strictyaml import (
     Str,
     dirty_load,
     as_document,
+    CommaSeparated,
 )
 
 import demes
@@ -46,7 +47,7 @@ _symmetric_migration_schema = Map(
     {
         Optional("start_time"): Number,
         Optional("end_time"): Number,
-        "demes": Seq(Str()),
+        "demes": CommaSeparated(Str()),
         "rate": Float(),
     }
 )
@@ -58,9 +59,8 @@ _pulse_schema = Map(
 _deme_schema = Map(
     {
         Optional("description"): Str(),
-        Optional("ancestor"): Str(),
-        Optional("ancestors"): Seq(Str()),
-        Optional("proportions"): Seq(Float()),
+        Optional("ancestors"): CommaSeparated(Str()),
+        Optional("proportions"): CommaSeparated(Float()),
         Optional("start_time"): Number,
         Optional("end_time"): Number,
         Optional("initial_size"): Number,
