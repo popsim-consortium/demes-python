@@ -1,6 +1,6 @@
 # Tools for describing and manipulating demographic models.
 
-A demographic model describes one or more demes (or popululations),
+A demographic model describes one or more demes (or populations),
 how they change over time, and their relationships to one another.
 `demes` provides a self-contained and unambiguous in-memory description
 of a demographic model.
