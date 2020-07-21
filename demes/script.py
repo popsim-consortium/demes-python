@@ -32,12 +32,21 @@ _epoch_schema = Map(
     }
 )
 
-_migration_schema = Map(
+_asymmetric_migration_schema = Map(
     {
         Optional("start_time"): Number,
         Optional("end_time"): Number,
         "source": Str(),
         "dest": Str(),
+        "rate": Float(),
+    }
+)
+
+_symmetric_migration_schema = Map(
+    {
+        Optional("start_time"): Number,
+        Optional("end_time"): Number,
+        "demes": Seq(Str()),
         "rate": Float(),
     }
 )
@@ -68,7 +77,12 @@ _deme_graph_schema = Map(
         Optional("doi"): Str(),
         Optional("default_Ne"): Number,
         "demes": MapPattern(Str(), _deme_schema),
-        Optional("migrations"): Seq(_migration_schema),
+        Optional("migrations"): Map(
+            {
+                Optional("symmetric"): Seq(_symmetric_migration_schema),
+                Optional("asymmetric"): Seq(_asymmetric_migration_schema),
+            }
+        ),
         Optional("pulses"): Seq(_pulse_schema),
     }
 )
@@ -101,10 +115,17 @@ def loads(string):
                 demes.Epoch(**epoch_dict) for epoch_dict in deme_dict["epochs"]
             ]
         g.deme(deme_id, **deme_dict)
-    for migration_dict in d.get("migrations", []):
-        g.migration(**migration_dict)
+    for migration_type, migration_dict in d.get("migrations", dict()).items():
+        if migration_type == "symmetric":
+            for m in migration_dict:
+                g.symmetric_migration(**m)
+        if migration_type == "asymmetric":
+            for m in migration_dict:
+                g.migration(**m)
     for pulse_dict in d.get("pulses", []):
         g.pulse(**pulse_dict)
+    # add population relationship events to the deme graph
+    g.get_demographic_events()
     return g
 
 
