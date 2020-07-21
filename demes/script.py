@@ -1,6 +1,9 @@
 """
 Functions to load and dump yaml formatted descriptions of a demography.
 The strictyaml schema defined here follows the DemeGraph construction API.
+
+AR: whole-sale changes to comply with the forwards-in-time construction now
+in `demes.py`. 
 """
 # TODO: add symmetric_migration and subgraph schemas.
 
@@ -45,7 +48,10 @@ _pulse_schema = Map(
 
 _deme_schema = Map(
     {
+        Optional("description"): Str(),
         Optional("ancestor"): Str(),
+        Optional("ancestors"): Seq(Str()),
+        Optional("proportions"): Seq(Float()),
         Optional("start_time"): Number,
         Optional("end_time"): Number,
         Optional("initial_size"): Number,

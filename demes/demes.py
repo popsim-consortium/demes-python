@@ -57,8 +57,10 @@ def optional(func):
 class Epoch:
     """
     Population size parameters for a deme in a specified time period.
-    Times follow the backwards-in-time convention (time values increase
-    from the present towards the past).
+    Times follow the forwards-in-time convention (time values increase
+    from the present towards the past). The start time of the epoch is
+    the more ancient time, and the end time is more recent, so that the
+    start time must be greater than the end time
 
     :ivar start_time: The start time of the epoch.
     :ivar end_time: The end time of the epoc.
@@ -71,8 +73,8 @@ class Epoch:
               may be reasonable choices, particularly for non-coalescent
               simulators.
     """
-    start_time: Time = attr.ib(validator=[non_negative, finite])
-    end_time: Time = attr.ib(default=None, validator=optional(non_negative))
+    start_time: Time = attr.ib(default=None, validator=[non_negative])
+    end_time: Time = attr.ib(default=None, validator=optional([non_negative, finite]))
     initial_size: Size = attr.ib(default=None, validator=optional([positive, finite]))
     final_size: Size = attr.ib(default=None, validator=optional([positive, finite]))
 
@@ -82,26 +84,29 @@ class Epoch:
         if (
             self.start_time is not None
             and self.end_time is not None
-            and self.start_time >= self.end_time
+            and self.start_time <= self.end_time
         ):
-            raise ValueError("must have start_time < end_time")
+            raise ValueError("must have start_time > end_time")
         if self.final_size is None:
             self.final_size = self.initial_size
+        if self.initial_size is None:
+            self.initial_size = self.final_size
 
     @property
     def dt(self):
         """
         The time span of the epoch.
         """
-        return self.end_time - self.start_time
+        return self.start_time - self.end_time
 
 
 @attr.s(auto_attribs=True)
 class Migration:
     """
     Parameters for continuous migration from one deme to another.
-    Source and destination demes follow the backwards-in-time coalescent
-    convention.
+    Source and destination demes follow the forwards-in-time convention,
+    of migrations born in the source deme having children in the dest
+    deme.
 
     :ivar source: The source deme.
     :ivar dest: The destination deme.
@@ -123,8 +128,9 @@ class Migration:
 class Pulse:
     """
     Parameters for a pulse of migration from one deme to another.
-    Source and destination demes follow the backwards-in-time coalescent
-    convention.
+    Source and destination demes follow the forwards-in-time convention,
+    of migrations born in the source deme having children in the dest
+    deme.
 
     :ivar source: The source deme.
     :ivar dest: The destination deme.
@@ -144,20 +150,112 @@ class Pulse:
 
 
 @attr.s(auto_attribs=True)
+class Split:
+    """
+    Parameters for a split event, in which a deme ends at a given time and
+    contributes ancestry to an arbitrary number of descendant demes. Note
+    that there could be just a single descendant deme, in which case ``split``
+    is a bit of a misnomer...
+
+    :ivar parent: The parental deme.
+    :ivar children: A list of descendant demes.
+    :ivar time: The split time.
+    """
+    parent: ID = attr.ib()
+    children: List[ID] = attr.ib()
+    time: Time = attr.ib(validator=[non_negative, finite])
+
+    # check that parent end time matches child start times
+
+
+@attr.s(auto_attribs=True)
+class Branch:
+    """
+    Parameters for a branch event, where a new deme branches off from a parental
+    deme. The parental deme need not end at that time.
+
+    :ivar parent: The parental deme.
+    :ivar child: The descendant deme.
+    :ivar time: The branch time.
+    """
+    parent: ID = attr.ib()
+    children: ID = attr.ib()
+    time: Time = attr.ib(validator=[non_negative, finite])
+
+    # check that parent exists at time of branch
+
+
+@attr.s(auto_attribs=True)
+class Merge:
+    """
+    Parameters for a merge event, in which two or more demes end at some time and
+    contribute to a descendant deme.
+
+    :ivar parents: A list of parental demes.
+    :ivar proportions: A list of ancestry proportions, in order of `parents`.
+    :ivar child: The descendant deme.
+    :ivar time: The merge time.
+    """
+    parents: List[ID] = attr.ib()
+    proportions: List[Proportion] = attr.ib()
+    child: ID = attr.ib()
+    time: Time = attr.ib(validator=[non_negative, finite])
+
+    def __attrs_post_init__(self):
+        if math.isclose(sum(self.proportions), 1) is False:
+            raise ValueError("Proportions must sum to 1")
+        if len(self.parents) != len(self.proportions):
+            raise ValueError("parents and proportions must have same length")
+        # check that parents end when child begins (or where do we put that check?)
+
+
+@attr.s(auto_attribs=True)
+class Admix:
+    """
+    Parameters for an admixture event, where two or more demes contribute ancestry
+    to a new deme.
+
+    :ivar parents: A list of source demes.
+    :ivar proportions: A list of ancestry proportions, in order of `parents`.
+    :ivar child: The admixed deme.
+    :ivar time: The admixture time.
+    """
+    parents: List[ID] = attr.ib()
+    proportions: List[Proportion] = attr.ib()
+    child: ID = attr.ib()
+    time: Time = attr.ib(validator=[non_negative, finite])
+
+    def __attrs_post_init__(self):
+        if math.isclose(sum(self.proportions), 1) is False:
+            raise ValueError("Proportions must sum to 1")
+        if len(self.parents) != len(self.proportions):
+            raise ValueError("parents and proportions must have same length")
+        # check that all parents exist at admixture time (where do we put that check?)
+
+
+@attr.s(auto_attribs=True)
 class Deme:
     """
     A collection of individuals that are exchangeable at any fixed time.
 
     :ivar id: A string identifier for the deme.
+    :ivar description: An optional description of the deme.
     :ivar ancestor: The string identifier of the ancestor of this deme.
         If the deme has no ancestor, this should be ``None``.
+    :ivar ancestors: List of ancestors to the deme.
+        If the deme has no ancestors, this should be ``None``, and cannot
+        be used with ``ancestor``.
+    :ivar proportions: List of proportions if ``ancestors`` is given.
     :ivar epochs: A list of epochs, which define the population size(s) of
-        the deme. The deme must be created with exactly one epoch.
+        the deme. The deme must be initially created with exactly one epoch.
         Additional epochs may be added with :meth:`.add_epoch`
     :vartype epochs: list of :class:`.Epoch`
     """
     id: ID = attr.ib()
+    description: str = attr.ib()
     ancestor: ID = attr.ib()
+    ancestors: List[ID] = attr.ib()
+    proportions: List[Proportion] = attr.ib()
     epochs: List[Epoch] = attr.ib()
 
     @epochs.validator
@@ -169,25 +267,38 @@ class Deme:
             )
 
     def __attrs_post_init__(self):
+        if self.ancestor is not None and self.ancestors is not None:
+            raise ValueError(
+                "Can only specify ancestor or ancestors, but not both"
+            )
+        if self.ancestors is not None and len(self.ancestors) != len(self.proportions):
+            raise ValueError(
+                "ancestors and proportions must have same length"
+            )
         if self.id == self.ancestor:
+            raise ValueError(f"{self.id} cannot be its own ancestor")
+        if self.ancestors is not None and self.id in self.ancestors:
             raise ValueError(f"{self.id} cannot be its own ancestor")
 
     def add_epoch(self, epoch: Epoch):
         """
         Add an epoch to the deme's epoch list.
-        Epochs must be non overlapping and added in time-increasing order.
+        Epochs must be non overlapping and added in time-decreasing order, i.e.
+        starting with the most ancient epoch and adding epochs sequentially toward
+        present.
 
         :param .Epoch epoch: The epoch to add.
         """
         assert len(self.epochs) > 0
-        prev_epoch = self.epochs[len(self.epochs) - 1]
-        if epoch.start_time < prev_epoch.start_time:
+        prev_epoch = self.epochs[-1]
+        if epoch.end_time > prev_epoch.start_time:
             raise ValueError(
-                "epochs must be non overlapping and added in time-increasing order"
+                "epochs must be non overlapping and added in time-decreasing order"
             )
-        if epoch.end_time is None:
-            epoch.end_time = prev_epoch.end_time
-        prev_epoch.end_time = epoch.start_time
+        # come back and double check this stuff
+        if epoch.start_time is None:
+            epoch.start_time = prev_epoch.end_time
+        assert prev_epoch.end_time == epoch.start_time
         if epoch.initial_size is None:
             epoch.initial_size = prev_epoch.final_size
         if epoch.final_size is None:
@@ -213,7 +324,7 @@ class Deme:
         """
         The time span over which the deme exists.
         """
-        return self.end_time - self.start_time
+        return self.start_time - self.end_time
 
 
 @attr.s(auto_attribs=True)
@@ -221,7 +332,7 @@ class DemeGraph:
     """
     A directed graph that describes a demography. Vertices are demes and edges
     correspond to ancestor/descendent relations. Edges are directed from
-    descendents to ancestors.
+    ancestors to descendants.
 
     :ivar description: A human readable description of the demography.
     :ivar time_units: The units of time used for the demography. This is
@@ -254,6 +365,10 @@ class DemeGraph:
     demes: List[Deme] = attr.ib(factory=list)
     migrations: List[Migration] = attr.ib(factory=list)
     pulses: List[Pulse] = attr.ib(factory=list)
+    splits: List[Split] = attr.ib(factory=list)
+    branches: List[Branch] = attr.ib(factory=list)
+    mergers: List[Merge] = attr.ib(factory=list)
+    admixtures: List[Admix] = attr.ib(factory=list)
 
     def __attrs_post_init__(self):
         self._deme_map: Mapping[ID, Deme] = dict()
@@ -273,9 +388,12 @@ class DemeGraph:
     def deme(
         self,
         id,
+        description=None,
         ancestor=None,
-        start_time=0,
-        end_time=float("inf"),
+        ancestors=None,
+        proportions=None,
+        start_time=None,
+        end_time=0,
         initial_size=None,
         final_size=None,
         epochs=None,
@@ -286,6 +404,11 @@ class DemeGraph:
         :param str id: A string identifier for the deme.
         :param str ancestor: The string identifier of the ancestor of this deme.
             May be ``None``.
+        :param list ancestors: A list of ancestors of this deme. May be ``None``,
+            but cannot specify both ``ancestor`` and ``ancestors``. If ``ancestors``
+            is given, must also give ``proportions``.
+        :param list proportions: A list of proportions of ancestory for ``ancestors``.
+            Proportions must sum to 1.
         :param start_time: The time at which this deme begins existing.
         :param end_time: The time at which this deme stops existing.
             If the deme has an ancestor the ``end_time`` will be set to the
@@ -303,14 +426,25 @@ class DemeGraph:
                 raise ValueError(f"must set initial_size for {id}")
         if final_size is None:
             final_size = initial_size
+        # this check should be performed after all demes are loaded?
+        # maybe a warning, if using the API and add a deme with an ancestor not in graph
         if ancestor is not None:
-            if ancestor not in self:
-                raise ValueError(f"{ancestor} not in deme graph")
-            end_time = self[ancestor].epochs[0].start_time
+            #if ancestor not in self:
+            #    raise ValueError(f"{ancestor} not in deme graph")
+            if ancestor in self and start_time is None:
+                start_time = self[ancestor].epochs[-1].end_time
+            #else:
+            #    raise ValueError(
+            #        f"cannot assign start time to {id} "
+            #        f"because {ancestor} not in deme graph"
+            #    )
+        else:
+            if start_time is None:
+                start_time = float("inf")
         epoch = Epoch(
             start_time, end_time, initial_size=initial_size, final_size=final_size
         )
-        deme = Deme(id, ancestor, [epoch])
+        deme = Deme(id, description, ancestor, ancestors, proportions, [epoch])
         if epochs is not None:
             for epoch in epochs:
                 deme.add_epoch(epoch)
@@ -320,8 +454,8 @@ class DemeGraph:
     def check_time_intersection(self, deme1, deme2, time, closed=False):
         deme1 = self[deme1]
         deme2 = self[deme2]
-        time_lo = max(deme1.start_time, deme2.start_time)
-        time_hi = min(deme1.end_time, deme2.end_time)
+        time_lo = max(deme1.end_time, deme2.end_time)
+        time_hi = min(deme1.start_time, deme2.start_time)
         if time is not None:
             if (not closed and not (time_lo <= time < time_hi)) or (
                 closed and not (time_lo <= time <= time_hi)
@@ -339,7 +473,7 @@ class DemeGraph:
 
         :param demes: list of deme IDs. Migration is symmetric between all
             pairs of demes in this list.
-        :param rate: The rate of migration per ``time_units``.
+        :param rate: The rate of migration per ``time_units``. # or per generation?
         :param start_time: The time at which the migration rate is enabled.
         :param end_time: The time at which the migration rate is disabled.
         """
@@ -351,8 +485,9 @@ class DemeGraph:
     def migration(self, source, dest, rate=0, start_time=None, end_time=None):
         """
         Add continuous migration from one deme to another.
-        Source and destination demes follow the backwards-in-time coalescent
-        convention.
+        Source and destination demes follow the forwards-in-time convention,
+        so that the migration rate refers to the movement of individuals from
+        the ``source`` deme to the ``dest`` deme.
 
         :param source: The source deme.
         :param dest: The destination deme.
@@ -369,7 +504,7 @@ class DemeGraph:
                 raise ValueError(f"{deme_id} not in deme graph")
         time_lo, time_hi = self.check_time_intersection(source, dest, start_time)
         if start_time is None:
-            start_time = time_lo
+            start_time = time_high
         self.migrations.append(Migration(source, dest, start_time, rate))
         if end_time is not None:
             self.check_time_intersection(source, dest, end_time)
@@ -378,14 +513,13 @@ class DemeGraph:
     def pulse(self, source, dest, proportion, time):
         """
         Add a pulse of migration at a fixed time.
-        Source and destination demes follow the backwards-in-time coalescent
-        convention.
+        Source and destination demes follow the forwards-in-time convention.
 
         :param source: The source deme.
         :param dest: The destination deme.
-        :param proportion: At the instant after migration, this is the proportion
-            of individuals in the destination deme made up of individuals from
-            the source deme.
+        :param proportion: At the instant after migration, this is the expected
+            proportion of individuals in the destination deme made up of individuals
+            from the source deme.
         :param time: The time at which migrations occur.
         """
         for deme_id in (source, dest):
@@ -396,53 +530,157 @@ class DemeGraph:
         self.check_time_intersection(source, dest, time, closed=True)
         self.pulses.append(Pulse(source, dest, time, proportion))
 
-    def subgraph(
-        self,
-        deme_id,
-        ancestors: List[ID],
-        proportions: List[Rate],
-        start_time=0,
-        end_time=None,
-        initial_size=None,
-        final_size=None,
-        epochs=None,
-    ):
+    @property
+    def successors(self):
         """
-        Add a new deme to the graph. The new deme may have multiple ``ancestors``,
-        which connect the new deme to the graph via pulse migrations with the
-        supplied ``proportions``.
-
-        GG: I'm not sure this is really a subgraph, but I couldn't think of a
-        more appropriate name.
-        TODO: The semantics when ``end_time=None`` are likely broken!
-
-        :param deme_id: A string identifier for the deme at the root of the subgraph.
-        :param ancestors: The ancestor(s) of the subgraph's root deme.
-        :paramtype ancestors: list of str
-        :param proportions: The ancestry proportion for each ancestor.
-        :paramtype proportions: list of float
-        :param start_time: See :meth:`.deme`.
-        :param end_time: See :meth:`.deme`.
-        :param initial_size: See :meth:`.deme`.
-        :param final_size: See :meth:`.deme`.
-        :param epochs: See :meth:`.deme`.
+        Lists of successors for all demes in the graph.
         """
-        if len(ancestors) != len(proportions):
-            raise ValueError("len(ancestors) != len(proportions)")
-        if not math.isclose(sum(proportions), 1.0):
-            raise ValueError("proportions must sum to 1")
-        self.deme(
-            deme_id,
-            start_time=start_time,
-            end_time=end_time,
-            initial_size=initial_size,
-            final_size=final_size,
-            epochs=epochs,
-        )
-        for j, ancestor in enumerate(ancestors):
-            p = proportions[j] / sum(proportions[j:])
-            self.pulse(source=deme_id, dest=ancestor, proportion=p, time=end_time)
-        assert p == 1
+        succ = {}
+        for deme_info in self.demes:
+            succ.setdefault(deme_info.id, [])
+            if deme_info.ancestor is not None:
+                succ.setdefault(deme_info.ancestor, [])
+                succ[deme_info.ancestor].append(deme_info.id)
+            if deme_info.ancestors is not None:
+                for a in deme_info.ancestors:
+                    succ.setdefault(a, [])
+                    succ[a].append(deme_info.id)
+        return succ
+
+    @property
+    def predecessors(self):
+        """
+        Lists of predecessors (ancestors) for all demes in the graph.
+        """
+        pred = {}
+        for deme_info in self.demes:
+            pred.setdefault(deme_info.id, [])
+            if deme_info.ancestor is not None:
+                pred[deme_info.id].append(deme_info.ancestor)
+            if deme_info.ancestors is not None:
+                for a in deme_info.ancestors:
+                    pred[deme_info.id].append(a)
+        return pred
+
+    def split(self, parent, children, time):
+        """
+        Add split event at a given time. Split events involve a parental deme
+        whose end time equals the start time of all children demes.
+
+        :param parent: The ancestral deme.
+        :param children: A list of descendant demes.
+        :param time: The time at which split occur.
+        """
+        for child in children:
+            assert child in self.successors[parent]
+            assert parent in self.predecessors[child]
+            if child == parent:
+                raise ValueError(f"cannot be ancestor of own deme")
+            if self[parent].end_time != self[child].start_time:
+                raise ValueError(
+                    f"{parent} and {child} must have matching end and start times"
+                )
+        self.splits.append(Split(parent, children, time))
+
+    def branch(self, parent, child, time):
+        """
+        Add branch event at a given time.
+        """
+        self.branches.append(Branch(parent, child, time))
+
+    def merge(self, parents, proportions, child, time):
+        """
+        """
+        self.mergers.append(Merge(parents, proportions, child, time))
+
+    def admix(self, parents, proportions, child, time):
+        """
+        """
+        self.admixtures.append(Admix(parents, proportions, child, time))
+
+    def finalize_events(self):
+        """
+        Loop through successors/predecessors to add splits, branches, mergers,
+        and admixtures to the deme graph. If a deme has more than one predecessor,
+        then it is a merger or an admixture event, which we differentiate by end and
+        start times of those demes. If a deme has a single predecessor, we check
+        whether it is a branch (start time != predecessor's end time), or split.
+        """
+        splits_to_add = {}
+        for c, p in self.predecessors.items():
+            if len(p) == 0:
+                continue
+            elif len(p) == 1:
+                if self[c].start_time == self[p[0]].end_time:
+                    splits_to_add.setdefault(p[0], set())
+                    splits_to_add[p[0]].add(c)
+                else:
+                    self.branch(p[0], c, self[c].start_time)
+            else:
+                time_aligned = True
+                for deme_from in p:
+                    if self[c].start_time != self[deme_from].end_time:  
+                        time_aligned = False
+                if time_aligned is True:
+                    self.merge(
+                        self[c].ancestors, self[c].proportions, c, self[c].start_time
+                    )
+                else:
+                    self.admix(
+                        self[c].ancestors, self[c].proportions, c, self[c].start_time
+                    )
+                    
+        for deme_from, demes_to in splits_to_add.items():
+            self.split(deme_from, list(demes_to), self[deme_from].end_time)
+            
+
+#    def subgraph(
+#        self,
+#        deme_id,
+#        ancestors: List[ID],
+#        proportions: List[Rate],
+#        start_time=0,
+#        end_time=None,
+#        initial_size=None,
+#        final_size=None,
+#        epochs=None,
+#    ):
+#        """
+#        Add a new deme to the graph. The new deme may have multiple ``ancestors``,
+#        which connect the new deme to the graph via pulse migrations with the
+#        supplied ``proportions``.
+#
+#        GG: I'm not sure this is really a subgraph, but I couldn't think of a
+#        more appropriate name.
+#        TODO: The semantics when ``end_time=None`` are likely broken!
+#
+#        :param deme_id: A string identifier for the deme at the root of the subgraph.
+#        :param ancestors: The ancestor(s) of the subgraph's root deme.
+#        :paramtype ancestors: list of str
+#        :param proportions: The ancestry proportion for each ancestor.
+#        :paramtype proportions: list of float
+#        :param start_time: See :meth:`.deme`.
+#        :param end_time: See :meth:`.deme`.
+#        :param initial_size: See :meth:`.deme`.
+#        :param final_size: See :meth:`.deme`.
+#        :param epochs: See :meth:`.deme`.
+#        """
+#        if len(ancestors) != len(proportions):
+#            raise ValueError("len(ancestors) != len(proportions)")
+#        if not math.isclose(sum(proportions), 1.0):
+#            raise ValueError("proportions must sum to 1")
+#        self.deme(
+#            deme_id,
+#            start_time=start_time,
+#            end_time=end_time,
+#            initial_size=initial_size,
+#            final_size=final_size,
+#            epochs=epochs,
+#        )
+#        for j, ancestor in enumerate(ancestors):
+#            p = proportions[j] / sum(proportions[j:])
+#            self.pulse(source=deme_id, dest=ancestor, proportion=p, time=end_time)
+#        assert p == 1
 
     def asdict(self):
         """
