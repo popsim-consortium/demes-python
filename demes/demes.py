@@ -63,20 +63,20 @@ class Epoch:
     start time must be greater than the end time
 
     :ivar start_time: The start time of the epoch.
-    :ivar end_time: The end time of the epoc.
+    :ivar end_time: The end time of the epoch.
     :ivar initial_size: Population size at ``start_time``.
     :ivar final_size: Population size at ``end_time``.
         If ``initial_size != final_size``, the population size changes
         monotonically between the start and end times.
-        TODO: traditionally, this is an exponential increase or decrease,
-              due to tractibility under the coalescent. But other functions
-              may be reasonable choices, particularly for non-coalescent
-              simulators.
+    :ivar size_function: The size change function. Common options are constant,
+        exponential, or linear, though any string is valid. Warning: downstream
+        simulators might not understand the size_function provided.
     """
     start_time: Time = attr.ib(default=None, validator=optional([non_negative]))
     end_time: Time = attr.ib(default=None, validator=[non_negative, finite])
     initial_size: Size = attr.ib(default=None, validator=optional([positive, finite]))
     final_size: Size = attr.ib(default=None, validator=optional([positive, finite]))
+    size_function: str = attr.ib(default=None)
 
     def __attrs_post_init__(self):
         if self.initial_size is None and self.final_size is None:
@@ -287,6 +287,19 @@ class Deme:
             epoch.initial_size = prev_epoch.final_size
         if epoch.final_size is None:
             epoch.final_size = epoch.initial_size
+        if epoch.size_function is None:
+            if epoch.initial_size == epoch.final_size:
+                epoch.size_function = "constant"
+            else:
+                epoch.size_function = "exponential"
+        else:
+            # check if constant function is correct
+            if (epoch.size_function == "constant" and
+                epoch.initial_size != epoch.final_size):
+                raise ValueError(
+                    "epoch size function is constant but initial and "
+                    "final sizes are not equal"
+                )
         self.epochs.append(epoch)
 
     @property
@@ -422,8 +435,16 @@ class DemeGraph:
                 final_size = initial_size
             if end_time is None:
                 end_time = 0
+            if initial_size == final_size:
+                size_function = "constant"
+            else:
+                size_function = "exponential"
             epoch = Epoch(
-                start_time, end_time, initial_size=initial_size, final_size=final_size
+                start_time,
+                end_time,
+                initial_size=initial_size,
+                final_size=final_size,
+                size_function=size_function
             )
             deme = Deme(id, description, ancestors, proportions, [epoch])
         else:
@@ -442,7 +463,8 @@ class DemeGraph:
                         start_time,
                         epochs[0].start_time,
                         initial_size=initial_size,
-                        final_size=initial_size
+                        final_size=initial_size,
+                        size_function="constant",
                     )
                 )
             elif epochs[0].start_time > start_time:
@@ -452,6 +474,11 @@ class DemeGraph:
                 )
             if epochs[0].final_size is None:
                 epochs[0].final_size = epochs[0].initial_size
+                if epochs[0].size_function is None:
+                    epochs[0].size_function = "constant"
+            else:
+                if epochs[0].size_function is None:
+                    epochs[0].size_function = "exponential"
             deme = Deme(id, description, ancestors, proportions, [epochs[0]])
             for epoch in epochs[1:]:
                 deme.add_epoch(epoch)
@@ -706,6 +733,8 @@ class DemeGraph:
                 e.update(initial_size=epoch.initial_size)
                 if epoch.final_size != epoch.initial_size:
                     e.update(final_size=epoch.final_size)
+                if epoch.size_function not in ["constant", "exponential"]:
+                    e.update(size_function=epoch.size_function)
                 e_list.append(e)
             if len(e_list) > 1:
                 # if more than one epoch, list all epochs

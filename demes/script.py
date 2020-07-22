@@ -30,6 +30,7 @@ _epoch_schema = Map(
         "end_time": Number,
         Optional("initial_size"): Number,
         Optional("final_size"): Number,
+        Optional("size_function"): Str(),
     }
 )
 
