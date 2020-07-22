@@ -7,7 +7,7 @@ demes:
     description: Multi-epoch population
     epochs:
     - initial_size: 1e4
-      end_time: 100
+      end_time: 1000
     - initial_size: 1e3
       final_size: 1e4
       end_time: 100

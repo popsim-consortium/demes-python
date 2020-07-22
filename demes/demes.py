@@ -280,7 +280,10 @@ class Deme:
             raise ValueError(
                 "epochs must be non overlapping and added in time-decreasing order"
             )
-        assert prev_epoch.end_time == epoch.start_time
+        if prev_epoch.end_time != epoch.start_time:
+            raise ValueError("cannot have gap between consecutive epochs")
+        if epoch.dt <= 0:
+            raise ValueError("epoch must exist for some positive time")
         if epoch.end_time is None:
             epoch.end_time = 0
         if epoch.initial_size is None:
