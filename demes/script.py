@@ -26,8 +26,8 @@ Number = Int() | Float()
 
 _epoch_schema = Map(
     {
-        "start_time": Number,
-        Optional("end_time"): Number,
+        Optional("start_time"): Number,
+        "end_time": Number,
         Optional("initial_size"): Number,
         Optional("final_size"): Number,
     }

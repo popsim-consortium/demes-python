@@ -73,8 +73,8 @@ class Epoch:
               may be reasonable choices, particularly for non-coalescent
               simulators.
     """
-    start_time: Time = attr.ib(default=None, validator=[non_negative])
-    end_time: Time = attr.ib(default=None, validator=optional([non_negative, finite]))
+    start_time: Time = attr.ib(default=None, validator=optional([non_negative]))
+    end_time: Time = attr.ib(default=None, validator=[non_negative, finite])
     initial_size: Size = attr.ib(default=None, validator=optional([positive, finite]))
     final_size: Size = attr.ib(default=None, validator=optional([positive, finite]))
 
@@ -87,10 +87,6 @@ class Epoch:
             and self.start_time <= self.end_time
         ):
             raise ValueError("must have start_time > end_time")
-        if self.final_size is None:
-            self.final_size = self.initial_size
-        if self.initial_size is None:
-            self.initial_size = self.final_size
 
     @property
     def dt(self):
@@ -278,14 +274,15 @@ class Deme:
         """
         assert len(self.epochs) > 0
         prev_epoch = self.epochs[-1]
-        if epoch.end_time > prev_epoch.start_time:
+        if epoch.start_time is None:
+            epoch.start_time = prev_epoch.end_time
+        elif epoch.start_time > prev_epoch.end_time:
             raise ValueError(
                 "epochs must be non overlapping and added in time-decreasing order"
             )
-        # come back and double check this stuff
-        if epoch.start_time is None:
-            epoch.start_time = prev_epoch.end_time
         assert prev_epoch.end_time == epoch.start_time
+        if epoch.end_time is None:
+            epoch.end_time = 0
         if epoch.initial_size is None:
             epoch.initial_size = prev_epoch.final_size
         if epoch.final_size is None:
@@ -379,7 +376,7 @@ class DemeGraph:
         ancestors=None,
         proportions=None,
         start_time=None,
-        end_time=0,
+        end_time=None,
         initial_size=None,
         final_size=None,
         epochs=None,
@@ -406,35 +403,61 @@ class DemeGraph:
         """
         if initial_size is None:
             initial_size = self.default_Ne
-            if initial_size is None:
-                raise ValueError(f"must set initial_size for {id}")
-        if final_size is None:
-            final_size = initial_size
-        # this check should be performed after all demes are loaded?
-        # maybe a warning, if using the API and add a deme with an ancestor not in graph
+        if initial_size is None and epochs is not None:
+            initial_size = epochs[0].initial_size
+        if initial_size is None:
+            raise ValueError(f"must set initial_size for {id}")
         if ancestors is not None:
             if len(ancestors) > 1 and start_time is None:
                 raise ValueError("must specify start time if more than one ancestor")
             if ancestors[0] in self and start_time is None:
                 start_time = self[ancestors[0]].epochs[-1].end_time
-            #else:
-            #    raise ValueError(
-            #        f"cannot assign start time to {id} "
-            #        f"because {ancestor} not in deme graph"
-            #    )
+            if len(ancestors) == 1 and proportions is None:
+                proportions = [1.]
         else:
             if start_time is None:
                 start_time = float("inf")
-        epoch = Epoch(
-            start_time, end_time, initial_size=initial_size, final_size=final_size
-        )
+        if epochs is None:
+            if final_size is None:
+                final_size = initial_size
+            if end_time is None:
+                end_time = 0
+            epoch = Epoch(
+                start_time, end_time, initial_size=initial_size, final_size=final_size
+            )
+            deme = Deme(id, description, ancestors, proportions, [epoch])
+        else:
+            if end_time is None:
+                end_time = epochs[-1].end_time
+            if end_time != epochs[-1].end_time:
+                raise ValueError("deme and final epoch end times don't align")
+            if epochs[0].start_time is None:
+                # first epoch starts at deme start time
+                epochs[0].start_time = start_time
+            elif epochs[0].start_time < start_time:
+                # insert const size epoch from start to deme to start of first listed epoch
+                epochs.insert(
+                    0,
+                    Epoch(
+                        start_time,
+                        epochs[0].start_time,
+                        initial_size=initial_size,
+                        final_size=initial_size
+                    )
+                )
+            elif epochs[0].start_time > start_time:
+                raise ValueError(
+                    "first epoch start time must be less than or equal to "
+                    "deme start time"
+                )
+            if epochs[0].final_size is None:
+                epochs[0].final_size = epochs[0].initial_size
+            deme = Deme(id, description, ancestors, proportions, [epochs[0]])
+            for epoch in epochs[1:]:
+                deme.add_epoch(epoch)
         if ancestors is not None and proportions is None:
             assert len(ancestors) == 1
             proportions = [1.]
-        deme = Deme(id, description, ancestors, proportions, [epoch])
-        if epochs is not None:
-            for epoch in epochs:
-                deme.add_epoch(epoch)
         self._deme_map[deme.id] = deme
         self.demes.append(deme)
 
@@ -668,30 +691,33 @@ class DemeGraph:
                     deme_dict.update(proportions=deme.proportions)
                 if any([deme.start_time != self[a].end_time for a in deme.ancestors]):
                     deme_dict.update(start_time=deme.start_time)
+            else:
+                # corner case of no ancestors but finite start time
+                if math.isfinite(deme.start_time):
+                    deme_dict.update(start_time=deme.start_time)
             assert len(deme.epochs) > 0
-            if deme.epochs[0].end_time > 0:
-                deme_dict.update(end_time=deme.epochs[0].end_time)
-            deme_dict.update(initial_size=deme.epochs[0].initial_size)
-            if deme.epochs[0].final_size != deme.epochs[0].initial_size:
-                deme_dict.update(final_size=deme.epochs[0].final_size)
+            if deme.epochs[-1].end_time > 0:
+                deme_dict.update(end_time=deme.epochs[-1].end_time)
             e_list = []
             for j, epoch in enumerate(deme.epochs):
                 e = dict()
-                if epoch.start_time < float("inf"):
-                    e.update(start_time=epoch.start_time)
-                if epoch.initial_size == epoch.final_size:
-                    e.update(initial_size=epoch.initial_size)
-                else:
+                # end time required for epochs
+                e.update(end_time=epoch.end_time)
+                e.update(initial_size=epoch.initial_size)
+                if epoch.final_size != epoch.initial_size:
                     e.update(final_size=epoch.final_size)
-                    if (
-                        j == 0
-                        or j == len(deme.epochs) - 1
-                        or epoch.initial_size != deme.epochs[j - 1].final_size
-                    ):
-                        e.update(initial_size=epoch.initial_size)
                 e_list.append(e)
             if len(e_list) > 1:
-                deme_dict.update(epochs=e_list[1:])
+                # if more than one epoch, list all epochs
+                deme_dict.update(epochs=e_list)
+            else:
+                # if a single epoch, don't list as under epochs
+                deme_dict.update(initial_size=e_list[0]["initial_size"])
+                if "final_size" in e_list[0]:
+                    if e_list[0]["final_size"] != e_list[0]["initial_size"]:
+                        deme_dict.update(final_size=e_list[0]["final_size"])
+                if e_list[0]["end_time"] > 0:
+                    deme_dict.update(end_time=e_list[0]["end_time"])
             if deme.description is not None:
                 deme_dict.update(description=deme.description)
             d["demes"][deme.id] = deme_dict

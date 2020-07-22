@@ -1,0 +1,14 @@
+description: A single-population bottleneck model. Also tests a finite start_time.
+generation_time: 1
+time_units: generations
+demes:
+  our_population:
+    description: Bottleneck population using epochs
+    start_time: 10000
+    epochs:
+    - initial_size: 1e4
+      end_time: 500
+    - initial_size: 1e2
+      end_time: 100
+    - initial_size: 1e4
+      end_time: 0
