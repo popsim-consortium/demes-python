@@ -31,6 +31,8 @@ _epoch_schema = Map(
         Optional("initial_size"): Number,
         Optional("final_size"): Number,
         Optional("size_function"): Str(),
+        Optional("selfing_rate"): Number,
+        Optional("cloning_rate"): Number,
     }
 )
 
@@ -67,6 +69,8 @@ _deme_schema = Map(
         Optional("initial_size"): Number,
         Optional("final_size"): Number,
         Optional("epochs"): Seq(_epoch_schema),
+        Optional("selfing_rate"): Number,
+        Optional("cloning_rate"): Number,
     }
 )
 
@@ -85,6 +89,8 @@ _deme_graph_schema = Map(
             }
         ),
         Optional("pulses"): Seq(_pulse_schema),
+        Optional("selfing_rate"): Number,
+        Optional("cloning_rate"): Number,
     }
 )
 
@@ -109,6 +115,8 @@ def loads(string):
         generation_time=d.get("generation_time"),
         doi=d.get("doi"),
         default_Ne=d.get("default_Ne"),
+        selfing_rate=d.get("selfing_rate"),
+        cloning_rate=d.get("cloning_rate"),
     )
     for deme_id, deme_dict in d.get("demes", dict()).items():
         if "epochs" in deme_dict:

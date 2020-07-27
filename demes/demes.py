@@ -71,12 +71,16 @@ class Epoch:
     :ivar size_function: The size change function. Common options are constant,
         exponential, or linear, though any string is valid. Warning: downstream
         simulators might not understand the size_function provided.
+    :ivar selfing_rate: An optional selfing rate for this epoch.
+    :ivar cloning_rate: An optional cloning rate for this epoch.
     """
     start_time: Time = attr.ib(default=None, validator=optional([non_negative]))
     end_time: Time = attr.ib(default=None, validator=[non_negative, finite])
     initial_size: Size = attr.ib(default=None, validator=optional([positive, finite]))
     final_size: Size = attr.ib(default=None, validator=optional([positive, finite]))
     size_function: str = attr.ib(default=None)
+    selfing_rate: Proportion = attr.ib(default=None, validator=optional([unit_interval]))
+    cloning_rate: Proportion = attr.ib(default=None, validator=optional([unit_interval]))
 
     def __attrs_post_init__(self):
         if self.initial_size is None and self.final_size is None:
@@ -240,12 +244,16 @@ class Deme:
         the deme. The deme must be initially created with exactly one epoch.
         Additional epochs may be added with :meth:`.add_epoch`
     :vartype epochs: list of :class:`.Epoch`
+    :ivar selfing_rate: An optional selfing rate for this deme.
+    :ivar cloning_rate: An optional cloning rate for this deme.
     """
     id: ID = attr.ib()
     description: str = attr.ib()
     ancestors: List[ID] = attr.ib()
     proportions: List[Proportion] = attr.ib()
     epochs: List[Epoch] = attr.ib()
+    selfing_rate: Proportion = attr.ib(default=None, validator=optional([unit_interval]))
+    cloning_rate: Proportion = attr.ib(default=None, validator=optional([unit_interval]))
 
     @epochs.validator
     def _check_epochs(self, attribute, value):
@@ -303,6 +311,10 @@ class Deme:
                     "epoch size function is constant but initial and "
                     "final sizes are not equal"
                 )
+        if epoch.selfing_rate is None:
+            epoch.selfing_rate = self.selfing_rate
+        if epoch.cloning_rate is None:
+            epoch.cloning_rate = self.cloning_rate
         self.epochs.append(epoch)
 
     @property
@@ -369,6 +381,8 @@ class DemeGraph:
     branches: List[Branch] = attr.ib(factory=list)
     mergers: List[Merge] = attr.ib(factory=list)
     admixtures: List[Admix] = attr.ib(factory=list)
+    selfing_rate: Proportion = attr.ib(default=None)
+    cloning_rate: Proportion = attr.ib(default=None)
 
     def __attrs_post_init__(self):
         self._deme_map: Mapping[ID, Deme] = dict()
@@ -396,6 +410,8 @@ class DemeGraph:
         initial_size=None,
         final_size=None,
         epochs=None,
+        selfing_rate=None,
+        cloning_rate=None,
     ):
         """
         Add a deme to the graph.
@@ -416,6 +432,8 @@ class DemeGraph:
             the deme has a constant ``initial_size`` population size.
         :param epochs: Additional epochs that define population size changes for
             the deme.
+        :ivar selfing_rate: An optional selfing rate for this deme.
+        :ivar cloning_rate: An optional cloning rate for this deme.
         """
         if initial_size is None:
             initial_size = self.default_Ne
@@ -423,6 +441,10 @@ class DemeGraph:
             initial_size = epochs[0].initial_size
         if initial_size is None:
             raise ValueError(f"must set initial_size for {id}")
+        if selfing_rate is None:
+            selfing_rate = self.selfing_rate
+        if cloning_rate is None:
+            cloning_rate = self.cloning_rate
         if ancestors is not None:
             if len(ancestors) > 1 and start_time is None:
                 raise ValueError("must specify start time if more than one ancestor")
@@ -447,9 +469,11 @@ class DemeGraph:
                 end_time,
                 initial_size=initial_size,
                 final_size=final_size,
-                size_function=size_function
+                size_function=size_function,
+                selfing_rate=selfing_rate,
+                cloning_rate=cloning_rate
             )
-            deme = Deme(id, description, ancestors, proportions, [epoch])
+            deme = Deme(id, description, ancestors, proportions, [epoch], selfing_rate, cloning_rate)
         else:
             if end_time is None:
                 end_time = epochs[-1].end_time
@@ -458,6 +482,10 @@ class DemeGraph:
             if epochs[0].start_time is None:
                 # first epoch starts at deme start time
                 epochs[0].start_time = start_time
+            if epochs[0].selfing_rate is None:
+                epochs[0].selfing_rate = selfing_rate
+            if epochs[0].cloning_rate is None:
+                epochs[0].cloning_rate = cloning_rate
             elif epochs[0].start_time < start_time:
                 # insert const size epoch from start to deme to start of first listed epoch
                 epochs.insert(
@@ -468,6 +496,8 @@ class DemeGraph:
                         initial_size=initial_size,
                         final_size=initial_size,
                         size_function="constant",
+                        selfing_rate=selfing_rate,
+                        cloning_rate=cloning_rate
                     )
                 )
             elif epochs[0].start_time > start_time:
@@ -482,7 +512,7 @@ class DemeGraph:
             else:
                 if epochs[0].size_function is None:
                     epochs[0].size_function = "exponential"
-            deme = Deme(id, description, ancestors, proportions, [epochs[0]])
+            deme = Deme(id, description, ancestors, proportions, [epochs[0]], selfing_rate, cloning_rate)
             for epoch in epochs[1:]:
                 deme.add_epoch(epoch)
         if ancestors is not None and proportions is None:
@@ -711,6 +741,11 @@ class DemeGraph:
         if self.default_Ne is not None:
             d.update(default_Ne=self.default_Ne)
 
+        if self.selfing_rate is not None:
+            d.update(selfing_rate=self.selfing_rate)
+        if self.cloning_rate is not None:
+            d.update(cloning_rate=self.cloning_rate)
+
         assert len(self.demes) > 0
         d.update(demes=dict())
         for deme in self.demes:
@@ -725,6 +760,12 @@ class DemeGraph:
                 # corner case of no ancestors but finite start time
                 if math.isfinite(deme.start_time):
                     deme_dict.update(start_time=deme.start_time)
+            if deme.selfing_rate is not None:
+                if self.selfing_rate is not None and deme.selfing_rate != self.selfing_rate:
+                    deme_dict.update(selfing_rate=deme.selfing_rate)
+            if deme.cloning_rate is not None:
+                if self.cloning_rate is not None and deme.cloning_rate != self.cloning_rate:
+                    deme_dict.update(cloning_rate=deme.cloning_rate)
             assert len(deme.epochs) > 0
             if deme.epochs[-1].end_time > 0:
                 deme_dict.update(end_time=deme.epochs[-1].end_time)
@@ -738,6 +779,24 @@ class DemeGraph:
                     e.update(final_size=epoch.final_size)
                 if epoch.size_function not in ["constant", "exponential"]:
                     e.update(size_function=epoch.size_function)
+                if epoch.selfing_rate is not None:
+                    if deme.selfing_rate is not None:
+                        if epoch.selfing_rate != deme.selfing_rate:
+                            e.update(selfing_rate=epoch.selfing_rate)
+                    elif self.selfing_rate is not None:
+                        if epoch.selfing_rate != self.selfing_rate:
+                            e.update(selfing_rate=epoch.selfing_rate)
+                    else:
+                        e.update(selfing_rate=epoch.selfing_rate)
+                if epoch.cloning_rate is not None:
+                    if deme.cloning_rate is not None:
+                        if epoch.cloning_rate != deme.cloning_rate:
+                            e.update(cloning_rate=epoch.cloning_rate)
+                    elif self.cloning_rate is not None:
+                        if epoch.cloning_rate != self.cloning_rate:
+                            e.update(cloning_rate=epoch.cloning_rate)
+                    else:
+                        e.update(cloning_rate=epoch.cloning_rate)
                 e_list.append(e)
             if len(e_list) > 1:
                 # if more than one epoch, list all epochs
