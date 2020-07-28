@@ -281,6 +281,7 @@ class Deme:
         :param .Epoch epoch: The epoch to add.
         """
         assert len(self.epochs) > 0
+        # if the epoch start time is not given, it equals the previous epoch's end time
         prev_epoch = self.epochs[-1]
         if epoch.start_time is None:
             epoch.start_time = prev_epoch.end_time
@@ -292,12 +293,12 @@ class Deme:
             raise ValueError("cannot have gap between consecutive epochs")
         if epoch.dt <= 0:
             raise ValueError("epoch must exist for some positive time")
-        if epoch.end_time is None:
-            epoch.end_time = 0
+        # implicitly set the initial and final sizes, if not given
         if epoch.initial_size is None:
             epoch.initial_size = prev_epoch.final_size
         if epoch.final_size is None:
             epoch.final_size = epoch.initial_size
+        # check or assign the size function over this epoch
         if epoch.size_function is None:
             if epoch.initial_size == epoch.final_size:
                 epoch.size_function = "constant"
@@ -311,6 +312,7 @@ class Deme:
                     "epoch size function is constant but initial and "
                     "final sizes are not equal"
                 )
+        # if selfing or cloning rates are not given, set them to deme's default rate
         if epoch.selfing_rate is None:
             epoch.selfing_rate = self.selfing_rate
         if epoch.cloning_rate is None:
@@ -445,6 +447,7 @@ class DemeGraph:
             selfing_rate = self.selfing_rate
         if cloning_rate is None:
             cloning_rate = self.cloning_rate
+        # set the start time to inf or to the ancestors end times, if not given
         if ancestors is not None:
             if len(ancestors) > 1 and start_time is None:
                 raise ValueError("must specify start time if more than one ancestor")
@@ -455,7 +458,9 @@ class DemeGraph:
         else:
             if start_time is None:
                 start_time = float("inf")
+        # build the deme, and then add epochs as necessary
         if epochs is None:
+            # if epochs are not given, we assign a single epoch over that deme
             if final_size is None:
                 final_size = initial_size
             if end_time is None:
@@ -473,21 +478,30 @@ class DemeGraph:
                 selfing_rate=selfing_rate,
                 cloning_rate=cloning_rate
             )
-            deme = Deme(id, description, ancestors, proportions, [epoch], selfing_rate, cloning_rate)
+            deme = Deme(
+                id,
+                description,
+                ancestors,
+                proportions,
+                [epoch],
+                selfing_rate,
+                cloning_rate
+            )
         else:
             if end_time is None:
                 end_time = epochs[-1].end_time
             if end_time != epochs[-1].end_time:
-                raise ValueError("deme and final epoch end times don't align")
-            if epochs[0].start_time is None:
-                # first epoch starts at deme start time
-                epochs[0].start_time = start_time
+                raise ValueError("deme and final epoch end times do not align")
             if epochs[0].selfing_rate is None:
                 epochs[0].selfing_rate = selfing_rate
             if epochs[0].cloning_rate is None:
                 epochs[0].cloning_rate = cloning_rate
+            # deal with first epoch and deme start times
+            if epochs[0].start_time is None:
+                # first epoch starts at deme start time
+                epochs[0].start_time = start_time
             elif epochs[0].start_time < start_time:
-                # insert const size epoch from start to deme to start of first listed epoch
+                # insert const size epoch to reach the start of first listed epoch
                 epochs.insert(
                     0,
                     Epoch(
@@ -505,14 +519,23 @@ class DemeGraph:
                     "first epoch start time must be less than or equal to "
                     "deme start time"
                 )
+            # set up sizes of first deme, since subsequent demes are built off of it
             if epochs[0].final_size is None:
                 epochs[0].final_size = epochs[0].initial_size
-                if epochs[0].size_function is None:
+            if epochs[0].size_function is None:
+                if epochs[0].initial_size == epochs[0].final_size:
                     epochs[0].size_function = "constant"
-            else:
-                if epochs[0].size_function is None:
+                else:
                     epochs[0].size_function = "exponential"
-            deme = Deme(id, description, ancestors, proportions, [epochs[0]], selfing_rate, cloning_rate)
+            deme = Deme(
+                id,
+                description,
+                ancestors,
+                proportions,
+                [epochs[0]],
+                selfing_rate,
+                cloning_rate,
+            )
             for epoch in epochs[1:]:
                 deme.add_epoch(epoch)
         if ancestors is not None and proportions is None:
@@ -750,6 +773,7 @@ class DemeGraph:
         d.update(demes=dict())
         for deme in self.demes:
             deme_dict = dict()
+            # add ancestors to deme if not None
             if deme.ancestors is not None:
                 deme_dict.update(ancestors=deme.ancestors)
                 if len(deme.ancestors) > 1:
@@ -760,15 +784,15 @@ class DemeGraph:
                 # corner case of no ancestors but finite start time
                 if math.isfinite(deme.start_time):
                     deme_dict.update(start_time=deme.start_time)
+            # add selfing and cloning rates, if not None
             if deme.selfing_rate is not None:
                 if self.selfing_rate is not None and deme.selfing_rate != self.selfing_rate:
                     deme_dict.update(selfing_rate=deme.selfing_rate)
             if deme.cloning_rate is not None:
                 if self.cloning_rate is not None and deme.cloning_rate != self.cloning_rate:
                     deme_dict.update(cloning_rate=deme.cloning_rate)
+            
             assert len(deme.epochs) > 0
-            if deme.epochs[-1].end_time > 0:
-                deme_dict.update(end_time=deme.epochs[-1].end_time)
             e_list = []
             for j, epoch in enumerate(deme.epochs):
                 e = dict()
@@ -834,6 +858,7 @@ class DemeGraph:
             m_symmetric = []
             m_asymmetric = []
             for (source, dest), m_list in m_dict.items():
+                # check if there is equal, reverse migration over the same epoch
                 if (dest, source) in m_dict:
                     for m in m_list:
                         no_symmetry = True
