@@ -63,7 +63,7 @@ class Epoch:
     start time must be greater than the end time
 
     :ivar start_time: The start time of the epoch.
-    :ivar end_time: The end time of the epoch.
+    :ivar end_time: The end time of the epoch (must be specified).
     :ivar initial_size: Population size at ``start_time``.
     :ivar final_size: Population size at ``end_time``.
         If ``initial_size != final_size``, the population size changes
@@ -117,7 +117,7 @@ class Migration:
     """
     source: ID = attr.ib()
     dest: ID = attr.ib()
-    start_time: Time = attr.ib(validator=[non_negative, finite])
+    start_time: Time = attr.ib(validator=[non_negative])
     end_time: Time = attr.ib(validator=[non_negative, finite])
     rate: Rate = attr.ib(validator=[non_negative, finite])
 
@@ -843,9 +843,9 @@ class DemeGraph:
                                     dict(demes=[source, dest], rate=m["rate"])
                                 )
                                 if "start_time" in m:
-                                    m_asymmetric[-1]["start_time"] = m["start_time"]
+                                    m_symmetric[-1]["start_time"] = m["start_time"]
                                 if "end_time" in m:
-                                    m_asymmetric[-1]["end_time"] = m["end_time"]
+                                    m_symmetric[-1]["end_time"] = m["end_time"]
                                 # pop the m_compare so we don't repeat it
                                 m_dict[(dest, source)].remove(m_compare)
                                 no_symmetry = False
