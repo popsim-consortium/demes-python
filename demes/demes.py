@@ -57,24 +57,30 @@ def optional(func):
 class Epoch:
     """
     Population size parameters for a deme in a specified time period.
-    Times follow the backwards-in-time convention (time values increase
-    from the present towards the past).
+    Times follow the forwards-in-time convention (time values increase
+    from the present towards the past). The start time of the epoch is
+    the more ancient time, and the end time is more recent, so that the
+    start time must be greater than the end time
 
     :ivar start_time: The start time of the epoch.
-    :ivar end_time: The end time of the epoc.
+    :ivar end_time: The end time of the epoch (must be specified).
     :ivar initial_size: Population size at ``start_time``.
     :ivar final_size: Population size at ``end_time``.
         If ``initial_size != final_size``, the population size changes
         monotonically between the start and end times.
-        TODO: traditionally, this is an exponential increase or decrease,
-              due to tractibility under the coalescent. But other functions
-              may be reasonable choices, particularly for non-coalescent
-              simulators.
+    :ivar size_function: The size change function. Common options are constant,
+        exponential, or linear, though any string is valid. Warning: downstream
+        simulators might not understand the size_function provided.
+    :ivar selfing_rate: An optional selfing rate for this epoch.
+    :ivar cloning_rate: An optional cloning rate for this epoch.
     """
-    start_time: Time = attr.ib(validator=[non_negative, finite])
-    end_time: Time = attr.ib(default=None, validator=optional(non_negative))
+    start_time: Time = attr.ib(default=None, validator=optional([non_negative]))
+    end_time: Time = attr.ib(default=None, validator=[non_negative, finite])
     initial_size: Size = attr.ib(default=None, validator=optional([positive, finite]))
     final_size: Size = attr.ib(default=None, validator=optional([positive, finite]))
+    size_function: str = attr.ib(default=None)
+    selfing_rate: Proportion = attr.ib(default=None, validator=optional([unit_interval]))
+    cloning_rate: Proportion = attr.ib(default=None, validator=optional([unit_interval]))
 
     def __attrs_post_init__(self):
         if self.initial_size is None and self.final_size is None:
@@ -82,36 +88,37 @@ class Epoch:
         if (
             self.start_time is not None
             and self.end_time is not None
-            and self.start_time >= self.end_time
+            and self.start_time <= self.end_time
         ):
-            raise ValueError("must have start_time < end_time")
-        if self.final_size is None:
-            self.final_size = self.initial_size
+            raise ValueError("must have start_time > end_time")
 
     @property
     def dt(self):
         """
         The time span of the epoch.
         """
-        return self.end_time - self.start_time
+        return self.start_time - self.end_time
 
 
 @attr.s(auto_attribs=True)
 class Migration:
     """
     Parameters for continuous migration from one deme to another.
-    Source and destination demes follow the backwards-in-time coalescent
-    convention.
+    Source and destination demes follow the forwards-in-time convention,
+    of migrations born in the source deme having children in the dest
+    deme.
 
     :ivar source: The source deme.
     :ivar dest: The destination deme.
-    :ivar time: The time at which the migration rate becomes activate.
+    :ivar start_time: The time at which the migration rate becomes activate.
+    :ivar end_time: The time at which the migration rate is deactivated.
     :ivar rate: The rate of migration. Set to zero to disable migrations after
         the given time.
     """
     source: ID = attr.ib()
     dest: ID = attr.ib()
-    time: Time = attr.ib(validator=[non_negative, finite])
+    start_time: Time = attr.ib(validator=[non_negative])
+    end_time: Time = attr.ib(validator=[non_negative, finite])
     rate: Rate = attr.ib(validator=[non_negative, finite])
 
     def __attrs_post_init__(self):
@@ -123,8 +130,9 @@ class Migration:
 class Pulse:
     """
     Parameters for a pulse of migration from one deme to another.
-    Source and destination demes follow the backwards-in-time coalescent
-    convention.
+    Source and destination demes follow the forwards-in-time convention,
+    of migrations born in the source deme having children in the dest
+    deme.
 
     :ivar source: The source deme.
     :ivar dest: The destination deme.
@@ -144,21 +152,108 @@ class Pulse:
 
 
 @attr.s(auto_attribs=True)
+class Split:
+    """
+    Parameters for a split event, in which a deme ends at a given time and
+    contributes ancestry to an arbitrary number of descendant demes. Note
+    that there could be just a single descendant deme, in which case ``split``
+    is a bit of a misnomer...
+
+    :ivar parent: The parental deme.
+    :ivar children: A list of descendant demes.
+    :ivar time: The split time.
+    """
+    parent: ID = attr.ib()
+    children: List[ID] = attr.ib()
+    time: Time = attr.ib(validator=[non_negative, finite])
+
+
+@attr.s(auto_attribs=True)
+class Branch:
+    """
+    Parameters for a branch event, where a new deme branches off from a parental
+    deme. The parental deme need not end at that time.
+
+    :ivar parent: The parental deme.
+    :ivar child: The descendant deme.
+    :ivar time: The branch time.
+    """
+    parent: ID = attr.ib()
+    children: ID = attr.ib()
+    time: Time = attr.ib(validator=[non_negative, finite])
+
+
+@attr.s(auto_attribs=True)
+class Merge:
+    """
+    Parameters for a merge event, in which two or more demes end at some time and
+    contribute to a descendant deme.
+
+    :ivar parents: A list of parental demes.
+    :ivar proportions: A list of ancestry proportions, in order of `parents`.
+    :ivar child: The descendant deme.
+    :ivar time: The merge time.
+    """
+    parents: List[ID] = attr.ib()
+    proportions: List[Proportion] = attr.ib()
+    child: ID = attr.ib()
+    time: Time = attr.ib(validator=[non_negative, finite])
+
+    def __attrs_post_init__(self):
+        if math.isclose(sum(self.proportions), 1) is False:
+            raise ValueError("Proportions must sum to 1")
+        if len(self.parents) != len(self.proportions):
+            raise ValueError("parents and proportions must have same length")
+
+
+@attr.s(auto_attribs=True)
+class Admix:
+    """
+    Parameters for an admixture event, where two or more demes contribute ancestry
+    to a new deme.
+
+    :ivar parents: A list of source demes.
+    :ivar proportions: A list of ancestry proportions, in order of `parents`.
+    :ivar child: The admixed deme.
+    :ivar time: The admixture time.
+    """
+    parents: List[ID] = attr.ib()
+    proportions: List[Proportion] = attr.ib()
+    child: ID = attr.ib()
+    time: Time = attr.ib(validator=[non_negative, finite])
+
+    def __attrs_post_init__(self):
+        if math.isclose(sum(self.proportions), 1) is False:
+            raise ValueError("Proportions must sum to 1")
+        if len(self.parents) != len(self.proportions):
+            raise ValueError("parents and proportions must have same length")
+
+
+@attr.s(auto_attribs=True)
 class Deme:
     """
     A collection of individuals that are exchangeable at any fixed time.
 
     :ivar id: A string identifier for the deme.
-    :ivar ancestor: The string identifier of the ancestor of this deme.
-        If the deme has no ancestor, this should be ``None``.
+    :ivar description: An optional description of the deme.
+    :ivar ancestors: List of ancestors to the deme.
+        If the deme has no ancestors, this should be ``None``, and cannot
+        be used with ``ancestor``.
+    :ivar proportions: List of proportions if ``ancestors`` is given.
     :ivar epochs: A list of epochs, which define the population size(s) of
-        the deme. The deme must be created with exactly one epoch.
+        the deme. The deme must be initially created with exactly one epoch.
         Additional epochs may be added with :meth:`.add_epoch`
     :vartype epochs: list of :class:`.Epoch`
+    :ivar selfing_rate: An optional selfing rate for this deme.
+    :ivar cloning_rate: An optional cloning rate for this deme.
     """
     id: ID = attr.ib()
-    ancestor: ID = attr.ib()
+    description: str = attr.ib()
+    ancestors: List[ID] = attr.ib()
+    proportions: List[Proportion] = attr.ib()
     epochs: List[Epoch] = attr.ib()
+    selfing_rate: Proportion = attr.ib(default=None, validator=optional([unit_interval]))
+    cloning_rate: Proportion = attr.ib(default=None, validator=optional([unit_interval]))
 
     @epochs.validator
     def _check_epochs(self, attribute, value):
@@ -169,29 +264,59 @@ class Deme:
             )
 
     def __attrs_post_init__(self):
-        if self.id == self.ancestor:
+        if self.ancestors is not None and len(self.ancestors) != len(self.proportions):
+            raise ValueError(
+                "ancestors and proportions must have same length"
+            )
+        if self.ancestors is not None and self.id in self.ancestors:
             raise ValueError(f"{self.id} cannot be its own ancestor")
 
     def add_epoch(self, epoch: Epoch):
         """
         Add an epoch to the deme's epoch list.
-        Epochs must be non overlapping and added in time-increasing order.
+        Epochs must be non overlapping and added in time-decreasing order, i.e.
+        starting with the most ancient epoch and adding epochs sequentially toward
+        present.
 
         :param .Epoch epoch: The epoch to add.
         """
         assert len(self.epochs) > 0
-        prev_epoch = self.epochs[len(self.epochs) - 1]
-        if epoch.start_time < prev_epoch.start_time:
+        # if the epoch start time is not given, it equals the previous epoch's end time
+        prev_epoch = self.epochs[-1]
+        if epoch.start_time is None:
+            epoch.start_time = prev_epoch.end_time
+        elif epoch.start_time > prev_epoch.end_time:
             raise ValueError(
-                "epochs must be non overlapping and added in time-increasing order"
+                "epochs must be non overlapping and added in time-decreasing order"
             )
-        if epoch.end_time is None:
-            epoch.end_time = prev_epoch.end_time
-        prev_epoch.end_time = epoch.start_time
+        if prev_epoch.end_time != epoch.start_time:
+            raise ValueError("cannot have gap between consecutive epochs")
+        if epoch.dt <= 0:
+            raise ValueError("epoch must exist for some positive time")
+        # implicitly set the initial and final sizes, if not given
         if epoch.initial_size is None:
             epoch.initial_size = prev_epoch.final_size
         if epoch.final_size is None:
             epoch.final_size = epoch.initial_size
+        # check or assign the size function over this epoch
+        if epoch.size_function is None:
+            if epoch.initial_size == epoch.final_size:
+                epoch.size_function = "constant"
+            else:
+                epoch.size_function = "exponential"
+        else:
+            # check if constant function is correct
+            if (epoch.size_function == "constant" and
+                epoch.initial_size != epoch.final_size):
+                raise ValueError(
+                    "epoch size function is constant but initial and "
+                    "final sizes are not equal"
+                )
+        # if selfing or cloning rates are not given, set them to deme's default rate
+        if epoch.selfing_rate is None:
+            epoch.selfing_rate = self.selfing_rate
+        if epoch.cloning_rate is None:
+            epoch.cloning_rate = self.cloning_rate
         self.epochs.append(epoch)
 
     @property
@@ -213,7 +338,7 @@ class Deme:
         """
         The time span over which the deme exists.
         """
-        return self.end_time - self.start_time
+        return self.start_time - self.end_time
 
 
 @attr.s(auto_attribs=True)
@@ -221,7 +346,7 @@ class DemeGraph:
     """
     A directed graph that describes a demography. Vertices are demes and edges
     correspond to ancestor/descendent relations. Edges are directed from
-    descendents to ancestors.
+    ancestors to descendants.
 
     :ivar description: A human readable description of the demography.
     :ivar time_units: The units of time used for the demography. This is
@@ -254,6 +379,12 @@ class DemeGraph:
     demes: List[Deme] = attr.ib(factory=list)
     migrations: List[Migration] = attr.ib(factory=list)
     pulses: List[Pulse] = attr.ib(factory=list)
+    splits: List[Split] = attr.ib(factory=list)
+    branches: List[Branch] = attr.ib(factory=list)
+    mergers: List[Merge] = attr.ib(factory=list)
+    admixtures: List[Admix] = attr.ib(factory=list)
+    selfing_rate: Proportion = attr.ib(default=None)
+    cloning_rate: Proportion = attr.ib(default=None)
 
     def __attrs_post_init__(self):
         self._deme_map: Mapping[ID, Deme] = dict()
@@ -273,19 +404,26 @@ class DemeGraph:
     def deme(
         self,
         id,
-        ancestor=None,
-        start_time=0,
-        end_time=float("inf"),
+        description=None,
+        ancestors=None,
+        proportions=None,
+        start_time=None,
+        end_time=None,
         initial_size=None,
         final_size=None,
         epochs=None,
+        selfing_rate=None,
+        cloning_rate=None,
     ):
         """
         Add a deme to the graph.
 
         :param str id: A string identifier for the deme.
-        :param str ancestor: The string identifier of the ancestor of this deme.
-            May be ``None``.
+        :param list ancestors: A list of ancestors of this deme. May be ``None``,
+            but cannot specify both ``ancestor`` and ``ancestors``. If ``ancestors``
+            is given, must also give ``proportions``.
+        :param list proportions: A list of proportions of ancestory for ``ancestors``.
+            Proportions must sum to 1.
         :param start_time: The time at which this deme begins existing.
         :param end_time: The time at which this deme stops existing.
             If the deme has an ancestor the ``end_time`` will be set to the
@@ -296,32 +434,121 @@ class DemeGraph:
             the deme has a constant ``initial_size`` population size.
         :param epochs: Additional epochs that define population size changes for
             the deme.
+        :ivar selfing_rate: An optional selfing rate for this deme.
+        :ivar cloning_rate: An optional cloning rate for this deme.
         """
         if initial_size is None:
             initial_size = self.default_Ne
-            if initial_size is None:
-                raise ValueError(f"must set initial_size for {id}")
-        if final_size is None:
-            final_size = initial_size
-        if ancestor is not None:
-            if ancestor not in self:
-                raise ValueError(f"{ancestor} not in deme graph")
-            end_time = self[ancestor].epochs[0].start_time
-        epoch = Epoch(
-            start_time, end_time, initial_size=initial_size, final_size=final_size
-        )
-        deme = Deme(id, ancestor, [epoch])
-        if epochs is not None:
-            for epoch in epochs:
+        if initial_size is None and epochs is not None:
+            initial_size = epochs[0].initial_size
+        if initial_size is None:
+            raise ValueError(f"must set initial_size for {id}")
+        if selfing_rate is None:
+            selfing_rate = self.selfing_rate
+        if cloning_rate is None:
+            cloning_rate = self.cloning_rate
+        # set the start time to inf or to the ancestors end times, if not given
+        if ancestors is not None:
+            if len(ancestors) > 1 and start_time is None:
+                raise ValueError("must specify start time if more than one ancestor")
+            if ancestors[0] in self and start_time is None:
+                start_time = self[ancestors[0]].epochs[-1].end_time
+            if len(ancestors) == 1 and proportions is None:
+                proportions = [1.]
+        else:
+            if start_time is None:
+                start_time = float("inf")
+        # build the deme, and then add epochs as necessary
+        if epochs is None:
+            # if epochs are not given, we assign a single epoch over that deme
+            if final_size is None:
+                final_size = initial_size
+            if end_time is None:
+                end_time = 0
+            if initial_size == final_size:
+                size_function = "constant"
+            else:
+                size_function = "exponential"
+            epoch = Epoch(
+                start_time,
+                end_time,
+                initial_size=initial_size,
+                final_size=final_size,
+                size_function=size_function,
+                selfing_rate=selfing_rate,
+                cloning_rate=cloning_rate
+            )
+            deme = Deme(
+                id,
+                description,
+                ancestors,
+                proportions,
+                [epoch],
+                selfing_rate,
+                cloning_rate
+            )
+        else:
+            if end_time is None:
+                end_time = epochs[-1].end_time
+            if end_time != epochs[-1].end_time:
+                raise ValueError("deme and final epoch end times do not align")
+            if epochs[0].selfing_rate is None:
+                epochs[0].selfing_rate = selfing_rate
+            if epochs[0].cloning_rate is None:
+                epochs[0].cloning_rate = cloning_rate
+            # deal with first epoch and deme start times
+            if epochs[0].start_time is None:
+                # first epoch starts at deme start time
+                epochs[0].start_time = start_time
+            elif epochs[0].start_time < start_time:
+                # insert const size epoch to reach the start of first listed epoch
+                epochs.insert(
+                    0,
+                    Epoch(
+                        start_time,
+                        epochs[0].start_time,
+                        initial_size=initial_size,
+                        final_size=initial_size,
+                        size_function="constant",
+                        selfing_rate=selfing_rate,
+                        cloning_rate=cloning_rate
+                    )
+                )
+            elif epochs[0].start_time > start_time:
+                raise ValueError(
+                    "first epoch start time must be less than or equal to "
+                    "deme start time"
+                )
+            # set up sizes of first deme, since subsequent demes are built off of it
+            if epochs[0].final_size is None:
+                epochs[0].final_size = epochs[0].initial_size
+            if epochs[0].size_function is None:
+                if epochs[0].initial_size == epochs[0].final_size:
+                    epochs[0].size_function = "constant"
+                else:
+                    epochs[0].size_function = "exponential"
+            deme = Deme(
+                id,
+                description,
+                ancestors,
+                proportions,
+                [epochs[0]],
+                selfing_rate,
+                cloning_rate,
+            )
+            for epoch in epochs[1:]:
                 deme.add_epoch(epoch)
+        if ancestors is not None and proportions is None:
+            assert len(ancestors) == 1
+            proportions = [1.]
         self._deme_map[deme.id] = deme
         self.demes.append(deme)
 
     def check_time_intersection(self, deme1, deme2, time, closed=False):
         deme1 = self[deme1]
         deme2 = self[deme2]
-        time_lo = max(deme1.start_time, deme2.start_time)
-        time_hi = min(deme1.end_time, deme2.end_time)
+        time_lo = max(deme1.end_time, deme2.end_time)
+        time_hi = min(deme1.start_time, deme2.start_time)
         if time is not None:
             if (not closed and not (time_lo <= time < time_hi)) or (
                 closed and not (time_lo <= time <= time_hi)
@@ -333,13 +560,13 @@ class DemeGraph:
                 )
         return time_lo, time_hi
 
-    def symmetric_migration(self, *demes, rate=0, start_time=None, end_time=None):
+    def symmetric_migration(self, demes=[], rate=0, start_time=None, end_time=None):
         """
         Add continuous symmetric migrations between all pairs of demes in a list.
 
         :param demes: list of deme IDs. Migration is symmetric between all
             pairs of demes in this list.
-        :param rate: The rate of migration per ``time_units``.
+        :param rate: The rate of migration per ``time_units``. # or per generation?
         :param start_time: The time at which the migration rate is enabled.
         :param end_time: The time at which the migration rate is disabled.
         """
@@ -351,8 +578,9 @@ class DemeGraph:
     def migration(self, source, dest, rate=0, start_time=None, end_time=None):
         """
         Add continuous migration from one deme to another.
-        Source and destination demes follow the backwards-in-time coalescent
-        convention.
+        Source and destination demes follow the forwards-in-time convention,
+        so that the migration rate refers to the movement of individuals from
+        the ``source`` deme to the ``dest`` deme.
 
         :param source: The source deme.
         :param dest: The destination deme.
@@ -369,80 +597,151 @@ class DemeGraph:
                 raise ValueError(f"{deme_id} not in deme graph")
         time_lo, time_hi = self.check_time_intersection(source, dest, start_time)
         if start_time is None:
-            start_time = time_lo
-        self.migrations.append(Migration(source, dest, start_time, rate))
-        if end_time is not None:
+            start_time = time_hi
+        else:
+            self.check_time_intersection(source, dest, start_time)
+        if end_time is None:
+            end_time = time_lo
+        else:
             self.check_time_intersection(source, dest, end_time)
-            self.migrations.append(Migration(source, dest, end_time, 0))
+        self.migrations.append(Migration(source, dest, start_time, end_time, rate))
 
     def pulse(self, source, dest, proportion, time):
         """
         Add a pulse of migration at a fixed time.
-        Source and destination demes follow the backwards-in-time coalescent
-        convention.
+        Source and destination demes follow the forwards-in-time convention.
 
         :param source: The source deme.
         :param dest: The destination deme.
-        :param proportion: At the instant after migration, this is the proportion
-            of individuals in the destination deme made up of individuals from
-            the source deme.
+        :param proportion: At the instant after migration, this is the expected
+            proportion of individuals in the destination deme made up of individuals
+            from the source deme.
         :param time: The time at which migrations occur.
         """
         for deme_id in (source, dest):
             if deme_id not in self:
                 raise ValueError(f"{deme_id} not in deme graph")
-        if self[source].ancestor == dest or self[dest].ancestor == source:
-            raise ValueError(f"{source} and {dest} have ancestor/descendent relation")
         self.check_time_intersection(source, dest, time, closed=True)
         self.pulses.append(Pulse(source, dest, time, proportion))
 
-    def subgraph(
-        self,
-        deme_id,
-        ancestors: List[ID],
-        proportions: List[Rate],
-        start_time=0,
-        end_time=None,
-        initial_size=None,
-        final_size=None,
-        epochs=None,
-    ):
+    @property
+    def successors(self):
         """
-        Add a new deme to the graph. The new deme may have multiple ``ancestors``,
-        which connect the new deme to the graph via pulse migrations with the
-        supplied ``proportions``.
-
-        GG: I'm not sure this is really a subgraph, but I couldn't think of a
-        more appropriate name.
-        TODO: The semantics when ``end_time=None`` are likely broken!
-
-        :param deme_id: A string identifier for the deme at the root of the subgraph.
-        :param ancestors: The ancestor(s) of the subgraph's root deme.
-        :paramtype ancestors: list of str
-        :param proportions: The ancestry proportion for each ancestor.
-        :paramtype proportions: list of float
-        :param start_time: See :meth:`.deme`.
-        :param end_time: See :meth:`.deme`.
-        :param initial_size: See :meth:`.deme`.
-        :param final_size: See :meth:`.deme`.
-        :param epochs: See :meth:`.deme`.
+        Lists of successors for all demes in the graph.
         """
-        if len(ancestors) != len(proportions):
-            raise ValueError("len(ancestors) != len(proportions)")
-        if not math.isclose(sum(proportions), 1.0):
-            raise ValueError("proportions must sum to 1")
-        self.deme(
-            deme_id,
-            start_time=start_time,
-            end_time=end_time,
-            initial_size=initial_size,
-            final_size=final_size,
-            epochs=epochs,
-        )
-        for j, ancestor in enumerate(ancestors):
-            p = proportions[j] / sum(proportions[j:])
-            self.pulse(source=deme_id, dest=ancestor, proportion=p, time=end_time)
-        assert p == 1
+        # use collections.defaultdict(list)
+        succ = {}
+        for deme_info in self.demes:
+            succ.setdefault(deme_info.id, [])
+            if deme_info.ancestors is not None:
+                for a in deme_info.ancestors:
+                    succ.setdefault(a, [])
+                    succ[a].append(deme_info.id)
+        return succ
+
+    @property
+    def predecessors(self):
+        """
+        Lists of predecessors (ancestors) for all demes in the graph.
+        """
+        pred = {}
+        for deme_info in self.demes:
+            pred.setdefault(deme_info.id, [])
+            if deme_info.ancestors is not None:
+                for a in deme_info.ancestors:
+                    pred[deme_info.id].append(a)
+        return pred
+
+    def split(self, parent, children, time):
+        """
+        Add split event at a given time. Split events involve a parental deme
+        whose end time equals the start time of all children demes.
+
+        :param parent: The ancestral deme.
+        :param children: A list of descendant demes.
+        :param time: The time at which split occurs.
+        """
+        for child in children:
+            assert child in self.successors[parent]
+            assert parent in self.predecessors[child]
+            if child == parent:
+                raise ValueError(f"cannot be ancestor of own deme")
+            if self[parent].end_time != self[child].start_time:
+                raise ValueError(
+                    f"{parent} and {child} must have matching end and start times"
+                )
+        self.splits.append(Split(parent, children, time))
+
+    def branch(self, parent, child, time):
+        """
+        Add branch event at a given time.
+
+        :param parent: The ancestral deme.
+        :param children: A list of descendant demes.
+        :param time: The time at which branch event occurs.
+        """
+        if (self[child].start_time < self[parent].end_time or
+            self[child].start_time >= self[parent].start_time):
+            raise ValueError(f"{child} start time must be within {parent} time interval")
+        self.branches.append(Branch(parent, child, time))
+
+    def merge(self, parents, proportions, child, time):
+        """
+        Add merger event at a given time, where multiple parents contribute to
+        a descendant deme, and the parent demes cease to exist at that time.
+
+        :param parents: The ancestral demes.
+        :param proportions: Proportions of ancestral demes contributing to descendant.
+        :param children: The descendant deme.
+        :param time: The time at which merger occurs.
+        """
+        self.mergers.append(Merge(parents, proportions, child, time))
+
+    def admix(self, parents, proportions, child, time):
+        """
+        Add admixture event at a given time, where multiple parents contribute to
+        a descendant deme, and the parent demes continue to exist beyond that time.
+
+        :param parents: The ancestral demes.
+        :param proportions: Proportions of ancestral demes contributing to descendant.
+        :param children: The descendant deme.
+        :param time: The time at which admixture occurs.
+        """
+        self.admixtures.append(Admix(parents, proportions, child, time))
+
+    def get_demographic_events(self):
+        """
+        Loop through successors/predecessors to add splits, branches, mergers,
+        and admixtures to the deme graph. If a deme has more than one predecessor,
+        then it is a merger or an admixture event, which we differentiate by end and
+        start times of those demes. If a deme has a single predecessor, we check
+        whether it is a branch (start time != predecessor's end time), or split.
+        """
+        splits_to_add = {}
+        for c, p in self.predecessors.items():
+            if len(p) == 0:
+                continue
+            elif len(p) == 1:
+                if self[c].start_time == self[p[0]].end_time:
+                    splits_to_add.setdefault(p[0], set())
+                    splits_to_add[p[0]].add(c)
+                else:
+                    self.branch(p[0], c, self[c].start_time)
+            else:
+                time_aligned = True
+                for deme_from in p:
+                    if self[c].start_time != self[deme_from].end_time:  
+                        time_aligned = False
+                if time_aligned is True:
+                    self.merge(
+                        self[c].ancestors, self[c].proportions, c, self[c].start_time
+                    )
+                else:
+                    self.admix(
+                        self[c].ancestors, self[c].proportions, c, self[c].start_time
+                    )
+        for deme_from, demes_to in splits_to_add.items():
+            self.split(deme_from, list(demes_to), self[deme_from].end_time)
 
     def asdict(self):
         """
@@ -465,62 +764,142 @@ class DemeGraph:
         if self.default_Ne is not None:
             d.update(default_Ne=self.default_Ne)
 
+        if self.selfing_rate is not None:
+            d.update(selfing_rate=self.selfing_rate)
+        if self.cloning_rate is not None:
+            d.update(cloning_rate=self.cloning_rate)
+
         assert len(self.demes) > 0
         d.update(demes=dict())
         for deme in self.demes:
             deme_dict = dict()
-            if deme.ancestor is not None:
-                deme_dict.update(ancestor=deme.ancestor)
+            # add ancestors to deme if not None
+            if deme.ancestors is not None:
+                deme_dict.update(ancestors=deme.ancestors)
+                if len(deme.ancestors) > 1:
+                    deme_dict.update(proportions=deme.proportions)
+                if any([deme.start_time != self[a].end_time for a in deme.ancestors]):
+                    deme_dict.update(start_time=deme.start_time)
+            else:
+                # corner case of no ancestors but finite start time
+                if math.isfinite(deme.start_time):
+                    deme_dict.update(start_time=deme.start_time)
+            # add selfing and cloning rates, if not None
+            if deme.selfing_rate is not None:
+                if self.selfing_rate is not None and deme.selfing_rate != self.selfing_rate:
+                    deme_dict.update(selfing_rate=deme.selfing_rate)
+            if deme.cloning_rate is not None:
+                if self.cloning_rate is not None and deme.cloning_rate != self.cloning_rate:
+                    deme_dict.update(cloning_rate=deme.cloning_rate)
+            
             assert len(deme.epochs) > 0
-            if deme.epochs[0].start_time > 0:
-                deme_dict.update(start_time=deme.epochs[0].start_time)
-            deme_dict.update(initial_size=deme.epochs[0].initial_size)
-            if deme.epochs[0].final_size != deme.epochs[0].initial_size:
-                deme_dict.update(final_size=deme.epochs[0].final_size)
-
             e_list = []
             for j, epoch in enumerate(deme.epochs):
                 e = dict()
-                if epoch.start_time > 0:
-                    e.update(start_time=epoch.start_time)
-                if epoch.initial_size == epoch.final_size:
-                    e.update(initial_size=epoch.initial_size)
-                else:
+                # end time required for epochs
+                e.update(end_time=epoch.end_time)
+                e.update(initial_size=epoch.initial_size)
+                if epoch.final_size != epoch.initial_size:
                     e.update(final_size=epoch.final_size)
-                    if (
-                        j == 0
-                        or j == len(deme.epochs) - 1
-                        or epoch.initial_size != deme.epochs[j - 1].final_size
-                    ):
-                        e.update(initial_size=epoch.initial_size)
+                if epoch.size_function not in ["constant", "exponential"]:
+                    e.update(size_function=epoch.size_function)
+                if epoch.selfing_rate is not None:
+                    if deme.selfing_rate is not None:
+                        if epoch.selfing_rate != deme.selfing_rate:
+                            e.update(selfing_rate=epoch.selfing_rate)
+                    elif self.selfing_rate is not None:
+                        if epoch.selfing_rate != self.selfing_rate:
+                            e.update(selfing_rate=epoch.selfing_rate)
+                    else:
+                        e.update(selfing_rate=epoch.selfing_rate)
+                if epoch.cloning_rate is not None:
+                    if deme.cloning_rate is not None:
+                        if epoch.cloning_rate != deme.cloning_rate:
+                            e.update(cloning_rate=epoch.cloning_rate)
+                    elif self.cloning_rate is not None:
+                        if epoch.cloning_rate != self.cloning_rate:
+                            e.update(cloning_rate=epoch.cloning_rate)
+                    else:
+                        e.update(cloning_rate=epoch.cloning_rate)
                 e_list.append(e)
             if len(e_list) > 1:
-                deme_dict.update(epochs=e_list[1:])
+                # if more than one epoch, list all epochs
+                deme_dict.update(epochs=e_list)
+            else:
+                # if a single epoch, don't list as under epochs
+                deme_dict.update(initial_size=e_list[0]["initial_size"])
+                if "final_size" in e_list[0]:
+                    if e_list[0]["final_size"] != e_list[0]["initial_size"]:
+                        deme_dict.update(final_size=e_list[0]["final_size"])
+                if e_list[0]["end_time"] > 0:
+                    deme_dict.update(end_time=e_list[0]["end_time"])
+            if deme.description is not None:
+                deme_dict.update(description=deme.description)
             d["demes"][deme.id] = deme_dict
 
         if len(self.migrations) > 0:
             m_dict = collections.defaultdict(list)
             for migration in self.migrations:
-                m_dict[(migration.source, migration.dest)].append(migration)
-
-            m_list = []
-            for (source, dest), m_sublist in m_dict.items():
-                time_lo, time_hi = self.check_time_intersection(source, dest, None)
-                while True:
-                    migration, m_sublist = m_sublist[0], m_sublist[1:]
-                    m_list.append(dict(source=source, dest=dest, rate=migration.rate))
-                    if migration.time != time_lo:
-                        m_list[-1].update(start_time=migration.time)
-                    if len(m_sublist) == 0:
-                        break
-                    if migration.rate != 0 and m_sublist[0].rate == 0:
-                        if m_sublist[0].time != time_hi:
-                            m_list[-1].update(end_time=m_sublist[0].time)
-                        m_sublist = m_sublist[1:]
-                        if len(m_sublist) == 0:
-                            break
-            # TODO collapse into symmetric migrations
-            d.update(migrations=m_list)
+                m_dict[(migration.source, migration.dest)].append(
+                    dict(rate=migration.rate)
+                )
+                time_lo, time_hi = self.check_time_intersection(
+                    migration.source, migration.dest, None
+                )
+                if migration.end_time != time_lo:
+                    m_dict[(migration.source, migration.dest)][-1].update(
+                        end_time=migration.end_time
+                    )
+                if migration.start_time != time_hi:
+                    m_dict[(migration.source, migration.dest)][-1].update(
+                        start_time=migration.start_time
+                    )
+            # collapse into symmetric and asymmetric migrations
+            m_symmetric = []
+            m_asymmetric = []
+            for (source, dest), m_list in m_dict.items():
+                # check if there is equal, reverse migration over the same epoch
+                if (dest, source) in m_dict:
+                    for m in m_list:
+                        no_symmetry = True
+                        for i, m_compare in enumerate(m_dict[(dest, source)]):
+                            if m == m_compare:
+                                m_symmetric.append(
+                                    dict(demes=[source, dest], rate=m["rate"])
+                                )
+                                if "start_time" in m:
+                                    m_symmetric[-1]["start_time"] = m["start_time"]
+                                if "end_time" in m:
+                                    m_symmetric[-1]["end_time"] = m["end_time"]
+                                # pop the m_compare so we don't repeat it
+                                m_dict[(dest, source)].remove(m_compare)
+                                no_symmetry = False
+                                break
+                        if no_symmetry:
+                            m_asymmetric.append(
+                                dict(source=source, dest=dest, rate=m["rate"])
+                            )
+                            if "start_time" in m:
+                                m_asymmetric[-1]["start_time"] = m["start_time"]
+                            if "end_time" in m:
+                                m_asymmetric[-1]["end_time"] = m["end_time"]
+                else:
+                    # all ms in m_list are asymmetric
+                    for m in m_list:
+                        m_asymmetric.append(
+                            dict(source=source, dest=dest, rate=m["rate"])
+                        )
+                        if "start_time" in m:
+                            m_asymmetric[-1]["start_time"] = m["start_time"]
+                        if "end_time" in m:
+                            m_asymmetric[-1]["end_time"] = m["end_time"]
+            migrations_out = {}
+            if len(m_symmetric) > 0:
+                migrations_out["symmetric"] = m_symmetric
+            if len(m_asymmetric) > 0:
+                migrations_out["asymmetric"] = m_asymmetric
+            if len(migrations_out) > 0:
+                d.update(migrations=migrations_out)
 
         if len(self.pulses) > 0:
             d.update(pulses=[attr.asdict(pulse) for pulse in self.pulses])

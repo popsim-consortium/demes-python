@@ -1,0 +1,48 @@
+description: The Gutenkunst et al. (2009) three-population model of human history. Time
+  is given in years in the past. Coices to make, 1) which ends of the epochs should
+  start and end times describe, 2) once that's decided, initial and final sizes should
+  correspond to start and end time, resp. Currently, I'm looking backward in time, so
+  start time is more recent and end time is the epoch interval end point farther in the
+  past.  
+doi: 10.1371/journal.pgen.1000695
+time_units: years
+generation_time: 25
+demes:
+  ancestral:
+    description: Equilibrium/root population
+    end_time: 220e3
+    initial_size: 7300
+  AMH:
+    description: Anatomically modern humans
+    ancestors: ancestral
+    end_time: 140e3
+    initial_size: 12300
+  OOA:
+    description: Bottleneck out-of-Africa population
+    ancestors: AMH
+    end_time: 21.2e3
+    initial_size: 2100
+  YRI:
+    description: Yoruba in Ibadan, Nigeria
+    ancestors: AMH
+    initial_size: 12300
+  CEU:
+    description: Utah Residents (CEPH) with Northern and Western European Ancestry
+    ancestors: OOA
+    initial_size: 1000
+    final_size: 29725
+  CHB:
+    description: Han Chinese in Beijing, China
+    ancestors: OOA
+    initial_size: 510
+    final_size: 54090
+migrations:
+  symmetric:
+  - demes: YRI, OOA
+    rate: 25e-5
+  - demes: YRI, CEU
+    rate: 3e-5
+  - demes: YRI, CHB
+    rate: 1.9e-5
+  - demes: CEU, CHB
+    rate: 9.6e-5

@@ -1,0 +1,17 @@
+description: A single-population model with varying size change functions in different
+  epochs.
+generation_time: 1
+time_units: generations
+demes:
+  my_pop:
+    description: Multi-epoch population
+    epochs:
+    - initial_size: 1e4
+      end_time: 1000
+    - initial_size: 1e3
+      final_size: 1e4
+      end_time: 100
+      size_function: linear
+    - initial_size: 1e4
+      final_size: 1e2
+      end_time: 0
