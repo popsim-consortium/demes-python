@@ -174,6 +174,13 @@ class Split:
     children: List[ID] = attr.ib()
     time: Time = attr.ib(validator=[non_negative, finite])
 
+    def __attrs_post_init__(self):
+        if not isinstance(self.children, list):
+            raise ValueError("children of split must be passed as a list")
+        for child in self.children:
+            if child == self.parent:
+                raise ValueError("child and parent cannot be the same deme")
+
 
 @attr.s(auto_attribs=True)
 class Branch:
@@ -188,6 +195,10 @@ class Branch:
     parent: ID = attr.ib()
     child: ID = attr.ib()
     time: Time = attr.ib(validator=[non_negative, finite])
+
+    def __attrs_post_init__(self):
+        if self.child == self.parent:
+            raise ValueError("child and parent cannot be the same deme")
 
 
 @attr.s(auto_attribs=True)
@@ -207,11 +218,20 @@ class Merge:
     time: Time = attr.ib(validator=[non_negative, finite])
 
     def __attrs_post_init__(self):
+        if not isinstance(self.parents, list):
+            raise ValueError("parents must be passed as a list")
+        if not isinstance(self.proportions, list):
+            raise ValueError("proportions must be passed as a list")
+        if len(self.parents) < 2:
+            raise ValueError("merge must involve at least two ancestors")
         if math.isclose(sum(self.proportions), 1) is False:
-            raise ValueError("Proportions must sum to 1")
+            raise ValueError("proportions must sum to 1")
         if len(self.parents) != len(self.proportions):
             raise ValueError("parents and proportions must have same length")
-
+        if self.child in self.parents:
+            raise ValueError("merged deme cannot be its own ancestor")
+        if len(set(self.parents)) != len(self.parents):
+            raise ValueError("cannot repeat parents in merge")
 
 @attr.s(auto_attribs=True)
 class Admix:
@@ -230,10 +250,20 @@ class Admix:
     time: Time = attr.ib(validator=[non_negative, finite])
 
     def __attrs_post_init__(self):
+        if not isinstance(self.parents, list):
+            raise ValueError("parents must be passed as a list")
+        if not isinstance(self.proportions, list):
+            raise ValueError("proportions must be passed as a list")
+        if len(self.parents) < 2:
+            raise ValueError("admixture must involve at least two ancestors")
         if math.isclose(sum(self.proportions), 1) is False:
             raise ValueError("Proportions must sum to 1")
         if len(self.parents) != len(self.proportions):
             raise ValueError("parents and proportions must have same length")
+        if self.child in self.parents:
+            raise ValueError("admixed deme cannot be its own ancestor")
+        if len(set(self.parents)) != len(self.parents):
+            raise ValueError("cannot repeat parents in admixure")
 
 
 @attr.s(auto_attribs=True)
