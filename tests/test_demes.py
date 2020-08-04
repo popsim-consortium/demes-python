@@ -41,6 +41,10 @@ class TestEpoch(unittest.TestCase):
         Epoch(end_time=0, initial_size=100, final_size=1)
         Epoch(start_time=20, end_time=10, initial_size=1, final_size=100)
 
+    def test_inf_start_time_constant_epoch(self):
+        with self.assertRaises(ValueError):
+            Epoch(start_time=float("inf"), end_time=0, initial_size=10, final_size=20)
+
     ## APR (7/28): Add tests for selfing rate, cloning rate, and size function.
 
 class TestMigration(unittest.TestCase):
