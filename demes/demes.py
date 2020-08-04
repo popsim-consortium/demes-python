@@ -91,6 +91,13 @@ class Epoch:
             and self.start_time <= self.end_time
         ):
             raise ValueError("must have start_time > end_time")
+        if (
+            self.start_time is not None
+            and self.initial_size is not None
+            and self.final_size is not None
+        ):
+            if math.isinf(self.start_time) and self.initial_size != self.final_size:
+                raise ValueError("if start time is inf, must be a constant size epoch")
 
     @property
     def dt(self):
@@ -167,6 +174,13 @@ class Split:
     children: List[ID] = attr.ib()
     time: Time = attr.ib(validator=[non_negative, finite])
 
+    def __attrs_post_init__(self):
+        if not isinstance(self.children, list):
+            raise ValueError("children of split must be passed as a list")
+        for child in self.children:
+            if child == self.parent:
+                raise ValueError("child and parent cannot be the same deme")
+
 
 @attr.s(auto_attribs=True)
 class Branch:
@@ -179,8 +193,12 @@ class Branch:
     :ivar time: The branch time.
     """
     parent: ID = attr.ib()
-    children: ID = attr.ib()
+    child: ID = attr.ib()
     time: Time = attr.ib(validator=[non_negative, finite])
+
+    def __attrs_post_init__(self):
+        if self.child == self.parent:
+            raise ValueError("child and parent cannot be the same deme")
 
 
 @attr.s(auto_attribs=True)
@@ -200,11 +218,20 @@ class Merge:
     time: Time = attr.ib(validator=[non_negative, finite])
 
     def __attrs_post_init__(self):
+        if not isinstance(self.parents, list):
+            raise ValueError("parents must be passed as a list")
+        if not isinstance(self.proportions, list):
+            raise ValueError("proportions must be passed as a list")
+        if len(self.parents) < 2:
+            raise ValueError("merge must involve at least two ancestors")
         if math.isclose(sum(self.proportions), 1) is False:
-            raise ValueError("Proportions must sum to 1")
+            raise ValueError("proportions must sum to 1")
         if len(self.parents) != len(self.proportions):
             raise ValueError("parents and proportions must have same length")
-
+        if self.child in self.parents:
+            raise ValueError("merged deme cannot be its own ancestor")
+        if len(set(self.parents)) != len(self.parents):
+            raise ValueError("cannot repeat parents in merge")
 
 @attr.s(auto_attribs=True)
 class Admix:
@@ -223,10 +250,20 @@ class Admix:
     time: Time = attr.ib(validator=[non_negative, finite])
 
     def __attrs_post_init__(self):
+        if not isinstance(self.parents, list):
+            raise ValueError("parents must be passed as a list")
+        if not isinstance(self.proportions, list):
+            raise ValueError("proportions must be passed as a list")
+        if len(self.parents) < 2:
+            raise ValueError("admixture must involve at least two ancestors")
         if math.isclose(sum(self.proportions), 1) is False:
             raise ValueError("Proportions must sum to 1")
         if len(self.parents) != len(self.proportions):
             raise ValueError("parents and proportions must have same length")
+        if self.child in self.parents:
+            raise ValueError("admixed deme cannot be its own ancestor")
+        if len(set(self.parents)) != len(self.parents):
+            raise ValueError("cannot repeat parents in admixure")
 
 
 @attr.s(auto_attribs=True)
@@ -662,14 +699,15 @@ class DemeGraph:
         :param time: The time at which split occurs.
         """
         for child in children:
-            assert child in self.successors[parent]
-            assert parent in self.predecessors[child]
+            # check parent/children relationship and end/start times
             if child == parent:
                 raise ValueError(f"cannot be ancestor of own deme")
             if self[parent].end_time != self[child].start_time:
                 raise ValueError(
                     f"{parent} and {child} must have matching end and start times"
                 )
+            # the ancestor of each child population is set
+            self[child].ancestors = [parent]
         self.splits.append(Split(parent, children, time))
 
     def branch(self, parent, child, time):
@@ -683,6 +721,8 @@ class DemeGraph:
         if (self[child].start_time < self[parent].end_time or
             self[child].start_time >= self[parent].start_time):
             raise ValueError(f"{child} start time must be within {parent} time interval")
+        # set the ancestor of the child population
+        self[child].ancestors = [parent]
         self.branches.append(Branch(parent, child, time))
 
     def merge(self, parents, proportions, child, time):
@@ -695,6 +735,24 @@ class DemeGraph:
         :param children: The descendant deme.
         :param time: The time at which merger occurs.
         """
+        if self[child].start_time != time:
+            raise ValueError(f"{child}'s start time must equal admixture time of {time}")
+        # for parental populations, we check that their end time is <= merge time
+        for parent in parents:
+            if self[parent].end_time > time:
+                raise ValueError(f"deme {parent} has end time earlier than {time}")
+        # if any parent end times are more recent than merge time, we adjust the end
+        # and remove epochs that extend beyond that merger time
+        for parent in parents:
+            if self[parent].end_time < time:
+                while self[parent].epochs[-1].end_time < time:
+                    if self[parent].epochs[-1].start_time < time:
+                        del self[parent].epochs[-1]
+                    else:
+                        self[parent].epochs[-1].end_time = time
+        # set the ancestors and proportions of the child deme
+        self[child].ancestors = parents
+        self[child].proportions = proportions
         self.mergers.append(Merge(parents, proportions, child, time))
 
     def admix(self, parents, proportions, child, time):
@@ -707,6 +765,15 @@ class DemeGraph:
         :param children: The descendant deme.
         :param time: The time at which admixture occurs.
         """
+        if self[child].start_time != time:
+            raise ValueError(f"{child}'s start time must equal admixture time of {time}")
+        # for parental populations, we check that their end time is <= admixture time
+        for parent in parents:
+            if self[parent].end_time > time:
+                raise ValueError(f"deme {parent} has end time earlier than {time}")
+        # set the ancestors and proportions of the child deme
+        self[child].ancestors = parents
+        self[child].proportions = proportions
         self.admixtures.append(Admix(parents, proportions, child, time))
 
     def get_demographic_events(self):
@@ -716,6 +783,9 @@ class DemeGraph:
         then it is a merger or an admixture event, which we differentiate by end and
         start times of those demes. If a deme has a single predecessor, we check
         whether it is a branch (start time != predecessor's end time), or split.
+
+        This is only used when we build a demography from a YAML file, since it
+        uses the successors/predecessors that are determined by ancestor relationships.
         """
         splits_to_add = {}
         for c, p in self.predecessors.items():

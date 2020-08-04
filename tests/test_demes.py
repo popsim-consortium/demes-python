@@ -1,6 +1,6 @@
 import unittest
 
-from demes import Epoch, Migration, Pulse, Deme, DemeGraph
+from demes import Epoch, Migration, Pulse, Deme, DemeGraph, Split, Branch, Merge, Admix
 
 
 class TestEpoch(unittest.TestCase):
@@ -40,6 +40,10 @@ class TestEpoch(unittest.TestCase):
         Epoch(end_time=0, initial_size=1, final_size=100)
         Epoch(end_time=0, initial_size=100, final_size=1)
         Epoch(start_time=20, end_time=10, initial_size=1, final_size=100)
+
+    def test_inf_start_time_constant_epoch(self):
+        with self.assertRaises(ValueError):
+            Epoch(start_time=float("inf"), end_time=0, initial_size=10, final_size=20)
 
     ## APR (7/28): Add tests for selfing rate, cloning rate, and size function.
 
@@ -85,18 +89,106 @@ class TestPulse(unittest.TestCase):
         Pulse("a", "b", time=1, proportion=1e-9)
         Pulse("a", "b", time=100, proportion=0.9)
 
-## APR (7/28): These next classes do not yet have tests; they need them.
+
 class TestSplit(unittest.TestCase):
-    pass
-    
+    def test_bad_time(self):
+        for time in [-1e-12, -1, float("inf")]:
+            with self.assertRaises(ValueError):
+                Split("a", ["b", "c"], time)
+
+    def test_children(self):
+        with self.assertRaises(ValueError):
+            Split("a", "b", 1)
+        with self.assertRaises(ValueError):
+            Split("a", ["a", "b"], 1)
+
+    def test_valid_split(self):
+        Split("a", ["b", "c"], 10)
+        Split("a", ["b", "c", "d"], 10)
+        Split("a", ["b", "c"], 0)
+
+
 class TestBranch(unittest.TestCase):
-    pass
+    def test_bad_time(self):
+        for time in [-1e-12, -1, float("inf")]:
+            with self.assertRaises(ValueError):
+                Branch("a", "b", time)
+
+    def test_branch_demes(self):
+        with self.assertRaises(ValueError):
+            Branch("a", "a", 1)
+
+    def test_valid_branch(self):
+        Branch("a", "b", 10)
+        Branch("a", "b", 0)
+
 
 class TestMerge(unittest.TestCase):
-    pass
+    def test_bad_time(self):
+        for time in [-1e-12, -1, float("inf")]:
+            with self.assertRaises(ValueError):
+                Merge(["a", "b"], [0.5, 0.5], "c", time)
+
+    def test_merged_demes(self):
+        with self.assertRaises(ValueError):
+            Merge("a", [1], "b", 1)
+        with self.assertRaises(ValueError):
+            Merge(["a"], [1], "b", 1)
+        with self.assertRaises(ValueError):
+            Merge(["a", "b"], [0.5, 0.5], "a", 1)
+        with self.assertRaises(ValueError):
+            Merge(["a", "a"], [0.5, 0.5], "b", 1)
+
+    def test_invalid_proportions(self):
+        with self.assertRaises(ValueError):
+            Merge(["a", "b"], [0.1, 1], "c", 1)
+        with self.assertRaises(ValueError):
+            Merge(["a", "b"], [0.5], "c", 1)
+        with self.assertRaises(ValueError):
+            Merge(["a", "b"], [1.], "c", 1)
+        with self.assertRaises(ValueError):
+            Merge(["a", "b", "c"], [0.5, 0.5, 0.5], "d", 1)
+
+    def test_valid_merge(self):
+        Merge(["a", "b"], [0.5, 0.5], "c", 10)
+        Merge(["a", "b"], [0.5, 0.5], "c", 0)
+        Merge(["a", "b", "c"], [0.5, 0.25, 0.25], "d", 10)
+        Merge(["a", "b", "c"], [0.5, 0.5, 0.], "d", 10)
+        Merge(["a", "b"], [1, 0], "c", 10)
+
 
 class TestAdmix(unittest.TestCase):
-    pass
+    def test_bad_time(self):
+        for time in [-1e-12, -1, float("inf")]:
+            with self.assertRaises(ValueError):
+                Admix(["a", "b"], [0.5, 0.5], "c", time)
+
+    def test_admixture_demes(self):
+        with self.assertRaises(ValueError):
+            Admix("a", [1], "b", 1)
+        with self.assertRaises(ValueError):
+            Admix(["a"], [1], "b", 1)
+        with self.assertRaises(ValueError):
+            Admix(["a", "b"], [0.5, 0.5], "a", 1)
+        with self.assertRaises(ValueError):
+            Admix(["a", "a"], [0.5, 0.5], "b", 1)
+
+    def test_invalid_proportions(self):
+        with self.assertRaises(ValueError):
+            Admix(["a", "b"], [0.1, 1], "c", 1)
+        with self.assertRaises(ValueError):
+            Admix(["a", "b"], [0.5], "c", 1)
+        with self.assertRaises(ValueError):
+            Admix(["a", "b"], [1.], "c", 1)
+        with self.assertRaises(ValueError):
+            Admix(["a", "b", "c"], [0.5, 0.5, 0.5], "d", 1)
+
+    def test_valid_admixture(self):
+        Admix(["a", "b"], [0.5, 0.5], "c", 10)
+        Admix(["a", "b"], [0.5, 0.5], "c", 0)
+        Admix(["a", "b", "c"], [0.5, 0.25, 0.25], "d", 10)
+        Admix(["a", "b", "c"], [0.5, 0.5, 0.], "d", 10)
+        Admix(["a", "b"], [1, 0], "c", 10)
 
 
 class TestDeme(unittest.TestCase):
