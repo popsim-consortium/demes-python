@@ -433,7 +433,7 @@ class DemeGraph:
 
     description: str = attr.ib()
     time_units: str = attr.ib()
-    generation_time: Time = attr.ib(validator=[positive, finite])
+    generation_time: Time = attr.ib(default=None, validator=optional([positive, finite]))
     default_Ne: Size = attr.ib(default=None, validator=optional([positive, finite]))
     doi: str = attr.ib(default=None)
     demes: List[Deme] = attr.ib(factory=list)
@@ -479,9 +479,8 @@ class DemeGraph:
         Add a deme to the graph.
 
         :param str id: A string identifier for the deme.
-        :param list ancestors: A list of ancestors of this deme. May be ``None``,
-            but cannot specify both ``ancestor`` and ``ancestors``. If ``ancestors``
-            is given, must also give ``proportions``.
+        :param list ancestors: A list of ancestors of this deme. May be ``None``.
+            If ``len(ancestors) > 1``, must also give ``proportions``.
         :param list proportions: A list of proportions of ancestory for ``ancestors``.
             Proportions must sum to 1.
         :param start_time: The time at which this deme begins existing.
@@ -509,6 +508,8 @@ class DemeGraph:
             cloning_rate = self.cloning_rate
         # set the start time to inf or to the ancestors end times, if not given
         if ancestors is not None:
+            if not isinstance(ancestors, (list, tuple)):
+                raise TypeError("ancestors must be a list of deme IDs")
             if len(ancestors) > 1 and start_time is None:
                 raise ValueError("must specify start time if more than one ancestor")
             if ancestors[0] in self and start_time is None:
@@ -604,19 +605,19 @@ class DemeGraph:
         self._deme_map[deme.id] = deme
         self.demes.append(deme)
 
-    def check_time_intersection(self, deme1, deme2, time, closed=False):
+    def check_time_intersection(self, deme1, deme2, time):
         deme1 = self[deme1]
         deme2 = self[deme2]
         time_lo = max(deme1.end_time, deme2.end_time)
         time_hi = min(deme1.start_time, deme2.start_time)
         if time is not None:
-            if (not closed and not (time_lo <= time < time_hi)) or (
-                closed and not (time_lo <= time <= time_hi)
-            ):
-                bracket = "]" if closed else ")"
+            if not (time_lo <= time <= time_hi):
                 raise ValueError(
-                    f"{time} not in interval [{time_lo}, {time_hi}{bracket}, "
-                    f"as defined by the time-intersection of {deme1} and {deme2}."
+                    f"{time} not in interval [{time_lo}, {time_hi}], "
+                    f"as defined by the time-intersection of {deme1.id} "
+                    f"(start_time={deme1.start_time}, end_time={deme1.end_time}) "
+                    f"and {deme2.id} (start_time={deme2.start_time}, "
+                    f"end_time={deme2.end_time})."
                 )
         return time_lo, time_hi
 
@@ -626,7 +627,7 @@ class DemeGraph:
 
         :param demes: list of deme IDs. Migration is symmetric between all
             pairs of demes in this list.
-        :param rate: The rate of migration per ``time_units``. # or per generation?
+        :param rate: The rate of migration per generation.
         :param start_time: The time at which the migration rate is enabled.
         :param end_time: The time at which the migration rate is disabled.
         """
@@ -644,7 +645,7 @@ class DemeGraph:
 
         :param source: The source deme.
         :param dest: The destination deme.
-        :param rate: The rate of migration per ``time_units``.
+        :param rate: The rate of migration per generation.
         :param start_time: The time at which the migration rate is enabled.
             If ``None``, the start time is defined by the earliest time at
             which the demes coexist.
@@ -681,7 +682,7 @@ class DemeGraph:
         for deme_id in (source, dest):
             if deme_id not in self:
                 raise ValueError(f"{deme_id} not in deme graph")
-        self.check_time_intersection(source, dest, time, closed=True)
+        self.check_time_intersection(source, dest, time)
         self.pulses.append(Pulse(source, dest, time, proportion))
 
     @property
@@ -724,7 +725,7 @@ class DemeGraph:
         for child in children:
             # check parent/children relationship and end/start times
             if child == parent:
-                raise ValueError(f"cannot be ancestor of own deme")
+                raise ValueError("cannot be ancestor of own deme")
             if self[parent].end_time != self[child].start_time:
                 raise ValueError(
                     f"{parent} and {child} must have matching end and start times"
@@ -883,8 +884,9 @@ class DemeGraph:
         d = dict(
             description=self.description,
             time_units=self.time_units,
-            generation_time=self.generation_time,
         )
+        if self.generation_time is not None:
+            d.update(generation_time=self.generation_time)
         if self.doi is not None:
             d.update(doi=self.doi)
         if self.default_Ne is not None:

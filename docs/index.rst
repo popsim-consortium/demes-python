@@ -11,6 +11,7 @@ Welcome to demes' documentation!
    :caption: Contents:
 
    api
+   convert
 
 
 Indices and tables

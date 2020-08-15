@@ -1,0 +1,5 @@
+This folder contains functions to convert to and from formats accepted by
+third-party libraries. It's expected that this functionality will eventually be
+integrated into those third-party libraries, so this folder is likely to be
+removed in the future.  Files here have an underscore suffix to avoid clashing
+with the imported module (e.g. we 'import msprime' from within msprime_.py).
