@@ -1,13 +1,25 @@
 import unittest
+import copy
+import pathlib
 
-from demes import Epoch, Migration, Pulse, Deme, DemeGraph, Split, Branch, Merge, Admix
+from demes import (
+    Epoch,
+    Migration,
+    Pulse,
+    Deme,
+    DemeGraph,
+    Split,
+    Branch,
+    Merge,
+    Admix,
+    load,
+)
 
 
 class TestEpoch(unittest.TestCase):
     def test_bad_time(self):
         for start_time in (-10000, -1, -1e-9):
             with self.assertRaises(ValueError):
-                print(start_time)
                 Epoch(start_time=start_time, end_time=0, initial_size=1)
         for end_time in (-10000, -1, -1e-9, float("inf")):
             with self.assertRaises(ValueError):
@@ -46,6 +58,7 @@ class TestEpoch(unittest.TestCase):
             Epoch(start_time=float("inf"), end_time=0, initial_size=10, final_size=20)
 
     ## APR (7/28): Add tests for selfing rate, cloning rate, and size function.
+
 
 class TestMigration(unittest.TestCase):
     def test_bad_time(self):
@@ -145,7 +158,7 @@ class TestMerge(unittest.TestCase):
         with self.assertRaises(ValueError):
             Merge(["a", "b"], [0.5], "c", 1)
         with self.assertRaises(ValueError):
-            Merge(["a", "b"], [1.], "c", 1)
+            Merge(["a", "b"], [1.0], "c", 1)
         with self.assertRaises(ValueError):
             Merge(["a", "b", "c"], [0.5, 0.5, 0.5], "d", 1)
 
@@ -153,7 +166,7 @@ class TestMerge(unittest.TestCase):
         Merge(["a", "b"], [0.5, 0.5], "c", 10)
         Merge(["a", "b"], [0.5, 0.5], "c", 0)
         Merge(["a", "b", "c"], [0.5, 0.25, 0.25], "d", 10)
-        Merge(["a", "b", "c"], [0.5, 0.5, 0.], "d", 10)
+        Merge(["a", "b", "c"], [0.5, 0.5, 0.0], "d", 10)
         Merge(["a", "b"], [1, 0], "c", 10)
 
 
@@ -179,7 +192,7 @@ class TestAdmix(unittest.TestCase):
         with self.assertRaises(ValueError):
             Admix(["a", "b"], [0.5], "c", 1)
         with self.assertRaises(ValueError):
-            Admix(["a", "b"], [1.], "c", 1)
+            Admix(["a", "b"], [1.0], "c", 1)
         with self.assertRaises(ValueError):
             Admix(["a", "b", "c"], [0.5, 0.5, 0.5], "d", 1)
 
@@ -187,21 +200,27 @@ class TestAdmix(unittest.TestCase):
         Admix(["a", "b"], [0.5, 0.5], "c", 10)
         Admix(["a", "b"], [0.5, 0.5], "c", 0)
         Admix(["a", "b", "c"], [0.5, 0.25, 0.25], "d", 10)
-        Admix(["a", "b", "c"], [0.5, 0.5, 0.], "d", 10)
+        Admix(["a", "b", "c"], [0.5, 0.5, 0.0], "d", 10)
         Admix(["a", "b"], [1, 0], "c", 10)
 
 
 class TestDeme(unittest.TestCase):
     def test_properties(self):
         deme = Deme(
-            "a", "b", ["c"], [1], [Epoch(start_time=float("inf"), end_time=0, initial_size=1)]
+            "a",
+            "b",
+            ["c"],
+            [1],
+            [Epoch(start_time=float("inf"), end_time=0, initial_size=1)],
         )
         self.assertEqual(deme.start_time, float("inf"))
         self.assertEqual(deme.end_time, 0)
         self.assertEqual(deme.ancestors[0], "c")
         self.assertEqual(deme.proportions[0], 1)
 
-        deme = Deme("a", "b", ["c"], [1], [Epoch(start_time=100, end_time=50, initial_size=1)])
+        deme = Deme(
+            "a", "b", ["c"], [1], [Epoch(start_time=100, end_time=50, initial_size=1)]
+        )
         self.assertEqual(deme.start_time, 100)
         self.assertEqual(deme.end_time, 50)
         deme.add_epoch(Epoch(start_time=50, end_time=20, initial_size=100))
@@ -229,7 +248,9 @@ class TestDeme(unittest.TestCase):
             )
 
     def test_epochs_out_of_order(self):
-        deme = Deme("a", "b", ["c"], [1], [Epoch(start_time=10, end_time=5, initial_size=1)])
+        deme = Deme(
+            "a", "b", ["c"], [1], [Epoch(start_time=10, end_time=5, initial_size=1)]
+        )
         for time in (5, -1, float("inf")):
             with self.assertRaises(ValueError):
                 deme.add_epoch(Epoch(start_time=5, end_time=time, initial_size=100))
@@ -255,7 +276,8 @@ class TestDeme(unittest.TestCase):
 
     ## APR (7/28): Add tests for selfing rate, cloning rate, and size function.
     ## Add tests for testing ancestors and proportions.
-    ## Also add tests for any implied values. 
+    ## Also add tests for any implied values.
+
 
 class TestDemeGraph(unittest.TestCase):
     def test_bad_generation_time(self):
@@ -276,3 +298,64 @@ class TestDemeGraph(unittest.TestCase):
                     generation_time=1,
                     default_Ne=N,
                 )
+
+    def check_in_generations(self, dg1):
+        assert dg1.generation_time is not None
+        assert dg1.generation_time > 1
+        dg1_copy = copy.deepcopy(dg1)
+        dg2 = dg1.in_generations()
+        # in_generations() shouldn't modify the original
+        self.assertEqual(dg1.asdict(), dg1_copy.asdict())
+        # but clearly dg2 should now differ
+        self.assertNotEqual(dg1.asdict(), dg2.asdict())
+
+        # Alternate implementation, which recurses the object hierarchy.
+        def in_generations2(dg):
+            generation_time = dg.generation_time
+            dg = copy.deepcopy(dg)
+            dg.time_units = "generations"
+            if generation_time is None:
+                return dg
+            dg.generation_time = None
+
+            def divide_time_attrs(obj):
+                if not hasattr(obj, "__dict__"):
+                    return
+                for name, value in obj.__dict__.items():
+                    if name in ("time", "start_time", "end_time"):
+                        if value is not None:
+                            setattr(obj, name, value / generation_time)
+                    elif isinstance(value, (list, tuple)):
+                        for a in value:
+                            divide_time_attrs(a)
+                    else:
+                        divide_time_attrs(value)
+
+            divide_time_attrs(dg)
+            return dg
+
+        self.assertEqual(in_generations2(dg1).asdict(), dg2.asdict())
+        # in_generations2() shouldn't modify the original
+        self.assertEqual(dg1.asdict(), dg1_copy.asdict())
+
+        # in_generations() should be idempotent
+        dg3 = dg2.in_generations()
+        self.assertEqual(dg2.asdict(), dg3.asdict())
+        dg3 = in_generations2(dg2)
+        self.assertEqual(dg2.asdict(), dg3.asdict())
+
+    def test_in_generations(self):
+        examples = list(pathlib.Path("examples").glob("*.yml"))
+        examples.extend(list(pathlib.Path("../examples").glob("*.yml")))
+        if len(examples) == 0:
+            raise RuntimeError(
+                "Can't find any examples. The tests should be run from the "
+                "'test' directory or the toplevel directory."
+            )
+        i = 0
+        for yml in examples:
+            dg = load(yml)
+            if dg.generation_time not in (None, 1):
+                self.check_in_generations(dg)
+                i += 1
+        self.assertGreater(i, 0)
