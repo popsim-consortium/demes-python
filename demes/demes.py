@@ -100,7 +100,7 @@ class Epoch:
                 raise ValueError("if start time is inf, must be a constant size epoch")
 
     @property
-    def dt(self):
+    def time_span(self):
         """
         The time span of the epoch.
         """
@@ -328,7 +328,7 @@ class Deme:
             )
         if prev_epoch.end_time != epoch.start_time:
             raise ValueError("cannot have gap between consecutive epochs")
-        if epoch.dt <= 0:
+        if epoch.time_span <= 0:
             raise ValueError("epoch must exist for some positive time")
         # implicitly set the initial and final sizes, if not given
         if epoch.initial_size is None:
@@ -371,7 +371,7 @@ class Deme:
         return self.epochs[-1].end_time
 
     @property
-    def dt(self):
+    def time_span(self):
         """
         The time span over which the deme exists.
         """
