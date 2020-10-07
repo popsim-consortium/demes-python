@@ -13,8 +13,6 @@ of a demographic model.
   we can see part of the role of this package as *compiling* the high-level description of 
   a model into the corresponding low-level description.
 - Robust validation of models and reporting of errors for invalid models.
-- Agnostic to choice of time-parameterisation (forwards, backwards,
-  continuous, discrete).
 - Incremental. A model can be constructed incrementally, remaining valid
   at each step of construction.
 - Extensible. It should be easy to extend the in-memory description with
