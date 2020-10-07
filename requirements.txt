@@ -1,2 +1,7 @@
 attrs>=19.1.0
 strictyaml
+msprime
+stdpopsim
+flake8
+pytest
+mypy

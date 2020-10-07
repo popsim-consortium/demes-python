@@ -3,6 +3,7 @@ from demes import DemeGraph, Epoch
 ## The parameters in this file have NOT been verified, and should not be trusted to be
 ## accurate. For verified demographic models, see stdpopsim implementations.
 
+
 def zigzag():
     N1 = 1431
     N2 = 14312
@@ -128,25 +129,35 @@ def jacobs_papuans():
         "Papua",
         ancestors=["Ghost1"],
         # bottleneck
-        epochs=[Epoch(end_time=1685, initial_size=243),
-                Epoch(end_time=0, initial_size=8834)],
+        epochs=[
+            Epoch(end_time=1685, initial_size=243),
+            Epoch(end_time=0, initial_size=8834),
+        ],
     )
     g.deme(
         "Eurasia",
         ancestors=["Ghost2"],
         # bottleneck
-        epochs=[Epoch(end_time=T_Eu_bottleneck, initial_size=2231),
-                Epoch(end_time=1293, initial_size=12971)]
+        epochs=[
+            Epoch(end_time=T_Eu_bottleneck, initial_size=2231),
+            Epoch(end_time=1293, initial_size=12971),
+        ],
     )
     g.deme("WestEurasia", ancestors=["Eurasia"], initial_size=6962)
     g.deme("EastAsia", ancestors=["Eurasia"], initial_size=9025)
 
-    g.symmetric_migration(demes=["Africa", "Ghost3"], rate=1.79e-4, start_time=T_Eu_bottleneck)
+    g.symmetric_migration(
+        demes=["Africa", "Ghost3"], rate=1.79e-4, start_time=T_Eu_bottleneck
+    )
     g.symmetric_migration(demes=["Ghost3", "WestEurasia"], rate=4.42e-4)
     g.symmetric_migration(demes=["WestEurasia", "EastAsia"], rate=3.14e-5)
     g.symmetric_migration(demes=["EastAsia", "Papua"], rate=5.72e-5)
-    g.symmetric_migration(demes=["Eurasia", "Papua"], rate=5.72e-4, start_time=T_Eu_bottleneck)
-    g.symmetric_migration(demes=["Ghost3", "Eurasia"], rate=4.42e-4, start_time=T_Eu_bottleneck)
+    g.symmetric_migration(
+        demes=["Eurasia", "Papua"], rate=5.72e-4, start_time=T_Eu_bottleneck
+    )
+    g.symmetric_migration(
+        demes=["Ghost3", "Eurasia"], rate=4.42e-4, start_time=T_Eu_bottleneck
+    )
 
     g.pulse(source="NeaI", dest="EastAsia", proportion=0.002, time=883)
     g.pulse(source="NeaI", dest="Papua", proportion=0.002, time=1412)

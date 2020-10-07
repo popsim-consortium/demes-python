@@ -1,10 +1,12 @@
-from typing import List, Mapping, Union
+import typing
+from typing import List, Mapping, Union, Optional
 import itertools
 import math
 import collections
 import copy
 
 import attr
+from attr.validators import optional
 
 Number = Union[int, float]
 ID = str
@@ -37,23 +39,62 @@ def unit_interval(self, attribute, value):
         raise ValueError(f"must have 0 <= {attribute.name} <= 1")
 
 
-def optional(func):
+def eq_can_be_function(attrs_cls):
     """
-    Wraps one or more validator functions with an "if not None" clause.
+    Class decorator for attrs classes that mimics the functionality of the
+    not-yet-merged https://github.com/python-attrs/attrs/pull/627
+    This makes it possible to pass an `eq=some_func` arg to attr.ib(),
+    which will be used when comparing that attribute during object
+    equality tests.
+
+    TODO: Remove this when the attrs pr makes its way into a release.
     """
-    if isinstance(func, (tuple, list)):
-        func_list = func
+
+    def __eq__(self, other):
+        """
+        Compare two objects for equality.
+        """
+        if other.__class__ is not self.__class__:
+            return NotImplemented
+        for attr in self.__attrs_attrs__:
+            if attr.eq:
+                a1 = getattr(self, attr.name)
+                a2 = getattr(other, attr.name)
+                if callable(attr.eq):
+                    if not attr.eq(a1, a2):
+                        return False
+                # Bizarrely, nan!=nan but (nan,)==(nan,). We don't expect to be
+                # doing nan comparisons here, but the latter behaviour matches
+                # attrs (and makes more sense generally).
+                elif (a1,) != (a2,):
+                    return False
+        return True
+
+    attrs_cls.__eq__ = __eq__
+    return attrs_cls
+
+
+# Because we overload the ``eq`` parameter to attrib, allowing it to be a
+# callable, mypy complains about the type. So we introduce a wrapper here
+# and tell mypy to ignore the types.
+# TODO: remove this once we remove the ``eq_can_be_function`` decorator.
+def attrib(*args, **kwargs):  # type: ignore
+    return attr.attrib(*args, **kwargs)
+
+
+def isclose(a: Optional[Number], b: Optional[Number]) -> bool:
+    """
+    Wrapper around math.isclose() that handles None.
+    """
+    if None in (a, b):
+        return (a,) == (b,)
     else:
-        func_list = [func]
-
-    def validator(self, attribute, value):
-        if value is not None:
-            for func in func_list:
-                func(self, attribute, value)
-
-    return validator
+        return math.isclose(
+            typing.cast(typing.SupportsFloat, a), typing.cast(typing.SupportsFloat, b)
+        )
 
 
+@eq_can_be_function
 @attr.s(auto_attribs=True)
 class Epoch:
     """
@@ -76,16 +117,22 @@ class Epoch:
     :ivar cloning_rate: An optional cloning rate for this epoch.
     """
 
-    start_time: Time = attr.ib(default=None, validator=optional([non_negative]))
-    end_time: Time = attr.ib(default=None, validator=[non_negative, finite])
-    initial_size: Size = attr.ib(default=None, validator=optional([positive, finite]))
-    final_size: Size = attr.ib(default=None, validator=optional([positive, finite]))
-    size_function: str = attr.ib(default=None)
-    selfing_rate: Proportion = attr.ib(
-        default=None, validator=optional([unit_interval])
+    start_time: Time = attrib(
+        default=None, validator=optional(non_negative), eq=isclose
     )
-    cloning_rate: Proportion = attr.ib(
-        default=None, validator=optional([unit_interval])
+    end_time: Time = attrib(default=None, validator=[non_negative, finite], eq=isclose)
+    initial_size: Size = attrib(
+        default=None, validator=optional([positive, finite]), eq=isclose
+    )
+    final_size: Size = attrib(
+        default=None, validator=optional([positive, finite]), eq=isclose
+    )
+    size_function: str = attrib(default=None)
+    selfing_rate: Proportion = attrib(
+        default=None, validator=optional(unit_interval), eq=isclose
+    )
+    cloning_rate: Proportion = attrib(
+        default=None, validator=optional(unit_interval), eq=isclose
     )
 
     def __attrs_post_init__(self):
@@ -113,6 +160,7 @@ class Epoch:
         return self.start_time - self.end_time
 
 
+@eq_can_be_function
 @attr.s(auto_attribs=True)
 class Migration:
     """
@@ -129,17 +177,18 @@ class Migration:
         the given time.
     """
 
-    source: ID = attr.ib()
-    dest: ID = attr.ib()
-    start_time: Time = attr.ib(validator=[non_negative])
-    end_time: Time = attr.ib(validator=[non_negative, finite])
-    rate: Rate = attr.ib(validator=[non_negative, finite])
+    source: ID = attrib()
+    dest: ID = attrib()
+    start_time: Time = attrib(validator=non_negative, eq=isclose)
+    end_time: Time = attrib(validator=[non_negative, finite], eq=isclose)
+    rate: Rate = attrib(validator=[non_negative, finite], eq=isclose)
 
     def __attrs_post_init__(self):
         if self.source == self.dest:
             raise ValueError("source and dest cannot be the same deme")
 
 
+@eq_can_be_function
 @attr.s(auto_attribs=True)
 class Pulse:
     """
@@ -156,16 +205,17 @@ class Pulse:
         the source deme.
     """
 
-    source: ID = attr.ib()
-    dest: ID = attr.ib()
-    time: Time = attr.ib(validator=[non_negative, finite])
-    proportion: Proportion = attr.ib(validator=unit_interval)
+    source: ID = attrib()
+    dest: ID = attrib()
+    time: Time = attrib(validator=[non_negative, finite], eq=isclose)
+    proportion: Proportion = attrib(validator=unit_interval, eq=isclose)
 
     def __attrs_post_init__(self):
         if self.source == self.dest:
             raise ValueError("source and dest cannot be the same deme")
 
 
+@eq_can_be_function
 @attr.s(auto_attribs=True)
 class Split:
     """
@@ -179,9 +229,9 @@ class Split:
     :ivar time: The split time.
     """
 
-    parent: ID = attr.ib()
-    children: List[ID] = attr.ib()
-    time: Time = attr.ib(validator=[non_negative, finite])
+    parent: ID = attrib()
+    children: List[ID] = attrib()
+    time: Time = attrib(validator=[non_negative, finite], eq=isclose)
 
     def __attrs_post_init__(self):
         if not isinstance(self.children, list):
@@ -191,6 +241,7 @@ class Split:
                 raise ValueError("child and parent cannot be the same deme")
 
 
+@eq_can_be_function
 @attr.s(auto_attribs=True)
 class Branch:
     """
@@ -202,15 +253,16 @@ class Branch:
     :ivar time: The branch time.
     """
 
-    parent: ID = attr.ib()
-    child: ID = attr.ib()
-    time: Time = attr.ib(validator=[non_negative, finite])
+    parent: ID = attrib()
+    child: ID = attrib()
+    time: Time = attrib(validator=[non_negative, finite], eq=isclose)
 
     def __attrs_post_init__(self):
         if self.child == self.parent:
             raise ValueError("child and parent cannot be the same deme")
 
 
+@eq_can_be_function
 @attr.s(auto_attribs=True)
 class Merge:
     """
@@ -223,10 +275,10 @@ class Merge:
     :ivar time: The merge time.
     """
 
-    parents: List[ID] = attr.ib()
-    proportions: List[Proportion] = attr.ib()
-    child: ID = attr.ib()
-    time: Time = attr.ib(validator=[non_negative, finite])
+    parents: List[ID] = attrib()
+    proportions: List[Proportion] = attrib()
+    child: ID = attrib()
+    time: Time = attrib(validator=[non_negative, finite], eq=isclose)
 
     def __attrs_post_init__(self):
         if not isinstance(self.parents, list):
@@ -245,6 +297,7 @@ class Merge:
             raise ValueError("cannot repeat parents in merge")
 
 
+@eq_can_be_function
 @attr.s(auto_attribs=True)
 class Admix:
     """
@@ -257,10 +310,10 @@ class Admix:
     :ivar time: The admixture time.
     """
 
-    parents: List[ID] = attr.ib()
-    proportions: List[Proportion] = attr.ib()
-    child: ID = attr.ib()
-    time: Time = attr.ib(validator=[non_negative, finite])
+    parents: List[ID] = attrib()
+    proportions: List[Proportion] = attrib()
+    child: ID = attrib()
+    time: Time = attrib(validator=[non_negative, finite], eq=isclose)
 
     def __attrs_post_init__(self):
         if not isinstance(self.parents, list):
@@ -279,6 +332,7 @@ class Admix:
             raise ValueError("cannot repeat parents in admixure")
 
 
+@eq_can_be_function
 @attr.s(auto_attribs=True)
 class Deme:
     """
@@ -298,16 +352,16 @@ class Deme:
     :ivar cloning_rate: An optional cloning rate for this deme.
     """
 
-    id: ID = attr.ib()
-    description: str = attr.ib()
-    ancestors: List[ID] = attr.ib()
-    proportions: List[Proportion] = attr.ib()
-    epochs: List[Epoch] = attr.ib()
-    selfing_rate: Proportion = attr.ib(
-        default=None, validator=optional([unit_interval])
+    id: ID = attrib()
+    description: str = attrib()
+    ancestors: List[ID] = attrib()
+    proportions: List[Proportion] = attrib()
+    epochs: List[Epoch] = attrib()
+    selfing_rate: Proportion = attrib(
+        default=None, validator=optional([unit_interval]), eq=isclose
     )
-    cloning_rate: Proportion = attr.ib(
-        default=None, validator=optional([unit_interval])
+    cloning_rate: Proportion = attrib(
+        default=None, validator=optional([unit_interval]), eq=isclose
     )
 
     @epochs.validator
@@ -319,10 +373,13 @@ class Deme:
             )
 
     def __attrs_post_init__(self):
-        if self.ancestors is not None and len(self.ancestors) != len(self.proportions):
-            raise ValueError("ancestors and proportions must have same length")
-        if self.ancestors is not None and self.id in self.ancestors:
-            raise ValueError(f"{self.id} cannot be its own ancestor")
+        if self.ancestors is not None:
+            if not isinstance(self.ancestors, (list, tuple)):
+                raise TypeError("ancestors must be a list of deme IDs")
+            if len(self.ancestors) != len(self.proportions):
+                raise ValueError("ancestors and proportions must have same length")
+            if self.id in self.ancestors:
+                raise ValueError(f"{self.id} cannot be its own ancestor")
 
     def add_epoch(self, epoch: Epoch):
         """
@@ -396,6 +453,7 @@ class Deme:
         return self.start_time - self.end_time
 
 
+@eq_can_be_function
 @attr.s(auto_attribs=True)
 class DemeGraph:
     """
@@ -431,20 +489,24 @@ class DemeGraph:
         Use :meth:`pulse` instead.
     """
 
-    description: str = attr.ib()
-    time_units: str = attr.ib()
-    generation_time: Time = attr.ib(validator=[positive, finite])
-    default_Ne: Size = attr.ib(default=None, validator=optional([positive, finite]))
-    doi: str = attr.ib(default=None)
-    demes: List[Deme] = attr.ib(factory=list)
-    migrations: List[Migration] = attr.ib(factory=list)
-    pulses: List[Pulse] = attr.ib(factory=list)
-    splits: List[Split] = attr.ib(factory=list)
-    branches: List[Branch] = attr.ib(factory=list)
-    mergers: List[Merge] = attr.ib(factory=list)
-    admixtures: List[Admix] = attr.ib(factory=list)
-    selfing_rate: Proportion = attr.ib(default=None)
-    cloning_rate: Proportion = attr.ib(default=None)
+    def sorted_eq(a, b):
+        # Order-agnostic equality check.
+        return sorted(a) == sorted(b)
+
+    description: str = attrib(eq=False)
+    time_units: str = attrib()
+    generation_time: Time = attrib(default=None, validator=optional([positive, finite]))
+    default_Ne: Size = attrib(default=None, validator=optional([positive, finite]))
+    doi: str = attrib(default=None, eq=False)
+    demes: List[Deme] = attrib(factory=list, eq=sorted_eq)
+    migrations: List[Migration] = attrib(factory=list, eq=sorted_eq)
+    pulses: List[Pulse] = attrib(factory=list, eq=sorted_eq)
+    splits: List[Split] = attrib(factory=list, eq=False)
+    branches: List[Branch] = attrib(factory=list, eq=False)
+    mergers: List[Merge] = attrib(factory=list, eq=False)
+    admixtures: List[Admix] = attrib(factory=list, eq=False)
+    selfing_rate: Proportion = attrib(default=None, eq=isclose)
+    cloning_rate: Proportion = attrib(default=None, eq=isclose)
 
     def __attrs_post_init__(self):
         self._deme_map: Mapping[ID, Deme] = dict()
@@ -479,9 +541,8 @@ class DemeGraph:
         Add a deme to the graph.
 
         :param str id: A string identifier for the deme.
-        :param list ancestors: A list of ancestors of this deme. May be ``None``,
-            but cannot specify both ``ancestor`` and ``ancestors``. If ``ancestors``
-            is given, must also give ``proportions``.
+        :param list ancestors: A list of ancestors of this deme. May be ``None``.
+            If ``len(ancestors) > 1``, must also give ``proportions``.
         :param list proportions: A list of proportions of ancestory for ``ancestors``.
             Proportions must sum to 1.
         :param start_time: The time at which this deme begins existing.
@@ -509,6 +570,8 @@ class DemeGraph:
             cloning_rate = self.cloning_rate
         # set the start time to inf or to the ancestors end times, if not given
         if ancestors is not None:
+            if not isinstance(ancestors, (list, tuple)):
+                raise TypeError("ancestors must be a list of deme IDs")
             if len(ancestors) > 1 and start_time is None:
                 raise ValueError("must specify start time if more than one ancestor")
             if ancestors[0] in self and start_time is None:
@@ -604,19 +667,19 @@ class DemeGraph:
         self._deme_map[deme.id] = deme
         self.demes.append(deme)
 
-    def check_time_intersection(self, deme1, deme2, time, closed=False):
+    def check_time_intersection(self, deme1, deme2, time):
         deme1 = self[deme1]
         deme2 = self[deme2]
         time_lo = max(deme1.end_time, deme2.end_time)
         time_hi = min(deme1.start_time, deme2.start_time)
         if time is not None:
-            if (not closed and not (time_lo <= time < time_hi)) or (
-                closed and not (time_lo <= time <= time_hi)
-            ):
-                bracket = "]" if closed else ")"
+            if not (time_lo <= time <= time_hi):
                 raise ValueError(
-                    f"{time} not in interval [{time_lo}, {time_hi}{bracket}, "
-                    f"as defined by the time-intersection of {deme1} and {deme2}."
+                    f"{time} not in interval [{time_lo}, {time_hi}], "
+                    f"as defined by the time-intersection of {deme1.id} "
+                    f"(start_time={deme1.start_time}, end_time={deme1.end_time}) "
+                    f"and {deme2.id} (start_time={deme2.start_time}, "
+                    f"end_time={deme2.end_time})."
                 )
         return time_lo, time_hi
 
@@ -626,7 +689,7 @@ class DemeGraph:
 
         :param demes: list of deme IDs. Migration is symmetric between all
             pairs of demes in this list.
-        :param rate: The rate of migration per ``time_units``. # or per generation?
+        :param rate: The rate of migration per generation.
         :param start_time: The time at which the migration rate is enabled.
         :param end_time: The time at which the migration rate is disabled.
         """
@@ -644,7 +707,7 @@ class DemeGraph:
 
         :param source: The source deme.
         :param dest: The destination deme.
-        :param rate: The rate of migration per ``time_units``.
+        :param rate: The rate of migration per generation.
         :param start_time: The time at which the migration rate is enabled.
             If ``None``, the start time is defined by the earliest time at
             which the demes coexist.
@@ -681,7 +744,7 @@ class DemeGraph:
         for deme_id in (source, dest):
             if deme_id not in self:
                 raise ValueError(f"{deme_id} not in deme graph")
-        self.check_time_intersection(source, dest, time, closed=True)
+        self.check_time_intersection(source, dest, time)
         self.pulses.append(Pulse(source, dest, time, proportion))
 
     @property
@@ -724,7 +787,7 @@ class DemeGraph:
         for child in children:
             # check parent/children relationship and end/start times
             if child == parent:
-                raise ValueError(f"cannot be ancestor of own deme")
+                raise ValueError("cannot be ancestor of own deme")
             if self[parent].end_time != self[child].start_time:
                 raise ValueError(
                     f"{parent} and {child} must have matching end and start times"
@@ -883,8 +946,9 @@ class DemeGraph:
         d = dict(
             description=self.description,
             time_units=self.time_units,
-            generation_time=self.generation_time,
         )
+        if self.generation_time is not None:
+            d.update(generation_time=self.generation_time)
         if self.doi is not None:
             d.update(doi=self.doi)
         if self.default_Ne is not None:
