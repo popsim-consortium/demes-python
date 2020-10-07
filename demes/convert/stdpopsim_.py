@@ -17,18 +17,17 @@ def to_stdpopsim(deme_graph: demes.DemeGraph) -> stdpopsim.DemographicModel:
     :rtype demographic_model: :class:`stdpopsim.DemographicModel`
     """
     pc, de, mm = to_msprime(deme_graph)
-    populations = [
-        stdpopsim.Population(deme.id, deme.description) for deme in deme_graph.demes
-    ]
     return stdpopsim.DemographicModel(
         id="",
-        description="Converted with demes; see long_description.",
+        description="Converted from demes.DemeGraph; see long_description.",
         long_description=deme_graph.description,
         citations=[
             stdpopsim.Citation(author="Unknown", year="1234", doi=deme_graph.doi)
         ],
-        generation_time=1,  # TODO: convert to years after to_msprime()?
-        populations=populations,
+        generation_time=1,
+        populations=[
+            stdpopsim.Population(deme.id, deme.description) for deme in deme_graph.demes
+        ],
         population_configurations=pc,
         demographic_events=de,
         migration_matrix=mm,
@@ -52,9 +51,9 @@ def from_stdpopsim(demographic_model: stdpopsim.DemographicModel) -> demes.DemeG
     )
 
     g.description = textwrap.dedent(demographic_model.long_description).strip()
-    g.doi = demographic_model.citations[0].doi
-    if len(demographic_model.citations) > 1:
-        warnings.warn("Citations after the first are ignored.")
+    # The doi field is a free-form string, so just dump the string-ified
+    # citations in there.
+    g.doi = "\n".join([str(cite) for cite in demographic_model.citations])
     return g
 
 

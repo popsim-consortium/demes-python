@@ -236,7 +236,7 @@ def from_msprime(
                 # Make a note of the population, to create a new Epoch
                 # for the next ddb_epoch iteration.
                 pop_name = name[de.population]
-                if de.initial_size > 1e-15:
+                if de.initial_size is None or de.initial_size > 1e-15:
                     if pop_name not in gtmp:
                         gtmp.deme(pop_name, initial_size=1)
                     pop_param_changes.add(pop_name)
@@ -254,7 +254,7 @@ def from_msprime(
                     gtmp.deme(parent, initial_size=1)
 
             if math.isclose(sum(proportions), 1):
-                assert child not in gtmp, f"{child=}, {gtmp=}"
+                assert child not in gtmp
                 gtmp.deme(
                     child,
                     ancestors=ancestors,
