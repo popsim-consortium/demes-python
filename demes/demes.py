@@ -376,6 +376,8 @@ class Deme:
         if self.ancestors is not None:
             if not isinstance(self.ancestors, (list, tuple)):
                 raise TypeError("ancestors must be a list of deme IDs")
+            if len(self.ancestors) > 1 and self.proportions is None:
+                raise ValueError("proportions must be set if more than one ancestor")
             if len(self.ancestors) != len(self.proportions):
                 raise ValueError("ancestors and proportions must have same length")
             if self.id in self.ancestors:
