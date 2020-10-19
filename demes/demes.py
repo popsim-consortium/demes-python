@@ -923,6 +923,7 @@ class DemeGraph:
             for migration in deme_graph.migrations:
                 migration.start_time /= generation_time
                 migration.end_time /= generation_time
+                migration.rate *= generation_time
             for pulse in deme_graph.pulses:
                 pulse.time /= generation_time
             deme_graph.splits = []

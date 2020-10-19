@@ -325,6 +325,10 @@ class TestDemeGraph(unittest.TestCase):
                     if name in ("time", "start_time", "end_time"):
                         if value is not None:
                             setattr(obj, name, value / generation_time)
+                    elif name == "rate":
+                        # although we don't want this for selfing/cloning rates
+                        if value is not None:
+                            setattr(obj, name, value * generation_time)
                     elif isinstance(value, (list, tuple)):
                         for a in value:
                             divide_time_attrs(a)
