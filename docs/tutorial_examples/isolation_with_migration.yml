@@ -1,0 +1,20 @@
+description: Isolation with migration model. A single deme splits into
+  two demes, both grow exponentially with symmetric continuous migration.
+time_units: generations
+demes:
+  root:
+    description: Parental deme
+    initial_size: 10000
+    end_time: 1200
+  deme1:
+    description: First child deme
+    initial_size: 2000
+    final_size: 30000
+  deme2:
+    description: Second child deme
+    initial_size: 8000
+    final_size: 15000
+migrations:
+  symmetric:
+    - demes: deme1, deme2
+      rate: 3e-4
