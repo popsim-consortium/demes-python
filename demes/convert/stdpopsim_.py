@@ -1,4 +1,3 @@
-import warnings
 import textwrap
 
 import stdpopsim

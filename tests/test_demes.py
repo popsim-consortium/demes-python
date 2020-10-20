@@ -57,7 +57,7 @@ class TestEpoch(unittest.TestCase):
         with self.assertRaises(ValueError):
             Epoch(start_time=float("inf"), end_time=0, initial_size=10, final_size=20)
 
-    ## APR (7/28): Add tests for selfing rate, cloning rate, and size function.
+    # APR (7/28): Add tests for selfing rate, cloning rate, and size function.
 
 
 class TestMigration(unittest.TestCase):
@@ -274,9 +274,9 @@ class TestDeme(unittest.TestCase):
                 self.assertEqual(epoch.start_time, prev_end_time)
                 prev_end_time = epoch.end_time
 
-    ## APR (7/28): Add tests for selfing rate, cloning rate, and size function.
-    ## Add tests for testing ancestors and proportions.
-    ## Also add tests for any implied values.
+    # APR (7/28): Add tests for selfing rate, cloning rate, and size function.
+    # Add tests for testing ancestors and proportions.
+    # Also add tests for any implied values.
 
 
 class TestDemeGraph(unittest.TestCase):
