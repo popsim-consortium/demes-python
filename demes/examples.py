@@ -1,7 +1,7 @@
 from demes import DemeGraph, Epoch
 
-## The parameters in this file have NOT been verified, and should not be trusted to be
-## accurate. For verified demographic models, see stdpopsim implementations.
+# The parameters in this file have NOT been verified, and should not be trusted to be
+# accurate. For verified demographic models, see stdpopsim implementations.
 
 
 def zigzag():

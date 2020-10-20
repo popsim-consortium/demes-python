@@ -31,25 +31,23 @@ jobs:
         auto-update-conda: true
         python-version: ${{ matrix.python-version }}
         channels: conda-forge
-    - name: Install dependencies with conda
+    - name: Install dependencies
       run: |
         conda info
-        conda install --yes --file=requirements.txt
+        # Building msprime on windows is nasty, so just install conda package
+        # for all platforms for maximum simplicity. The version here should
+        # be set to match that in the requirements.txt file.
+        conda install --yes msprime==0.7.4
         conda list
-    - name: Install package from setup.py
-      run: |
-        # This tests the setup process, but more importantly pytest wants the
-        # package installed to run the test suite.
-        python setup.py install
+        pip install -r requirements.txt
     - name: Lint with flake8
       run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings.
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=89 --statistics
+        flake8 . --max-line-length=89 --show-source
+        # Check for complex functions. Exit-zero treats all errors as warnings.
+        flake8 . --exit-zero --max-line-length=89 --max-complexity=10
     - name: Run test suite with pytest
       run: |
-        pytest -v tests
+        python -m pytest -v tests
     - name: Type checking with mypy
       run: |
         mypy demes tests

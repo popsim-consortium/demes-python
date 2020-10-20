@@ -1,7 +1,7 @@
-attrs>=19.1.0
-strictyaml
-msprime
-stdpopsim
-flake8
-pytest
-mypy
+attrs==20.2.0
+strictyaml==1.1.0
+msprime==0.7.4
+stdpopsim==0.1.2
+flake8==3.8.4
+pytest==6.1.1
+mypy==0.790

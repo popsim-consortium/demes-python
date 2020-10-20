@@ -56,12 +56,12 @@ def eq_can_be_function(attrs_cls):
         """
         if other.__class__ is not self.__class__:
             return NotImplemented
-        for attr in self.__attrs_attrs__:
-            if attr.eq:
-                a1 = getattr(self, attr.name)
-                a2 = getattr(other, attr.name)
-                if callable(attr.eq):
-                    if not attr.eq(a1, a2):
+        for attrib in self.__attrs_attrs__:
+            if attrib.eq:
+                a1 = getattr(self, attrib.name)
+                a2 = getattr(other, attrib.name)
+                if callable(attrib.eq):
+                    if not attrib.eq(a1, a2):
                         return False
                 # Bizarrely, nan!=nan but (nan,)==(nan,). We don't expect to be
                 # doing nan comparisons here, but the latter behaviour matches
