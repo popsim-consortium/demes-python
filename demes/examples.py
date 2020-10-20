@@ -41,10 +41,10 @@ def gutenkunst_ooa():
     g.deme("YRI", ancestors=["AMH"], initial_size=12300)
     g.deme("CEU", ancestors=["OOA"], initial_size=1000, final_size=29725)
     g.deme("CHB", ancestors=["OOA"], initial_size=510, final_size=54090)
-    g.symmetric_migration(demes=["YRI", "OOA"], rate=25e-5 / g.generation_time)
-    g.symmetric_migration(demes=["YRI", "CEU"], rate=3e-5 / g.generation_time)
-    g.symmetric_migration(demes=["YRI", "CHB"], rate=1.9e-5 / g.generation_time)
-    g.symmetric_migration(demes=["CEU", "CHB"], rate=9.6e-5 / g.generation_time)
+    g.symmetric_migration(demes=["YRI", "OOA"], rate=25e-5)
+    g.symmetric_migration(demes=["YRI", "CEU"], rate=3e-5)
+    g.symmetric_migration(demes=["YRI", "CHB"], rate=1.9e-5)
+    g.symmetric_migration(demes=["CEU", "CHB"], rate=9.6e-5)
     return g
 
 
