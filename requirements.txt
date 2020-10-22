@@ -5,3 +5,5 @@ stdpopsim==0.1.2
 flake8==3.8.4
 pytest==6.1.1
 mypy==0.790
+sphinx==3.2.1
+sphinx_rtd_theme==0.5.0
