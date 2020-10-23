@@ -7,6 +7,7 @@ Welcome to demes' documentation!
 =================================
 
 TEST 1
+TEST 2
 
 .. toctree::
    :maxdepth: 2
