@@ -42,6 +42,7 @@ jobs:
         if: github.event.pull_request
         run: |
           cd demes-docs
+          rm -rf ${{github.event.pull_request.number}}
           cp -r ../docs/_build/html ${{github.event.pull_request.number}}
 
       - name: Copy our docs to the tag specific location
