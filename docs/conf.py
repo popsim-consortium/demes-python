@@ -18,8 +18,8 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'demes'
-copyright = '2020, Graham Gower'
-author = 'Graham Gower'
+copyright = '2020, PopSim Consortium'
+author = 'PopSim Consortium'
 
 
 # -- General configuration ---------------------------------------------------
