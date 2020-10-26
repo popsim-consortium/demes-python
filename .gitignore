@@ -1,0 +1,4 @@
+__pycache__
+docs/_build
+.coverage
+.DS_Store
