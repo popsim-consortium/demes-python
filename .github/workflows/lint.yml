@@ -1,0 +1,33 @@
+name: lint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          sudo apt install libgsl-dev  # for msprime
+          pip install -r requirements.txt
+
+      - name: black
+        run: black --check .
+
+      - name: flake8
+        run: |
+          flake8
+          # Warn about complex functions.
+          flake8 --exit-zero --max-complexity=10
+
+      - name: Type checking with mypy
+        run: mypy
