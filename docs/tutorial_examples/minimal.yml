@@ -1,0 +1,5 @@
+description: Minimal deme graph. Single population of constant size.
+time_units: generations
+demes:
+  constant_size_deme:
+    initial_size: 1000

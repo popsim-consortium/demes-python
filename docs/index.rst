@@ -10,6 +10,10 @@ Welcome to demes' documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   introduction
+   installation
+   tutorial
+   examples
    api
    convert
 

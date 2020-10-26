@@ -1,0 +1,50 @@
+description: The Browning et al. (2011) model of admixture in the Americas.
+doi: 10.1371/journal.pgen.1007385
+time_units: generations
+generation_time: 25
+demes:
+  ancestral:
+    description: Equilibrium/root population
+    end_time: 5920
+    initial_size: 7310
+  AMH:
+    description: Anatomically modern humans
+    ancestors: ancestral
+    end_time: 2040
+    initial_size: 14474
+  OOA:
+    description: Bottleneck out-of-Africa population
+    ancestors: AMH
+    end_time: 920
+    initial_size: 1861
+  AFR:
+    description: African population
+    ancestors: AMH
+    initial_size: 14474
+  EUR:
+    description: European population
+    ancestors: OOA
+    initial_size: 1000
+    final_size: 34039
+  EAS:
+    description: East Asian population
+    ancestors: OOA
+    initial_size: 510
+    final_size: 45852
+  ADMIX:
+    description: Admixed American population
+    ancestors: AFR, EUR, EAS
+    proportions: 0.167, 0.333, 0.5
+    start_time: 12
+    initial_size: 30000
+    final_size: 54664
+migrations:
+  symmetric:
+  - demes: AFR, OOA
+    rate: 15e-5
+  - demes: AFR, EUR
+    rate: 2.5e-5
+  - demes: AFR, EAS
+    rate: 0.78e-5
+  - demes: EUR, EAS
+    rate: 3.11e-5
