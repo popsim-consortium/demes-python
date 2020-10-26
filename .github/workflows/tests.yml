@@ -1,7 +1,4 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
-
-name: continuous integration
+name: tests
 
 on:
   push:
@@ -10,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
+  tests:
 
     runs-on: ${{ matrix.os }}
     defaults:
@@ -40,14 +37,6 @@ jobs:
         conda install --yes msprime==0.7.4
         conda list
         pip install -r requirements.txt
-    - name: Lint with flake8
-      run: |
-        flake8 . --max-line-length=89 --show-source
-        # Check for complex functions. Exit-zero treats all errors as warnings.
-        flake8 . --exit-zero --max-line-length=89 --max-complexity=10
     - name: Run test suite with pytest
       run: |
         python -m pytest -v tests
-    - name: Type checking with mypy
-      run: |
-        mypy demes tests
