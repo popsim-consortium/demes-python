@@ -16,6 +16,7 @@ Welcome to demes' documentation!
    examples
    api
    convert
+   development
 
 
 Indices and tables
