@@ -15,6 +15,8 @@ from demes import (
     load,
 )
 
+import demes
+
 
 class TestEpoch(unittest.TestCase):
     def test_bad_time(self):
@@ -359,3 +361,21 @@ class TestDemeGraph(unittest.TestCase):
                 self.check_in_generations(dg)
                 i += 1
         self.assertGreater(i, 0)
+
+    def test_bad_migration_time(self):
+        dg = demes.DemeGraph(description="test bad migration", time_units="generations")
+        dg.deme("deme1", end_time=0, initial_size=1000)
+        dg.deme("deme2", end_time=100, initial_size=1000)
+        with self.assertRaises(ValueError):
+            dg.migration(
+                source="deme1", dest="deme2", rate=0.01, start_time=1000, end_time=0
+            )
+
+    def test_bad_pulse_time(self):
+        dg = demes.DemeGraph(
+            description="test bad pulse time", time_units="generations"
+        )
+        dg.deme("deme1", end_time=0, initial_size=1000)
+        dg.deme("deme2", end_time=100, initial_size=1000)
+        with self.assertRaises(ValueError):
+            dg.pulse(source="deme1", dest="deme2", proportion=0.1, time=10)

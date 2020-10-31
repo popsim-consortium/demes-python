@@ -8,6 +8,8 @@ import copy
 import attr
 from attr.validators import optional
 
+from .script import dumps, loads
+
 Number = Union[int, float]
 ID = str
 Time = Number
@@ -908,6 +910,12 @@ class DemeGraph:
                     )
         for deme_from, demes_to in splits_to_add.items():
             self.split(deme_from, list(demes_to), self[deme_from].end_time)
+
+    def validate(self):
+        """
+        Validates the demographic model.
+        """
+        loads(dumps(self))
 
     def in_generations(self):
         """
