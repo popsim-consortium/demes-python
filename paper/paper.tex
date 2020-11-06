@@ -1,0 +1,72 @@
+\documentclass{article}
+\usepackage[round,comma,]{natbib}
+\usepackage{fullpage}
+\usepackage{authblk}
+\usepackage{graphicx}
+\usepackage{minted}
+\usepackage{tcolorbox}
+\usepackage{etoolbox}
+\BeforeBeginEnvironment{minted}{\begin{tcolorbox}}
+\AfterEndEnvironment{minted}{\end{tcolorbox}}
+\usepackage{url}
+\usepackage{fancyvrb}
+
+% local definitions
+\newcommand{\msprime}[0]{\texttt{msprime}}
+\newcommand{\stdpopsim}[0]{\texttt{stdpopsim}}
+\newcommand{\demes}[0]{\texttt{demes}}
+
+\newcommand{\aprcomment}[1]{{\textcolor{blue}{APR: #1}}}
+
+\begin{document}
+
+\title{\demes: }
+\author[1]{Graham Gower}
+\author[1]{Jerome Kelleher}
+\author[1]{Aaron P. Ragsdale}
+\author[1]{Kevin Thornton}
+\affil[1]{Authors listed alphabetically}
+\maketitle
+
+\abstract{
+}
+
+\section*{Introduction}
+
+\begin{itemize}
+  \item The problem (see also \citet{ragsdale2020lessons})
+  \begin{itemize}
+    \item Simulation is central in population genetics studies, which requires defining
+      and implementing sometimes complex demographic scenarios
+    \item From a software perspective, every simulation software has its own interface,
+      making it difficult to jump between them, and they are often not easily
+      human-readable
+    \item From a implementation perspective, complixity of proposed or inferred demographic
+      models has increased rapidly: complex models with many populations often means
+      many parameters and demographic events to correctly order and keep track of
+    \item Reproducibility: published inferred demographic models are shared and reused
+      by the community, but they are often described in unfriendly ways (maybe just a
+      short description with a table for parameters), requiring someone to have to
+      decipher and then attempt to reimplement the model themselves. An unambiguously
+      coded and human-readable description would go a long way to alleviating these pains.
+      \citep{adrion2020community}
+    \item \citep{gutenkunst2009inferring,thornton2014c++,kelleher2016efficient,jouganous2017inferring}
+  \end{itemize}
+  \item Examples
+  \begin{itemize}
+    \item Simple example: OOA \citep{gutenkunst2009inferring,jouganous2017inferring}
+    \item Complex example: Browning?
+    \item Non-human: maybe with non-standard mating feature like inbreeding?
+  \end{itemize}
+  \item Summary of how our software addresses these issues
+\end{itemize}
+
+\section*{\demes: xxx}
+Usage, features, etc...
+
+\section*{Prospects and future developments}
+
+\bibliographystyle{unsrtnat}
+\bibliography{paper}
+
+\end{document}
