@@ -3,13 +3,17 @@
 \usepackage{fullpage}
 \usepackage{authblk}
 \usepackage{graphicx}
-\usepackage{minted}
+\usepackage[newfloat]{minted}
 \usepackage{tcolorbox}
 \usepackage{etoolbox}
 \BeforeBeginEnvironment{minted}{\begin{tcolorbox}}
 \AfterEndEnvironment{minted}{\end{tcolorbox}}
 \usepackage{url}
 \usepackage{fancyvrb}
+\usepackage{caption}
+\newenvironment{code}{\captionsetup{type=listing}\centering}{}
+\SetupFloatingEnvironment{listing}{name=Demographic Model}
+
 
 % local definitions
 \newcommand{\msprime}[0]{\texttt{msprime}}
@@ -59,7 +63,7 @@ deviations from random-mating models of panmixia.
 The ability to simulate complex demographic scenarios, however, does not come
 without its own set of obstacles and frustrations. First of all, specifying models
 with many populations and parameters can be cumbersome and error-prone
-(e.g., citet{ragsdale2020lessons}). It is
+(e.g., \citep{ragsdale2020lessons}). It is
 time-consuming and tedious to implement and then verify the correctness
 of such demographic models. Making matters worse, each software package typically has
 its own application programming interface (API), which makes it difficult to translate
@@ -102,6 +106,34 @@ e.g. \moments\ or \dadi].
 \item A generic, commonly used, simple demographic model for illustration (e.g. IM)
 \end{itemize}
 
+\begin{code}
+\label{code:im_model}
+\captionof{listing}{An IM model.}
+\begin{minted}[linenos,numbersep=5pt]{yaml}
+description: A two-population isolation-with-migration model.
+time_units: generations
+demes:
+  ancestral:
+    description: The ancestral deme that splits into two child demes.
+    initial_size: 5000
+    end_time: 2000
+  deme1:
+    description: The first child deme.
+    ancestors: ancestral
+    initial_size: 1000
+    final_size: 1000
+  deme2:
+    description: The second child deme.
+    ancestors: ancestral
+    initial_size: 2000
+    final_size: 8000
+migrations:
+  symmetric:
+  - demes: deme1, deme2
+    rate: 1e-4
+\end{minted}
+\end{code}
+
 \subsection*{Python representation of demography as input for simulation software}
 
 \begin{itemize}
@@ -131,5 +163,10 @@ non-human model, perhaps with selfing rates and rate changes}
 
 \bibliographystyle{unsrtnat}
 \bibliography{paper}
+
+\section*{Appendix}
+
+
+
 
 \end{document}
