@@ -7,6 +7,14 @@ on:
     branches: [ main ]
 
 jobs:
+  canceller:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: cancel previous runs
+        uses: styfle/cancel-workflow-action@0.6.0
+        with:
+          access_token: ${{ github.token }}
+
   tests:
 
     runs-on: ${{ matrix.os }}
@@ -17,26 +25,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: [3.6, 3.8]
+        os: [ubuntu-18.04, windows-2019, macos-10.15]
+        python-version: [3.6, 3.9]
 
     steps:
-    - uses: actions/checkout@v2
-    # https://github.com/marketplace/actions/setup-miniconda
-    - uses: conda-incubator/setup-miniconda@v1
-      with:
-        auto-update-conda: true
-        python-version: ${{ matrix.python-version }}
-        channels: conda-forge
-    - name: Install dependencies
-      run: |
-        conda info
-        # Building msprime on windows is nasty, so just install conda package
-        # for all platforms for maximum simplicity. The version here should
-        # be set to match that in the requirements.txt file.
-        conda install --yes msprime==0.7.4
-        conda list
-        pip install -r requirements.txt
-    - name: Run test suite with pytest
-      run: |
-        python -m pytest -v tests
+      - name: checkout
+        uses: actions/checkout@v2
+
+      # We only install conda to get msprime.
+      # When msprime 1.0 is released, we should be able to do away with conda
+      # and just pip install msprime (binary wheels for all platforms).
+      - name: install conda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          python-version: ${{ matrix.python-version }}
+          channels: conda-forge
+
+      - name: install dependencies
+        run: |
+          conda install --yes msprime==0.7.4
+          pip install -r requirements.txt
+
+      - name: run pytest
+        run: |
+          python -m pytest --cov=demes --cov-report=term-missing -v tests
