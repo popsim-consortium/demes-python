@@ -144,9 +144,11 @@ class TestMerge(unittest.TestCase):
             with self.assertRaises(ValueError):
                 Merge(["a", "b"], [0.5, 0.5], "c", time)
 
-    def test_merged_demes(self):
+    def test_bad_parents_proportions(self):
         with self.assertRaises(ValueError):
             Merge("a", [1], "b", 1)
+        with self.assertRaises(ValueError):
+            Merge(["a"], 1.0, "b", 10)
         with self.assertRaises(ValueError):
             Merge(["a"], [1], "b", 1)
         with self.assertRaises(ValueError):
@@ -178,9 +180,11 @@ class TestAdmix(unittest.TestCase):
             with self.assertRaises(ValueError):
                 Admix(["a", "b"], [0.5, 0.5], "c", time)
 
-    def test_admixture_demes(self):
+    def test_bad_parents_proportions(self):
         with self.assertRaises(ValueError):
             Admix("a", [1], "b", 1)
+        with self.assertRaises(ValueError):
+            Admix(["a"], 1.0, "b", 10)
         with self.assertRaises(ValueError):
             Admix(["a"], [1], "b", 1)
         with self.assertRaises(ValueError):
@@ -236,6 +240,48 @@ class TestDeme(unittest.TestCase):
         with self.assertRaises(ValueError):
             Deme("a", "b", ["c"], [1], [])
 
+    def test_bad_ancestors(self):
+        with self.assertRaises(TypeError):
+            Deme(
+                "a",
+                "b",
+                "c",
+                [1],
+                [Epoch(start_time=10, end_time=0, initial_size=1)],
+            )
+        with self.assertRaises(TypeError):
+            Deme(
+                "a",
+                "b",
+                {"c", "d"},
+                [0.2, 0.8],
+                [Epoch(start_time=10, end_time=0, initial_size=1)],
+            )
+        with self.assertRaises(ValueError):
+            Deme(
+                "a",
+                "b",
+                ["c", "d"],
+                None,
+                [Epoch(start_time=10, end_time=0, initial_size=1)],
+            )
+        with self.assertRaises(ValueError):
+            Deme(
+                "a",
+                "b",
+                ["c", "d"],
+                [0.5, 0.2, 0.3],
+                [Epoch(start_time=10, end_time=0, initial_size=1)],
+            )
+        with self.assertRaises(ValueError):
+            Deme(
+                "a",
+                "b",
+                ["a", "c"],
+                [0.5, 0.5],
+                [Epoch(start_time=10, end_time=0, initial_size=1)],
+            )
+
     def test_two_epochs(self):
         with self.assertRaises(ValueError):
             Deme(
@@ -247,6 +293,27 @@ class TestDeme(unittest.TestCase):
                     Epoch(start_time=11, end_time=10, initial_size=100),
                     Epoch(start_time=10, end_time=1, initial_size=1),
                 ],
+            )
+
+    def test_add_epoch(self):
+        deme = Deme(
+            "a", "b", ["c"], [1], [Epoch(start_time=100, end_time=50, initial_size=1)]
+        )
+        with self.assertRaises(ValueError):
+            deme.add_epoch(Epoch(start_time=60, end_time=0, initial_size=10))
+        with self.assertRaises(ValueError):
+            deme.add_epoch(Epoch(start_time=40, end_time=0, initial_size=10))
+        with self.assertRaises(ValueError):
+            deme.add_epoch(Epoch(start_time=50, end_time=50, initial_size=10))
+        with self.assertRaises(ValueError):
+            deme.add_epoch(
+                Epoch(
+                    start_time=50,
+                    end_time=0,
+                    initial_size=10,
+                    final_size=20,
+                    size_function="constant",
+                )
             )
 
     def test_epochs_out_of_order(self):
@@ -275,6 +342,17 @@ class TestDeme(unittest.TestCase):
             for epoch in deme.epochs[1:]:
                 self.assertEqual(epoch.start_time, prev_end_time)
                 prev_end_time = epoch.end_time
+
+    def test_time_span(self):
+        for start_time, end_time in zip((float("inf"), 100, 20), (0, 20, 0)):
+            deme = Deme(
+                "a",
+                "b",
+                ["c"],
+                [1],
+                [Epoch(start_time=start_time, end_time=end_time, initial_size=1)],
+            )
+            self.assertEqual(deme.time_span, start_time - end_time)
 
     # APR (7/28): Add tests for selfing rate, cloning rate, and size function.
     # Add tests for testing ancestors and proportions.
@@ -379,3 +457,272 @@ class TestDemeGraph(unittest.TestCase):
         dg.deme("deme2", end_time=100, initial_size=1000)
         with self.assertRaises(ValueError):
             dg.pulse(source="deme1", dest="deme2", proportion=0.1, time=10)
+
+    def test_bad_deme(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        with self.assertRaises(ValueError):
+            dg.deme("a")
+        with self.assertRaises(TypeError):
+            dg.deme("a", initial_size=100, ancestors="b")
+        with self.assertRaises(ValueError):
+            dg.deme("a", initial_size=100, ancestors=["b", "c"], proportions=[0.5, 0.5])
+        with self.assertRaises(ValueError):
+            dg.deme(
+                "a",
+                initial_size=100,
+                ancestors=["b"],
+                end_time=0,
+                epochs=[
+                    Epoch(initial_size=1, start_time=20, end_time=10),
+                    Epoch(start_time=10, end_time=5, initial_size=2),
+                ],
+            )
+        with self.assertRaises(ValueError):
+            dg.deme(
+                "a",
+                initial_size=100,
+                ancestors=["b"],
+                start_time=15,
+                end_time=0,
+                epochs=[
+                    Epoch(initial_size=1, start_time=20, end_time=10),
+                    Epoch(start_time=10, end_time=0, initial_size=2),
+                ],
+            )
+
+    def test_proportions_default(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        with self.assertRaises(ValueError):
+            dg.deme("a", initial_size=100, ancestors=["b", "c"])
+        dg.deme("a", initial_size=100, ancestors=["b"])
+        self.assertEqual(len(dg["a"].proportions), 1)
+        self.assertEqual(dg["a"].proportions[0], 1.0)
+
+    def test_bad_migration(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        with self.assertRaises(ValueError):
+            dg.symmetric_migration()
+        with self.assertRaises(ValueError):
+            dg.symmetric_migration(demes=["a"], rate=0.1)
+        with self.assertRaises(ValueError):
+            dg.migration("a", "b", rate=0.1)
+        dg.deme("a", initial_size=100)
+        with self.assertRaises(ValueError):
+            dg.migration("a", "b", rate=0.1)
+        with self.assertRaises(ValueError):
+            dg.migration("b", "a", rate=0.1)
+
+    def test_bad_pulse(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme("a", initial_size=100)
+        with self.assertRaises(ValueError):
+            dg.pulse("a", "b", 0.1, 10)
+        with self.assertRaises(ValueError):
+            dg.pulse("b", "a", 0.1, 10)
+
+    def test_bad_split(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        with self.assertRaises(ValueError):
+            dg.split("a", ["a", "b", "c"], 10)
+        dg.deme("a", initial_size=100, end_time=50)
+        dg.deme("b", initial_size=100, start_time=50, end_time=0)
+        dg.deme("c", initial_size=100, start_time=20, end_time=0)
+        with self.assertRaises(ValueError):
+            dg.split("a", ["b", "c"], 50)
+
+    def test_bad_branch(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme("a", start_time=10, end_time=5, initial_size=10)
+        dg.deme("b", start_time=20, end_time=0, initial_size=10)
+        dg.deme("c", start_time=2, end_time=0, initial_size=10)
+        with self.assertRaises(ValueError):
+            dg.branch("a", "b", 7)
+        with self.assertRaises(ValueError):
+            dg.branch("a", "c", 7)
+
+    def test_bad_merge(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme("a", end_time=5, initial_size=10)
+        dg.deme("b", end_time=5, initial_size=10)
+        dg.deme("c", start_time=5, end_time=0, initial_size=10)
+        dg.deme("d", start_time=2, end_time=0, initial_size=1)
+        with self.assertRaises(ValueError):
+            dg.merge(["a", "b"], [0.5, 0.5], "c", 10)
+        with self.assertRaises(ValueError):
+            dg.merge(["a", "b"], [0.5, 0.5], "d", 2)
+
+    def test_merge_cuts_epochs(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme("a", initial_size=10, end_time=0)
+        dg.deme(
+            "b",
+            epochs=[
+                Epoch(end_time=10, initial_size=5),
+                Epoch(end_time=5, initial_size=10),
+                Epoch(end_time=0, initial_size=2),
+            ],
+        )
+        dg.deme("c", start_time=5, initial_size=10)
+        dg.merge(["a", "b"], [0.5, 0.5], "c", 5)
+        self.assertEqual(dg["a"].end_time, 5)
+        self.assertEqual(dg["b"].end_time, 5)
+        self.assertEqual(len(dg["b"].epochs), 2)
+
+    def test_bad_admixture(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme("a", start_time=2, initial_size=100)
+        with self.assertRaises(ValueError):
+            dg.admix(["b", "c"], [0.5, 0.5], "a", 5)
+        dg.deme("b", end_time=5, initial_size=10)
+        dg.deme("c", start_time=5, end_time=0, initial_size=10)
+        with self.assertRaises(ValueError):
+            dg.admix(["b", "c"], [0.5, 0.5], "a", 2)
+
+
+class TestDemeGraphToDict(unittest.TestCase):
+    def test_fill_selfing_rate(self):
+        dg = demes.DemeGraph(
+            description="a", time_units="generations", selfing_rate=0.5
+        )
+        dg.deme("a", initial_size=10)
+        d = dg.asdict_compact()
+        self.assertTrue(d["selfing_rate"] == dg.selfing_rate)
+
+    def test_fill_cloning_rate(self):
+        dg = demes.DemeGraph(
+            description="a", time_units="generations", cloning_rate=0.5
+        )
+        dg.deme("a", initial_size=10)
+        d = dg.asdict_compact()
+        self.assertTrue(d["cloning_rate"] == dg.cloning_rate)
+
+    def test_finite_start_time(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme("a", initial_size=100, start_time=100)
+        d = dg.asdict_compact()
+        self.assertTrue(d["demes"]["a"]["start_time"] == dg["a"].start_time)
+
+    def test_deme_selfing_rate(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme("a", initial_size=100, selfing_rate=0.1)
+        d = dg.asdict_compact()
+        self.assertTrue(d["demes"]["a"]["selfing_rate"] == dg["a"].selfing_rate)
+        dg = demes.DemeGraph(
+            description="a", time_units="generations", selfing_rate=0.01
+        )
+        dg.deme("a", initial_size=100, selfing_rate=0.1)
+        d = dg.asdict_compact()
+        self.assertTrue(d["demes"]["a"]["selfing_rate"] == dg["a"].selfing_rate)
+
+    def test_deme_cloning_rate(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme("a", initial_size=100, cloning_rate=0.1)
+        d = dg.asdict_compact()
+        self.assertTrue(d["demes"]["a"]["cloning_rate"] == dg["a"].cloning_rate)
+
+    def test_fill_nonstandard_size_function(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme(
+            "a",
+            epochs=[
+                Epoch(initial_size=1, end_time=10),
+                Epoch(final_size=10, size_function="linear", end_time=0),
+            ],
+        )
+        d = dg.asdict_compact()
+        self.assertTrue(d["demes"]["a"]["epochs"][-1]["size_function"] == "linear")
+
+    def test_fill_epoch_selfing_rates(self):
+        dg = demes.DemeGraph(
+            description="a", time_units="generations", selfing_rate=0.2
+        )
+        dg.deme(
+            "a",
+            epochs=[
+                Epoch(initial_size=10, end_time=10, selfing_rate=0.2),
+                Epoch(final_size=20, end_time=0, selfing_rate=0.1),
+            ],
+        )
+        d = dg.asdict_compact()
+        self.assertTrue(d["selfing_rate"] == 0.2)
+        self.assertTrue("selfing_rate" not in d["demes"]["a"]["epochs"][0])
+        self.assertTrue(d["demes"]["a"]["epochs"][1]["selfing_rate"] == 0.1)
+
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme(
+            "a",
+            selfing_rate=0.2,
+            epochs=[
+                Epoch(initial_size=10, end_time=10, selfing_rate=0.2),
+                Epoch(final_size=20, end_time=0, selfing_rate=0.1),
+            ],
+        )
+        d = dg.asdict_compact()
+        self.assertTrue(d["demes"]["a"]["selfing_rate"] == 0.2)
+        self.assertTrue("selfing_rate" not in d["demes"]["a"]["epochs"][0])
+        self.assertTrue(d["demes"]["a"]["epochs"][1]["selfing_rate"] == 0.1)
+
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme(
+            "a",
+            epochs=[
+                Epoch(initial_size=10, end_time=10),
+                Epoch(final_size=20, end_time=0, selfing_rate=0.1),
+            ],
+        )
+        d = dg.asdict_compact()
+        self.assertTrue(d["demes"]["a"]["epochs"][1]["selfing_rate"] == 0.1)
+
+    def test_fill_epoch_cloning_rates(self):
+        dg = demes.DemeGraph(
+            description="a", time_units="generations", cloning_rate=0.2
+        )
+        dg.deme(
+            "a",
+            epochs=[
+                Epoch(initial_size=10, end_time=10),
+                Epoch(final_size=20, end_time=0, cloning_rate=0.1),
+            ],
+        )
+        d = dg.asdict_compact()
+        self.assertTrue(d["cloning_rate"] == 0.2)
+        self.assertTrue(d["demes"]["a"]["epochs"][1]["cloning_rate"] == 0.1)
+
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme(
+            "a",
+            cloning_rate=0.2,
+            epochs=[
+                Epoch(initial_size=10, end_time=10),
+                Epoch(final_size=20, end_time=0, cloning_rate=0.1),
+            ],
+        )
+        d = dg.asdict_compact()
+        self.assertTrue(d["demes"]["a"]["cloning_rate"] == 0.2)
+        self.assertTrue(d["demes"]["a"]["epochs"][1]["cloning_rate"] == 0.1)
+
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme(
+            "a",
+            epochs=[
+                Epoch(initial_size=10, end_time=10),
+                Epoch(final_size=20, end_time=0, cloning_rate=0.1),
+            ],
+        )
+        d = dg.asdict_compact()
+        self.assertTrue(d["demes"]["a"]["epochs"][1]["cloning_rate"] == 0.1)
+
+    def test_fill_description(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme("a", description="described", initial_size=100)
+        d = dg.asdict_compact()
+        self.assertTrue(d["demes"]["a"]["description"] == dg["a"].description)
+
+    def test_fill_migration_bounds(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme("a", initial_size=100)
+        dg.deme("b", initial_size=100)
+        dg.migration("a", "b", 0.01, start_time=20, end_time=10)
+        d = dg.asdict_compact()
+        self.assertTrue(d["migrations"]["asymmetric"][0]["start_time"] == 20)
+        self.assertTrue(d["migrations"]["asymmetric"][0]["end_time"] == 10)

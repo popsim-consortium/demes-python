@@ -665,9 +665,6 @@ class DemeGraph:
             )
             for epoch in epochs[1:]:
                 deme.add_epoch(epoch)
-        if ancestors is not None and proportions is None:
-            assert len(ancestors) == 1
-            proportions = [1.0]
         self._deme_map[deme.id] = deme
         self.demes.append(deme)
 
@@ -842,7 +839,7 @@ class DemeGraph:
         for parent in parents:
             if self[parent].end_time < time:
                 while self[parent].epochs[-1].end_time < time:
-                    if self[parent].epochs[-1].start_time < time:
+                    if self[parent].epochs[-1].start_time <= time:
                         del self[parent].epochs[-1]
                     else:
                         self[parent].epochs[-1].end_time = time
@@ -986,13 +983,13 @@ class DemeGraph:
                     deme_dict.update(start_time=deme.start_time)
             # add selfing and cloning rates, if not None
             if deme.selfing_rate is not None:
-                if (
+                if self.selfing_rate is None or (
                     self.selfing_rate is not None
                     and deme.selfing_rate != self.selfing_rate
                 ):
                     deme_dict.update(selfing_rate=deme.selfing_rate)
             if deme.cloning_rate is not None:
-                if (
+                if self.cloning_rate is None or (
                     self.cloning_rate is not None
                     and deme.cloning_rate != self.cloning_rate
                 ):
