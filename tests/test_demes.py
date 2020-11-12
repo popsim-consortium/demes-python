@@ -59,6 +59,37 @@ class TestEpoch(unittest.TestCase):
         with self.assertRaises(ValueError):
             Epoch(start_time=float("inf"), end_time=0, initial_size=10, final_size=20)
 
+    def test_isclose(self):
+        eps = 1e-50
+        e1 = Epoch(end_time=0, initial_size=1)
+        self.assertTrue(e1.isclose(e1))
+        self.assertTrue(e1.isclose(Epoch(end_time=0 + eps, initial_size=1)))
+        self.assertTrue(e1.isclose(Epoch(end_time=0, initial_size=1 + eps)))
+
+        self.assertFalse(e1.isclose(Epoch(end_time=1e-9, initial_size=1)))
+        self.assertFalse(e1.isclose(Epoch(end_time=0, initial_size=1 + 1e-9)))
+        self.assertFalse(e1.isclose(Epoch(start_time=10, end_time=0, initial_size=1)))
+        self.assertFalse(e1.isclose(Epoch(end_time=0, initial_size=1, final_size=2)))
+        self.assertFalse(
+            Epoch(end_time=0, initial_size=1, final_size=2).isclose(
+                Epoch(
+                    end_time=0,
+                    initial_size=1,
+                    final_size=2,
+                    size_function="exponential",
+                )
+            )
+        )
+        self.assertFalse(
+            e1.isclose(Epoch(end_time=0, initial_size=1, selfing_rate=0.1))
+        )
+        self.assertFalse(
+            e1.isclose(Epoch(end_time=0, initial_size=1, cloning_rate=0.1))
+        )
+        self.assertFalse(e1.isclose(None))
+        self.assertFalse(e1.isclose(123))
+        self.assertFalse(e1.isclose("foo"))
+
     # APR (7/28): Add tests for selfing rate, cloning rate, and size function.
 
 
@@ -84,6 +115,39 @@ class TestMigration(unittest.TestCase):
         Migration("a", "b", start_time=float("inf"), end_time=0, rate=1e-9)
         Migration("a", "b", start_time=1000, end_time=999, rate=0.9)
 
+    def test_isclose(self):
+        eps = 1e-50
+        m1 = Migration("a", "b", start_time=1, end_time=0, rate=1e-9)
+        self.assertTrue(m1.isclose(m1))
+        self.assertTrue(
+            m1.isclose(Migration("a", "b", start_time=1, end_time=0, rate=1e-9 + eps))
+        )
+        self.assertTrue(
+            m1.isclose(Migration("a", "b", start_time=1 + eps, end_time=0, rate=1e-9))
+        )
+        self.assertTrue(
+            m1.isclose(Migration("a", "b", start_time=1, end_time=0 + eps, rate=1e-9))
+        )
+
+        self.assertFalse(
+            m1.isclose(Migration("b", "a", start_time=1, end_time=0, rate=1e-9))
+        )
+        self.assertFalse(
+            m1.isclose(Migration("a", "b", start_time=1, end_time=0, rate=2e-9))
+        )
+        self.assertFalse(
+            m1.isclose(Migration("a", "c", start_time=1, end_time=0, rate=1e-9))
+        )
+        self.assertFalse(
+            m1.isclose(Migration("a", "c", start_time=2, end_time=0, rate=1e-9))
+        )
+        self.assertFalse(
+            m1.isclose(Migration("a", "c", start_time=1, end_time=0.1, rate=1e-9))
+        )
+        self.assertFalse(m1.isclose(None))
+        self.assertFalse(m1.isclose(123))
+        self.assertFalse(m1.isclose("foo"))
+
 
 class TestPulse(unittest.TestCase):
     def test_bad_time(self):
@@ -104,6 +168,19 @@ class TestPulse(unittest.TestCase):
         Pulse("a", "b", time=1, proportion=1e-9)
         Pulse("a", "b", time=100, proportion=0.9)
 
+    def test_isclose(self):
+        eps = 1e-50
+        p1 = Pulse("a", "b", time=1, proportion=1e-9)
+        self.assertTrue(p1.isclose(p1))
+        self.assertTrue(p1.isclose(Pulse("a", "b", time=1, proportion=1e-9)))
+        self.assertTrue(p1.isclose(Pulse("a", "b", time=1 + eps, proportion=1e-9)))
+        self.assertTrue(p1.isclose(Pulse("a", "b", time=1, proportion=1e-9 + eps)))
+
+        self.assertFalse(p1.isclose(Pulse("a", "c", time=1, proportion=1e-9)))
+        self.assertFalse(p1.isclose(Pulse("b", "a", time=1, proportion=1e-9)))
+        self.assertFalse(p1.isclose(Pulse("a", "b", time=1, proportion=2e-9)))
+        self.assertFalse(p1.isclose(Pulse("a", "b", time=1 + 1e-9, proportion=1e-9)))
+
 
 class TestSplit(unittest.TestCase):
     def test_bad_time(self):
@@ -122,6 +199,20 @@ class TestSplit(unittest.TestCase):
         Split("a", ["b", "c", "d"], 10)
         Split("a", ["b", "c"], 0)
 
+    def test_isclose(self):
+        eps = 1e-50
+        s1 = Split("a", ["b", "c"], 1)
+        self.assertTrue(s1.isclose(s1))
+        self.assertTrue(s1.isclose(Split("a", ["b", "c"], 1)))
+        self.assertTrue(s1.isclose(Split("a", ["b", "c"], 1 + eps)))
+        # Order of children doesn't matter.
+        self.assertTrue(s1.isclose(Split("a", ["c", "b"], 1)))
+
+        self.assertFalse(s1.isclose(Split("a", ["x", "c"], 1)))
+        self.assertFalse(s1.isclose(Split("x", ["b", "c"], 1)))
+        self.assertFalse(s1.isclose(Split("a", ["b", "c", "x"], 1)))
+        self.assertFalse(s1.isclose(Split("a", ["b", "c"], 1 + 1e-9)))
+
 
 class TestBranch(unittest.TestCase):
     def test_bad_time(self):
@@ -136,6 +227,18 @@ class TestBranch(unittest.TestCase):
     def test_valid_branch(self):
         Branch("a", "b", 10)
         Branch("a", "b", 0)
+
+    def test_isclose(self):
+        eps = 1e-50
+        b1 = Branch("a", "b", 1)
+        self.assertTrue(b1.isclose(b1))
+        self.assertTrue(b1.isclose(Branch("a", "b", 1)))
+        self.assertTrue(b1.isclose(Branch("a", "b", 1 + eps)))
+
+        self.assertFalse(b1.isclose(Branch("x", "b", 1)))
+        self.assertFalse(b1.isclose(Branch("a", "x", 1)))
+        self.assertFalse(b1.isclose(Branch("b", "a", 1)))
+        self.assertFalse(b1.isclose(Branch("a", "b", 1 + 1e-9)))
 
 
 class TestMerge(unittest.TestCase):
@@ -173,6 +276,26 @@ class TestMerge(unittest.TestCase):
         Merge(["a", "b", "c"], [0.5, 0.5, 0.0], "d", 10)
         Merge(["a", "b"], [1, 0], "c", 10)
 
+    def test_isclose(self):
+        eps = 1e-50
+        m1 = Merge(["a", "b"], [0.1, 0.9], "c", 1)
+        self.assertTrue(m1.isclose(m1))
+        self.assertTrue(m1.isclose(Merge(["a", "b"], [0.1, 0.9], "c", 1)))
+        self.assertTrue(m1.isclose(Merge(["a", "b"], [0.1, 0.9], "c", 1 + eps)))
+        self.assertTrue(m1.isclose(Merge(["a", "b"], [0.1 + eps, 0.9], "c", 1)))
+        self.assertTrue(m1.isclose(Merge(["a", "b"], [0.1, 0.9 + eps], "c", 1)))
+        # Order of parents/proportions doesn't matter.
+        self.assertTrue(m1.isclose(Merge(["b", "a"], [0.9, 0.1], "c", 1)))
+
+        self.assertFalse(m1.isclose(Merge(["a", "x"], [0.1, 0.9], "c", 1)))
+        self.assertFalse(m1.isclose(Merge(["x", "b"], [0.1, 0.9], "c", 1)))
+        self.assertFalse(
+            m1.isclose(Merge(["a", "b"], [0.1 + 1e-9, 0.9 - 1e-9], "c", 1))
+        )
+        self.assertFalse(m1.isclose(Merge(["a", "b"], [0.1, 0.9], "x", 1)))
+        self.assertFalse(m1.isclose(Merge(["a", "b"], [0.1, 0.9], "c", 1 + 1e-9)))
+        self.assertFalse(m1.isclose(Merge(["a", "b", "x"], [0.1, 0.9, 0], "c", 1)))
+
 
 class TestAdmix(unittest.TestCase):
     def test_bad_time(self):
@@ -208,6 +331,26 @@ class TestAdmix(unittest.TestCase):
         Admix(["a", "b", "c"], [0.5, 0.25, 0.25], "d", 10)
         Admix(["a", "b", "c"], [0.5, 0.5, 0.0], "d", 10)
         Admix(["a", "b"], [1, 0], "c", 10)
+
+    def test_isclose(self):
+        eps = 1e-50
+        a1 = Admix(["a", "b"], [0.1, 0.9], "c", 1)
+        self.assertTrue(a1.isclose(a1))
+        self.assertTrue(a1.isclose(Admix(["a", "b"], [0.1, 0.9], "c", 1)))
+        self.assertTrue(a1.isclose(Admix(["a", "b"], [0.1 + eps, 0.9], "c", 1 + eps)))
+        self.assertTrue(a1.isclose(Admix(["a", "b"], [0.1 + eps, 0.9], "c", 1)))
+        self.assertTrue(a1.isclose(Admix(["a", "b"], [0.1, 0.9 + eps], "c", 1 + eps)))
+        # Order of parents/proportions doesn't matter.
+        self.assertTrue(a1.isclose(Admix(["b", "a"], [0.9, 0.1], "c", 1)))
+
+        self.assertFalse(a1.isclose(Admix(["a", "x"], [0.1, 0.9], "c", 1)))
+        self.assertFalse(a1.isclose(Admix(["x", "b"], [0.1, 0.9], "c", 1)))
+        self.assertFalse(
+            a1.isclose(Admix(["a", "b"], [0.1 + 1e-9, 0.9 - 1e-9], "c", 1))
+        )
+        self.assertFalse(a1.isclose(Admix(["a", "b"], [0.1, 0.9], "x", 1)))
+        self.assertFalse(a1.isclose(Admix(["a", "b"], [0.1, 0.9], "c", 1 + 1e-9)))
+        self.assertFalse(a1.isclose(Admix(["a", "b", "x"], [0.1, 0.9, 0], "c", 1)))
 
 
 class TestDeme(unittest.TestCase):
@@ -353,6 +496,179 @@ class TestDeme(unittest.TestCase):
                 [Epoch(start_time=start_time, end_time=end_time, initial_size=1)],
             )
             self.assertEqual(deme.time_span, start_time - end_time)
+
+    def test_isclose(self):
+        d1 = Deme(
+            id="a",
+            description="foo deme",
+            ancestors=None,
+            proportions=None,
+            epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
+        )
+        self.assertTrue(d1.isclose(d1))
+        self.assertTrue(
+            d1.isclose(
+                Deme(
+                    id="a",
+                    description="foo deme",
+                    ancestors=None,
+                    proportions=None,
+                    epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
+                )
+            )
+        )
+        # Description field doesn't matter.
+        self.assertTrue(
+            d1.isclose(
+                Deme(
+                    id="a",
+                    description="bar deme",
+                    ancestors=None,
+                    proportions=None,
+                    epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
+                )
+            )
+        )
+
+        # selfing_rate is a property of the deme's epoch, so we shouldn't
+        # care if this is set for the deme or for the epochs directly.
+        d2 = Deme(
+            id="a",
+            description="foo deme",
+            ancestors=None,
+            proportions=None,
+            epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
+            selfing_rate=0.1,
+        )
+        self.assertTrue(
+            d2.isclose(
+                Deme(
+                    id="a",
+                    description="foo deme",
+                    ancestors=None,
+                    proportions=None,
+                    epochs=[
+                        Epoch(
+                            start_time=10, end_time=5, initial_size=1, selfing_rate=0.1
+                        )
+                    ],
+                )
+            )
+        )
+
+        # cloning_rate is a property of the deme's epoch, so we shouldn't
+        # care if this is set for the deme or for the epochs directly.
+        d2 = Deme(
+            id="a",
+            description="foo deme",
+            ancestors=None,
+            proportions=None,
+            epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
+            cloning_rate=0.1,
+        )
+        self.assertTrue(
+            d2.isclose(
+                Deme(
+                    id="a",
+                    description="foo deme",
+                    ancestors=None,
+                    proportions=None,
+                    epochs=[
+                        Epoch(
+                            start_time=10, end_time=5, initial_size=1, cloning_rate=0.1
+                        )
+                    ],
+                )
+            )
+        )
+
+        #
+        # Check inequalities.
+        #
+
+        self.assertFalse(
+            d1.isclose(
+                Deme(
+                    id="b",
+                    description="foo deme",
+                    ancestors=None,
+                    proportions=None,
+                    epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
+                )
+            )
+        )
+        self.assertFalse(
+            d1.isclose(
+                Deme(
+                    id="a",
+                    description="foo deme",
+                    ancestors=["x"],
+                    proportions=[1],
+                    epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
+                )
+            )
+        )
+        self.assertFalse(
+            d1.isclose(
+                Deme(
+                    id="a",
+                    description="foo deme",
+                    ancestors=None,
+                    proportions=None,
+                    epochs=[Epoch(start_time=9, end_time=5, initial_size=1)],
+                )
+            )
+        )
+        self.assertFalse(
+            d1.isclose(
+                Deme(
+                    id="a",
+                    description="foo deme",
+                    ancestors=None,
+                    proportions=None,
+                    epochs=[Epoch(start_time=10, end_time=9, initial_size=1)],
+                )
+            )
+        )
+
+        self.assertFalse(
+            d1.isclose(
+                Deme(
+                    id="a",
+                    description="foo deme",
+                    ancestors=None,
+                    proportions=None,
+                    epochs=[Epoch(start_time=10, end_time=5, initial_size=9)],
+                )
+            )
+        )
+        self.assertFalse(
+            d1.isclose(
+                Deme(
+                    id="a",
+                    description="foo deme",
+                    ancestors=None,
+                    proportions=None,
+                    epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
+                    selfing_rate=0.1,
+                )
+            )
+        )
+        self.assertFalse(
+            d1.isclose(
+                Deme(
+                    id="a",
+                    description="foo deme",
+                    ancestors=None,
+                    proportions=None,
+                    epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
+                    cloning_rate=0.1,
+                )
+            )
+        )
+        d2 = copy.deepcopy(d1)
+        d2.add_epoch(Epoch(end_time=0, initial_size=1))
+        self.assertFalse(d1 == d2)
 
     # APR (7/28): Add tests for selfing rate, cloning rate, and size function.
     # Add tests for testing ancestors and proportions.
@@ -577,6 +893,165 @@ class TestDemeGraph(unittest.TestCase):
         dg.deme("c", start_time=5, end_time=0, initial_size=10)
         with self.assertRaises(ValueError):
             dg.admix(["b", "c"], [0.5, 0.5], "a", 2)
+
+    def test_isclose(self):
+        g1 = DemeGraph(
+            description="test",
+            time_units="generations",
+        )
+        g2 = copy.deepcopy(g1)
+        g1.deme("d1", initial_size=1000)
+        self.assertTrue(g1.isclose(g1))
+        self.assertTrue(g1.isclose(demes.loads(demes.dumps(g1))))
+
+        # Don't care about description for equality.
+        g3 = DemeGraph(
+            description="some other description",
+            time_units="generations",
+        )
+        g3.deme("d1", initial_size=1000)
+        self.assertTrue(g1.isclose(g3))
+
+        # Don't care about doi for equality.
+        g3 = DemeGraph(
+            description="test",
+            time_units="generations",
+            doi="https://example.com/foo.bar",
+        )
+        g3.deme("d1", initial_size=1000)
+        self.assertTrue(g1.isclose(g3))
+
+        # The choice of using default_Ne, or alternately setting initial_size
+        # for each deme, is a model implementation detail. So the resulting
+        # deme graphs should compare equal.
+        g3 = DemeGraph(
+            description="test",
+            time_units="generations",
+            default_Ne=1000,
+        )
+        g3.deme("d1")
+        self.assertTrue(g1.isclose(g3))
+
+        # Selfing rate is a property of a deme's epoch, not a deme graph.
+        g3 = DemeGraph(
+            description="test",
+            time_units="generations",
+            selfing_rate=0.1,
+        )
+        g3.deme("d1", initial_size=1000)
+        g4 = DemeGraph(
+            description="test",
+            time_units="generations",
+        )
+        g4.deme("d1", initial_size=1000, selfing_rate=0.1)
+        self.assertTrue(g3.isclose(g4))
+
+        # Cloning rate is a property of a deme's epoch, not a deme graph.
+        g3 = DemeGraph(
+            description="test",
+            time_units="generations",
+            cloning_rate=0.1,
+        )
+        g3.deme("d1", initial_size=1000)
+        g4 = DemeGraph(
+            description="test",
+            time_units="generations",
+        )
+        g4.deme("d1", initial_size=1000, cloning_rate=0.1)
+        self.assertTrue(g3.isclose(g4))
+
+        # The order in which demes are added shouldn't matter.
+        g3 = copy.deepcopy(g2)
+        g4 = copy.deepcopy(g2)
+        g3.deme("d1", initial_size=1000)
+        g3.deme("d2", initial_size=1000)
+        g4.deme("d2", initial_size=1000)
+        g4.deme("d1", initial_size=1000)
+        self.assertTrue(g3.isclose(g4))
+
+        # The order in which migrations are added shouldn't matter.
+        g3.migration("d1", "d2", rate=1e-4, start_time=50, end_time=40)
+        g3.migration("d2", "d1", rate=1e-5)
+        g4.migration("d2", "d1", rate=1e-5)
+        g4.migration("d1", "d2", rate=1e-4, start_time=50, end_time=40)
+        self.assertTrue(g3.isclose(g4))
+
+        # The order in which pulses are added shouldn't matter.
+        g3.pulse("d1", "d2", proportion=0.01, time=100)
+        g3.pulse("d1", "d2", proportion=0.01, time=50)
+        g4.pulse("d1", "d2", proportion=0.01, time=50)
+        g4.pulse("d1", "d2", proportion=0.01, time=100)
+        self.assertTrue(g3.isclose(g4))
+
+        #
+        # Check inequalities
+        #
+
+        self.assertFalse(g1 == g2)
+        g3 = copy.deepcopy(g2)
+        g3.deme("dX", initial_size=1000)
+        self.assertFalse(g1.isclose(g3))
+
+        g3 = copy.deepcopy(g2)
+        g3.deme("d1", initial_size=1001)
+        self.assertFalse(g1.isclose(g3))
+
+        g3 = copy.deepcopy(g2)
+        g3.deme("d1", initial_size=1000)
+        g3.deme("d2", initial_size=1000)
+        self.assertFalse(g1.isclose(g3))
+
+        g3 = copy.deepcopy(g2)
+        g3.deme("d1", ancestors=["x"], initial_size=1000)
+        self.assertFalse(g1.isclose(g3))
+
+        g3 = copy.deepcopy(g2)
+        g3.deme("d1", initial_size=1000)
+        g3.deme("d2", initial_size=1000)
+        g4 = copy.deepcopy(g2)
+        g4.deme("d1", initial_size=1000)
+        g4.deme("d2", initial_size=1000)
+        g4.migration("d2", "d1", rate=1e-5)
+        self.assertFalse(g3.isclose(g4))
+
+        g3 = copy.deepcopy(g2)
+        g3.deme("d1", initial_size=1000)
+        g3.deme("d2", initial_size=1000)
+        g3.migration("d1", "d2", rate=1e-5)
+        g4 = copy.deepcopy(g2)
+        g4.deme("d1", initial_size=1000)
+        g4.deme("d2", initial_size=1000)
+        g4.migration("d2", "d1", rate=1e-5)
+        self.assertFalse(g3.isclose(g4))
+
+        g3 = copy.deepcopy(g2)
+        g3.deme("d1", initial_size=1000)
+        g3.deme("d2", initial_size=1000)
+        g3.migration("d2", "d1", rate=1e-5)
+        g4 = copy.deepcopy(g2)
+        g4.deme("d1", initial_size=1000)
+        g4.deme("d2", initial_size=1000)
+        g4.symmetric_migration(["d2", "d1"], rate=1e-5)
+        self.assertFalse(g3.isclose(g4))
+
+        g3 = copy.deepcopy(g2)
+        g3.deme("d1", initial_size=1000)
+        g3.deme("d2", initial_size=1000)
+        g4 = copy.deepcopy(g2)
+        g4.deme("d1", initial_size=1000)
+        g4.deme("d2", initial_size=1000)
+        g4.pulse("d1", "d2", proportion=0.01, time=100)
+        self.assertFalse(g3.isclose(g4))
+
+        g3 = copy.deepcopy(g2)
+        g3.deme("d1", initial_size=1000)
+        g3.deme("d2", initial_size=1000)
+        g3.pulse("d2", "d1", proportion=0.01, time=100)
+        g4 = copy.deepcopy(g2)
+        g4.deme("d1", initial_size=1000)
+        g4.deme("d2", initial_size=1000)
+        g3.pulse("d1", "d2", proportion=0.01, time=100)
+        self.assertFalse(g3.isclose(g4))
 
 
 class TestDemeGraphToDict(unittest.TestCase):
