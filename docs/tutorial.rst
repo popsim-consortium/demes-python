@@ -16,15 +16,14 @@ A demographic model description contains enough information about
 the demes (or populations) present, their attributes and relationships,
 and general demographic features (e.g. rate of self-fertilization) to
 be able to unambiguously recreate and simulate under that demograhy.
-Thus, a ``demes`` model contains "global" attributes, `demes`, and
+Thus, a ``demes`` model contains "global" attributes, specified demes, and
 migration rates and mass migration events between demes.
 
 A minimal YAML description of a demography requires the following:
 
-#.  `description`: A description or identification of the demographic model.
-#. `time_units`: The time units for any demographic events. (*Discussion of
-   time measurement goes here?*
-#. `demes`: a list of (at least one) deme, which must include information
+#. ``description``: A description or identification of the demographic model.
+#. ``time_units``: The time units for any demographic events.
+#. ``demes``: a list of (at least one) deme, which must include information
    about its initial size.
 
 For example, the simplest demography of a single population of constant
@@ -36,22 +35,51 @@ size (say, :math:`N_e=1000`) would be written as
    :name: minimal-demography
    :linenos:
 
-.. note::
-   We need to discuss time conventions, and the  measurement and flow of time.
 
-Since we did not specify a `start_time` or `end_time` of the deme's
-existence, by defult it spans all time from :math:`\infty` to 0 (recall
-that time is measured by `time_units` in the past, and 0 corresponds
-to "now"). 
+Since we did not specify a ``start_time`` or ``end_time`` of the deme's
+existence, by defult it spans all time from time :math:`\infty` in the past
+to 0 ("now").  See the :ref:`next section <sec_time_units>` that describes
+time conventions in a ``DemeGraph``.
+
+.. _sec_time_units:
+
+Time units and conventions
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Time flows from the past to the present. In population genetics terms, we
+are in the `forward-in-time` setting (as opposed to the `backward-in-time`
+setting of the coalescent). This means that when specifying migration events,
+we define `source` and `destination` demes to be the demes that individuals
+are moving `from` and `to`, respectively, forwards in time.
+
+We measure time in ``time_units`` in the past, so that ``time = 0`` implies
+`now` (or rather, the final generation of the simulation). Thus, time counts
+down from as we advance from one generation from the next.
+
+When defining a ``DemeGraph`` in YAML, we must specify the ``time_units``.
+Typically, we set ``time_units: generations``, so that all times are specified
+in generations in the past. However, we allow the flexibility to use any unit
+of time, such as years, weeks, thousands of years, etc. In the case that the
+time units are not in generations, we must also specify the ``generation_time``
+of the species we are modelling. For example, a human demography specified in
+years could be written as
+
+.. code-block:: yaml
+
+    description: A human demographic model.
+    time_units: years
+    generation_time: 29
+    demes:
+      ...
 
 Defining epochs
 ^^^^^^^^^^^^^^^
 
-A `deme` can be made to have more interesting demographic history, such as
+A ``deme`` can be made to have more interesting demographic history, such as
 size changes or non-constant size functions. This is done by defining
-`epochs` that span the time that a deme exists. When defining an epoch,
-we specify its `start_time` and `end_time`, along with its `initial_size`
-and `final_size` (or just `initial_size` if the population size is constant
+``epochs`` that span the time that a deme exists. When defining an epoch,
+we specify its ``start_time`` and ``end_time``, along with its ``initial_size``
+and ``final_size`` (or just ``initial_size`` if the population size is constant
 over that epoch).
 
 For example, the same minimal demography :ref:`above <minimal-demography>`
@@ -66,13 +94,13 @@ the deme:
        - initial_size: 1000
          end_time: 0
 
-By default, the first listed `epoch` has a `start_time` of :math:`\infty`
+By default, the first listed ``epoch`` has a ``start_time`` of :math:`\infty`
 if it is not specified.
 
 To allow for size changes and varying size functions over different epochs,
 we can simply specify additional epochs. Typically, we only need to define
-the `end_time` of each epoch, as the `start_time` is automatically set to the
-`end_time` of the previous epoch. For this reason, `epochs` need to be listed
+the ``end_time`` of each epoch, as the ``start_time`` is automatically set to the
+``end_time`` of the previous epoch. For this reason, ``epochs`` need to be listed
 in order, from most ancient to most recent.
 
 .. literalinclude:: ./tutorial_examples/one_pop_epochs.yml
@@ -82,23 +110,24 @@ in order, from most ancient to most recent.
    :linenos:
 
 We also see, again, that for constant size epochs we only need to specify
-the `initial_size`, and if no `initial_size` is given, the `epoch` inherits
-the `final_size` of the previous epoch.
-So in this example, we have a `deme` that expands from effective population
+the ``initial_size``, and if no ``initial_size`` is given, the ``epoch`` inherits
+the ``final_size`` of the previous epoch.
+
+In the previous example, we have a ``deme`` that expands from an effective population
 size of 10,000 to 20,000 250 thousand years ago, goes through a bottleneck
 between 60 and 30 thousand years ago, and then expontially grows from the
 bottleneck size of 1,500 to 40,000 from 30 thousand years ago until present
 time.
 
 .. note::
-   If no `size_function` is given, when the `initial_size` and `final_size`
+   If no ``size_function`` is given, when the ``initial_size`` and ``final_size``
    are different, the default size function is exponential. However, other
    size functions, such as linear, are permitted and can be specified.
 
 Multiple demes
 ^^^^^^^^^^^^^^
 
-Additional demes are specified by listing each deme under `demes`. For example,
+Additional demes are specified by listing each deme under ``demes``. For example,
 if we have two constant size demes that both exist for all time and never
 interact (for illustration, not realism), we could write:
 
@@ -114,8 +143,8 @@ Population branches and splits
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 It's more interesting if our demes interact. First, we could have a deme that
-branches off from a parental deme, which continues to exist. For the child
-deme, we would specify that its `ancestor` is its parental deme. For example,
+branches off from a parental deme, and the parent continues to exist. For the child
+deme, we would specify that its ``ancestor`` is its parental deme. For example,
 
 .. code-block:: yaml
 
@@ -133,9 +162,9 @@ Here, the child deme split off from the parental deme 100 time units ago,
 and both demes continue to exist until present time.
 
 Alternatively, a deme could end at some time in the past, and give rise to
-two or more children demes. In this case, we specify the `end_time` of the
-parental deme, and each child deme inherits that `end_time` as their
-`start_time`. For example, a single deme that splits into three demes
+two or more children demes. In this case, we specify the ``end_time`` of the
+parental deme, and each child deme inherits that ``end_time`` as their
+``start_time``. For example, a single deme that splits into three demes
 is written as
 
 .. code-block:: yaml
@@ -172,22 +201,22 @@ Continuous migration
 
 As suggested by the :ref:`isolation-with-migration <isolation-with-migration>`
 model, continuous migration is easy to include. Continuous migration rates
-are specified under `migrations`, and can be either `symmetric` or
-`asymmetric`. For `symmetric` migration, we need only specify the list of
+are specified under ``migrations``, and can be either ``symmetric`` or
+``asymmetric``. For ``symmetric`` migration, we need only specify the list of
 demes involved and the migration rate. **Note that migration rates are always
-given in units of per-generation**, even if the `time_units` are not in
+given in units of per-generation**, even if the ``time_units`` are not in
 generations.
 
-For `asymmetric` migration, we specify the `source` and the `dest` (that is,
+For ``asymmetric`` migration, we specify the ``source`` and the ``dest`` (that is,
 where migrants are coming from and going to, resp.), instead of a list of
-`demes`. Remember that `source` and `dest` are viewed in the forward-in-time
+demes. Remember that ``source`` and ``dest`` are viewed in the forward-in-time
 convention.
 
 By default, migration rates are valid for the entire interval of time that
 two demes overlap. If there are periods of time that only one of the specified
 demes are present, that migration rate is ingored during that time.
-Optionally, we can specify a `start_time` and an `end_time` for continuous
-migration, much like we specify `epoch` intervals.
+Optionally, we can specify a ``start_time`` and an ``end_time`` for continuous
+migration, much like we specify ``epoch`` intervals.
 
 For example, this snippet specifies two demes with changing migration rates
 over time:
@@ -224,9 +253,9 @@ Another commonly modelled process for the exchange of migrants is
 a "pulse" migration event (or "mass migration" event), which is the
 instantanous movement of individuals from one deme that replace
 some proportion of individuals in the second deme. Such events are
-specified by the `time` of the event, the `source` (where migrants
-are moved from), the `dest` (where migrants are moved to), and the
-`proportion` of the destination deme that is replaced.
+specified by the ``time`` of the event, the ``source`` (where migrants
+are moved from), the ``dest`` (where migrants are moved to), and the
+``proportion`` of the destination deme that is replaced.
 
 Thus, pulse migrations are specified as
 
@@ -238,9 +267,9 @@ Thus, pulse migrations are specified as
        dest: deme_to
        proportion: 0.1
 
-Of course, for this to be a valid demographic event, the `proportion`
+Of course, for this to be a valid demographic event, the ``proportion``
 must be between 0 and 1, and both demes must exist at the specified
-`time`.
+``time``.
 
 Admixture events
 ^^^^^^^^^^^^^^^^
@@ -250,13 +279,13 @@ two or more parental demes. The parental demes could continue to exist
 beyond the time of admixture, or they could each end at that time, so
 that the new deme is a complete merger of its parents.
 ``Demes`` allows both cases - we only require that each parental deme
-exists or has its `end_time` at the time of admixture.
+exists or has its ``end_time`` at the time of admixture.
 
-To specify an admixture event, we specify the admixed deme's `ancestors`
-as a comma-separated list of parental demes, and their `proportions` as
+To specify an admixture event, we specify the admixed deme's ``ancestors``
+as a comma-separated list of parental demes, and their ``proportions`` as
 a comma-separated list of admixture proportions from the parental demes.
-`proportions` must sum to 1, and the length and order must match the
-demes listed in `ancestors`.
+``proportions`` must sum to 1, and the length and order must match the
+demes listed in ``ancestors``.
 
 .. code-block:: yaml
 
@@ -293,7 +322,7 @@ demes persist until present time.
    This is the note to be written.
 
 Additional examples and inspiration can be found in our
-:ref:`gallery of examples <sec_examples>`.
+:ref:`gallery of examples <sec_gallery>`.
 
 .. _sec_tutorial_python_api:
 

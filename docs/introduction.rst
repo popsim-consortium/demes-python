@@ -5,7 +5,7 @@ Introduction
 ============
 
 .. note::
-   `Demes` is a work-in-progress, as is its documentation. If you find an error
+   ``Demes`` is a work-in-progress, as is its documentation. If you find an error
    in the documentation or a bug in the software, or would like to help, please
    head to `Github <https://github.com/grahamgower/demes>`_ to open an issue or
    start a pull request.
@@ -26,31 +26,22 @@ especially for complex demographic scenarios.
 
 ``Demes`` aims to make defining demographic models more intuitive, less prone
 to error or ambiguity, and interchangeable between simulation platforms.
-Demographic models, which define populations, their properties, and
-relationships between them, are written in `YAML <https://yaml.org/>`_. Models
-are then human-readable, and they may also be parsed and passed to a simulation
-engine that supports ``demes`` input.
+Demographic models, which define populations (or `demes`), their properties, and
+relationships between them, are written in `YAML <https://yaml.org/>`_. This means
+that models are human-readable, and that they may then be parsed and passed to any
+simulation engine that supports ``demes`` input.
 
-For example, the follow YAML file implements a simple two-epoch demographic
-histor for a single deme (population), where the deme doubles in size 100
-generations ago:
+For example, the following YAML file implements a simple two-epoch demographic
+history for a single deme, where the deme doubles in size 100 generations ago:
 
-.. code-block:: yaml
-
-   description: Single-population two-epoch demography.
-   time_units: generations
-   demes:
-     D:
-       description: A deme (named D) that doubles in size
-       epochs:
-       - initial_size: 1000
-         end_time: 100
-       - initial_size: 2000
-         end_time: 0
+.. literalinclude:: tutorial_examples/two_epoch.yaml
+   :language: yaml
+   :linenos:
 
 The :ref:`tutorial <sec_tutorial_yaml_demography>` describes in detail all the
 components of a YAML demographic model and how to specify more complex
-scenarios, and more illustrative examples can be seen :ref:`here <sec_examples>`.
+scenarios, and more illustrative examples can be found in the
+:ref:`Gallery <sec_gallery>`.
 
 Getting started
 ---------------
@@ -64,6 +55,6 @@ Getting started
   (:ref:`Python API <sec_tutorial_python_api>`), and adding features and
   attributes to demographic models, populations, or population epochs
   (:ref:`deme attributes <sec_tutorial_attributes>`).
-- For a gallery of demographic models defined using ``demes``, see
-  :ref:`Examples <sec_examples>`.
+- For examples of demographic models defined using ``demes``, head to the
+  :ref:`Gallery <sec_gallery>`.
 

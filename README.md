@@ -5,6 +5,9 @@ how they change over time, and their relationships to one another.
 `demes` provides a self-contained and unambiguous in-memory description
 of a demographic model.
 
+Please see the [documentation](https://grahamgower.github.io/demes-docs/main/index.html)
+for more details.
+
 ## Goals
 - A simple declarative high-level format for specifying demographic models. This format is 
   intended to be human-readable and to make it easy to correctly specify models.
