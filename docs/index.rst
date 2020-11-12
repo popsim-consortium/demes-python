@@ -13,7 +13,7 @@ Welcome to demes' documentation!
    introduction
    installation
    tutorial
-   examples
+   gallery
    api
    convert
    development

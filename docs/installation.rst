@@ -18,16 +18,16 @@ want to support demographic models imported from ``demes`` descriptions.
 
 Installation instructions for developers:
 
-.. code-block::
+.. code-block:: sh
 
    ## Clone the repository
-   $ git clone https://github.com/grahamgower/demes.git
-   $ cd demes
+   git clone https://github.com/grahamgower/demes.git
+   cd demes
    
    ## Install the developer dependencies
-   $ python -m pip install -r requirements.txt
+   python -m pip install -r requirements.txt
    
    ## Run the test suite
-   $ python -m pytest -v tests
+   python -m pytest -v tests
 
 

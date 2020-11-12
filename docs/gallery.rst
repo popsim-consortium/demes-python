@@ -1,8 +1,8 @@
-.. _sec_examples:
+.. _sec_gallery:
 
-========
-Examples
-========
+=======
+Gallery
+=======
 
 This page includes a number of examples that illustrate various features
 of demography descriptions using `demes`, as well as some well-known and

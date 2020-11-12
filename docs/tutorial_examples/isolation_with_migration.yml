@@ -8,10 +8,12 @@ demes:
     end_time: 1200
   deme1:
     description: First child deme
+    ancestors: root
     initial_size: 2000
     final_size: 30000
   deme2:
     description: Second child deme
+    ancestors: root
     initial_size: 8000
     final_size: 15000
 migrations:

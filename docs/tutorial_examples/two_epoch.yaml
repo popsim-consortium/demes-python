@@ -1,0 +1,10 @@
+description: Single-population two-epoch demography.
+time_units: generations
+demes:
+  Deme_name:
+    description: A deme that doubles in size 100 generations ago.
+    epochs:
+    - initial_size: 1000
+      end_time: 100
+    - initial_size: 2000
+      end_time: 0
