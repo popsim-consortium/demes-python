@@ -1,4 +1,5 @@
 from typing import List, Mapping, Tuple
+import typing
 import math
 import collections
 import itertools
@@ -33,11 +34,11 @@ def to_msprime(deme_graph: demes.DemeGraph):
     ]
     pop_id = {deme.id: j for j, deme in enumerate(deme_graph.demes)}
 
-    def growth_rate(epoch: demes.Epoch):
-        initial_size = epoch.final_size
-        final_size = epoch.initial_size
+    def growth_rate(epoch: demes.Epoch) -> float:
+        initial_size = typing.cast(float, epoch.final_size)
+        final_size = typing.cast(float, epoch.initial_size)
         if initial_size == final_size:
-            growth_rate = 0
+            growth_rate = 0.0
         else:
             if epoch.size_function != "exponential":
                 raise ValueError(
@@ -60,9 +61,9 @@ def to_msprime(deme_graph: demes.DemeGraph):
         if deme.end_time != 0:
             # If this deme doesn't exist at time=0, invalidate Ne.
             initial_size = Ne_invalid
-            _growth_rate = 0
+            _growth_rate = 0.0
         else:
-            initial_size = deme.epochs[-1].final_size
+            initial_size = typing.cast(float, deme.epochs[-1].final_size)
             _growth_rate = growth_rate(deme.epochs[-1])
         population_configurations.append(
             msprime.PopulationConfiguration(
@@ -95,7 +96,9 @@ def to_msprime(deme_graph: demes.DemeGraph):
                         population_id=pop_id[deme.id],
                     )
                 )
-            if epoch == deme.epochs[0] and not math.isinf(epoch.start_time):
+            if epoch == deme.epochs[0] and not math.isinf(
+                typing.cast(float, epoch.start_time)
+            ):
                 # If this deme doesn't exist at time=inf, invalidate Ne when
                 # the deme ceases to exist.
                 demographic_events.append(

@@ -4,6 +4,7 @@ import itertools
 import math
 import collections
 import copy
+import operator
 
 import attr
 from attr.validators import optional
@@ -17,6 +18,8 @@ Size = Number
 Rate = float
 Proportion = float
 
+_ISCLOSE_REL_TOL = 1e-9
+_ISCLOSE_ABS_TOL = 1e-12
 
 # Validator functions.
 
@@ -41,50 +44,13 @@ def unit_interval(self, attribute, value):
         raise ValueError(f"must have 0 <= {attribute.name} <= 1")
 
 
-def eq_can_be_function(attrs_cls):
-    """
-    Class decorator for attrs classes that mimics the functionality of the
-    not-yet-merged https://github.com/python-attrs/attrs/pull/627
-    This makes it possible to pass an `eq=some_func` arg to attr.ib(),
-    which will be used when comparing that attribute during object
-    equality tests.
-
-    TODO: Remove this when the attrs pr makes its way into a release.
-    """
-
-    def __eq__(self, other):
-        """
-        Compare two objects for equality.
-        """
-        if other.__class__ is not self.__class__:
-            return NotImplemented
-        for attrib in self.__attrs_attrs__:
-            if attrib.eq:
-                a1 = getattr(self, attrib.name)
-                a2 = getattr(other, attrib.name)
-                if callable(attrib.eq):
-                    if not attrib.eq(a1, a2):
-                        return False
-                # Bizarrely, nan!=nan but (nan,)==(nan,). We don't expect to be
-                # doing nan comparisons here, but the latter behaviour matches
-                # attrs (and makes more sense generally).
-                elif (a1,) != (a2,):
-                    return False
-        return True
-
-    attrs_cls.__eq__ = __eq__
-    return attrs_cls
-
-
-# Because we overload the ``eq`` parameter to attrib, allowing it to be a
-# callable, mypy complains about the type. So we introduce a wrapper here
-# and tell mypy to ignore the types.
-# TODO: remove this once we remove the ``eq_can_be_function`` decorator.
-def attrib(*args, **kwargs):  # type: ignore
-    return attr.attrib(*args, **kwargs)
-
-
-def isclose(a: Optional[Number], b: Optional[Number]) -> bool:
+def isclose(
+    a: Optional[Number],
+    b: Optional[Number],
+    *,
+    rel_tol=_ISCLOSE_REL_TOL,
+    abs_tol=_ISCLOSE_ABS_TOL,
+) -> bool:
     """
     Wrapper around math.isclose() that handles None.
     """
@@ -92,11 +58,47 @@ def isclose(a: Optional[Number], b: Optional[Number]) -> bool:
         return (a,) == (b,)
     else:
         return math.isclose(
-            typing.cast(typing.SupportsFloat, a), typing.cast(typing.SupportsFloat, b)
+            typing.cast(float, a),
+            typing.cast(float, b),
+            rel_tol=rel_tol,
+            abs_tol=abs_tol,
         )
 
 
-@eq_can_be_function
+def isclose_deme_proportions(
+    a_ids: Optional[List[ID]],
+    a_proportions: Optional[List[Proportion]],
+    b_ids: Optional[List[ID]],
+    b_proportions: Optional[List[Proportion]],
+    *,
+    rel_tol=_ISCLOSE_REL_TOL,
+    abs_tol=_ISCLOSE_ABS_TOL,
+) -> bool:
+    """
+    Returns true if (a_ids, a_proportions) and (b_ids, b_proportions)
+    are semantically equivalent. The order of ids is ignored, and proportions
+    are checked for numerical closeness.
+    """
+    if None in (a_ids, b_ids):
+        return (a_ids, a_proportions) == (b_ids, b_proportions)
+
+    a_ids = typing.cast(List[ID], a_ids)
+    a_proportions = typing.cast(List[Proportion], a_proportions)
+    b_ids = typing.cast(List[ID], b_ids)
+    b_proportions = typing.cast(List[Number], b_proportions)
+
+    if len(a_ids) != len(b_ids) or len(a_proportions) != len(b_proportions):
+        return False
+    a = sorted(zip(a_ids, a_proportions), key=operator.itemgetter(0))
+    b = sorted(zip(b_ids, b_proportions), key=operator.itemgetter(0))
+    for (a_id, a_proportion), (b_id, b_proportion) in zip(a, b):
+        if a_id != b_id or not isclose(
+            a_proportion, b_proportion, rel_tol=rel_tol, abs_tol=abs_tol
+        ):
+            return False
+    return True
+
+
 @attr.s(auto_attribs=True)
 class Epoch:
     """
@@ -119,22 +121,20 @@ class Epoch:
     :ivar cloning_rate: An optional cloning rate for this epoch.
     """
 
-    start_time: Time = attrib(
-        default=None, validator=optional(non_negative), eq=isclose
+    start_time: Optional[Time] = attr.ib(default=None, validator=optional(non_negative))
+    end_time: Time = attr.ib(default=None, validator=[non_negative, finite])
+    initial_size: Optional[Size] = attr.ib(
+        default=None, validator=optional([positive, finite])
     )
-    end_time: Time = attrib(default=None, validator=[non_negative, finite], eq=isclose)
-    initial_size: Size = attrib(
-        default=None, validator=optional([positive, finite]), eq=isclose
+    final_size: Optional[Size] = attr.ib(
+        default=None, validator=optional([positive, finite])
     )
-    final_size: Size = attrib(
-        default=None, validator=optional([positive, finite]), eq=isclose
+    size_function: Optional[str] = attr.ib(default=None)
+    selfing_rate: Optional[Proportion] = attr.ib(
+        default=None, validator=optional(unit_interval)
     )
-    size_function: str = attrib(default=None)
-    selfing_rate: Proportion = attrib(
-        default=None, validator=optional(unit_interval), eq=isclose
-    )
-    cloning_rate: Proportion = attrib(
-        default=None, validator=optional(unit_interval), eq=isclose
+    cloning_rate: Optional[Proportion] = attr.ib(
+        default=None, validator=optional(unit_interval)
     )
 
     def __attrs_post_init__(self):
@@ -161,8 +161,35 @@ class Epoch:
         """
         return self.start_time - self.end_time
 
+    def isclose(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        return (
+            self.__class__ is other.__class__
+            and isclose(
+                self.start_time, other.start_time, rel_tol=rel_tol, abs_tol=abs_tol
+            )
+            and isclose(self.end_time, other.end_time, rel_tol=rel_tol, abs_tol=abs_tol)
+            and isclose(
+                self.initial_size, other.initial_size, rel_tol=rel_tol, abs_tol=abs_tol
+            )
+            and isclose(
+                self.final_size, other.final_size, rel_tol=rel_tol, abs_tol=abs_tol
+            )
+            and self.size_function == other.size_function
+            and isclose(
+                self.selfing_rate, other.selfing_rate, rel_tol=rel_tol, abs_tol=abs_tol
+            )
+            and isclose(
+                self.cloning_rate, other.cloning_rate, rel_tol=rel_tol, abs_tol=abs_tol
+            )
+        )
 
-@eq_can_be_function
+
 @attr.s(auto_attribs=True)
 class Migration:
     """
@@ -179,18 +206,35 @@ class Migration:
         the given time.
     """
 
-    source: ID = attrib()
-    dest: ID = attrib()
-    start_time: Time = attrib(validator=non_negative, eq=isclose)
-    end_time: Time = attrib(validator=[non_negative, finite], eq=isclose)
-    rate: Rate = attrib(validator=[non_negative, finite], eq=isclose)
+    source: ID = attr.ib()
+    dest: ID = attr.ib()
+    start_time: Time = attr.ib(validator=non_negative)
+    end_time: Time = attr.ib(validator=[non_negative, finite])
+    rate: Rate = attr.ib(validator=[non_negative, finite])
 
     def __attrs_post_init__(self):
         if self.source == self.dest:
             raise ValueError("source and dest cannot be the same deme")
 
+    def isclose(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        return (
+            self.__class__ is other.__class__
+            and self.source == other.source
+            and self.dest == other.dest
+            and isclose(
+                self.start_time, other.start_time, rel_tol=rel_tol, abs_tol=abs_tol
+            )
+            and isclose(self.end_time, other.end_time, rel_tol=rel_tol, abs_tol=abs_tol)
+            and isclose(self.rate, other.rate, rel_tol=rel_tol, abs_tol=abs_tol)
+        )
 
-@eq_can_be_function
+
 @attr.s(auto_attribs=True)
 class Pulse:
     """
@@ -207,17 +251,33 @@ class Pulse:
         the source deme.
     """
 
-    source: ID = attrib()
-    dest: ID = attrib()
-    time: Time = attrib(validator=[non_negative, finite], eq=isclose)
-    proportion: Proportion = attrib(validator=unit_interval, eq=isclose)
+    source: ID = attr.ib()
+    dest: ID = attr.ib()
+    time: Time = attr.ib(validator=[non_negative, finite])
+    proportion: Proportion = attr.ib(validator=unit_interval)
 
     def __attrs_post_init__(self):
         if self.source == self.dest:
             raise ValueError("source and dest cannot be the same deme")
 
+    def isclose(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        return (
+            self.__class__ is other.__class__
+            and self.source == other.source
+            and self.dest == other.dest
+            and isclose(self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol)
+            and isclose(
+                self.proportion, other.proportion, rel_tol=rel_tol, abs_tol=abs_tol
+            )
+        )
 
-@eq_can_be_function
+
 @attr.s(auto_attribs=True)
 class Split:
     """
@@ -231,9 +291,9 @@ class Split:
     :ivar time: The split time.
     """
 
-    parent: ID = attrib()
-    children: List[ID] = attrib()
-    time: Time = attrib(validator=[non_negative, finite], eq=isclose)
+    parent: ID = attr.ib()
+    children: List[ID] = attr.ib()
+    time: Time = attr.ib(validator=[non_negative, finite])
 
     def __attrs_post_init__(self):
         if not isinstance(self.children, list):
@@ -242,8 +302,21 @@ class Split:
             if child == self.parent:
                 raise ValueError("child and parent cannot be the same deme")
 
+    def isclose(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        return (
+            self.__class__ is other.__class__
+            and self.parent == other.parent
+            and sorted(self.children) == sorted(other.children)
+            and isclose(self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol)
+        )
 
-@eq_can_be_function
+
 @attr.s(auto_attribs=True)
 class Branch:
     """
@@ -255,16 +328,29 @@ class Branch:
     :ivar time: The branch time.
     """
 
-    parent: ID = attrib()
-    child: ID = attrib()
-    time: Time = attrib(validator=[non_negative, finite], eq=isclose)
+    parent: ID = attr.ib()
+    child: ID = attr.ib()
+    time: Time = attr.ib(validator=[non_negative, finite])
 
     def __attrs_post_init__(self):
         if self.child == self.parent:
             raise ValueError("child and parent cannot be the same deme")
 
+    def isclose(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        return (
+            self.__class__ is other.__class__
+            and self.parent == other.parent
+            and self.child == other.child
+            and isclose(self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol)
+        )
 
-@eq_can_be_function
+
 @attr.s(auto_attribs=True)
 class Merge:
     """
@@ -277,10 +363,10 @@ class Merge:
     :ivar time: The merge time.
     """
 
-    parents: List[ID] = attrib()
-    proportions: List[Proportion] = attrib()
-    child: ID = attrib()
-    time: Time = attrib(validator=[non_negative, finite], eq=isclose)
+    parents: List[ID] = attr.ib()
+    proportions: List[Proportion] = attr.ib()
+    child: ID = attr.ib()
+    time: Time = attr.ib(validator=[non_negative, finite])
 
     def __attrs_post_init__(self):
         if not isinstance(self.parents, list):
@@ -298,8 +384,28 @@ class Merge:
         if len(set(self.parents)) != len(self.parents):
             raise ValueError("cannot repeat parents in merge")
 
+    def isclose(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        return (
+            self.__class__ is other.__class__
+            and isclose_deme_proportions(
+                self.parents,
+                self.proportions,
+                other.parents,
+                other.proportions,
+                rel_tol=rel_tol,
+                abs_tol=abs_tol,
+            )
+            and self.child == other.child
+            and isclose(self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol)
+        )
 
-@eq_can_be_function
+
 @attr.s(auto_attribs=True)
 class Admix:
     """
@@ -312,10 +418,10 @@ class Admix:
     :ivar time: The admixture time.
     """
 
-    parents: List[ID] = attrib()
-    proportions: List[Proportion] = attrib()
-    child: ID = attrib()
-    time: Time = attrib(validator=[non_negative, finite], eq=isclose)
+    parents: List[ID] = attr.ib()
+    proportions: List[Proportion] = attr.ib()
+    child: ID = attr.ib()
+    time: Time = attr.ib(validator=[non_negative, finite])
 
     def __attrs_post_init__(self):
         if not isinstance(self.parents, list):
@@ -333,8 +439,28 @@ class Admix:
         if len(set(self.parents)) != len(self.parents):
             raise ValueError("cannot repeat parents in admixure")
 
+    def isclose(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        return (
+            self.__class__ is other.__class__
+            and isclose_deme_proportions(
+                self.parents,
+                self.proportions,
+                other.parents,
+                other.proportions,
+                rel_tol=rel_tol,
+                abs_tol=abs_tol,
+            )
+            and self.child == other.child
+            and isclose(self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol)
+        )
 
-@eq_can_be_function
+
 @attr.s(auto_attribs=True)
 class Deme:
     """
@@ -354,16 +480,16 @@ class Deme:
     :ivar cloning_rate: An optional cloning rate for this deme.
     """
 
-    id: ID = attrib()
-    description: str = attrib()
-    ancestors: List[ID] = attrib()
-    proportions: List[Proportion] = attrib()
-    epochs: List[Epoch] = attrib()
-    selfing_rate: Proportion = attrib(
-        default=None, validator=optional([unit_interval]), eq=isclose
+    id: ID = attr.ib()
+    description: str = attr.ib()
+    ancestors: List[ID] = attr.ib()
+    proportions: List[Proportion] = attr.ib()
+    epochs: List[Epoch] = attr.ib()
+    selfing_rate: Optional[Proportion] = attr.ib(
+        default=None, validator=optional([unit_interval])
     )
-    cloning_rate: Proportion = attrib(
-        default=None, validator=optional([unit_interval]), eq=isclose
+    cloning_rate: Optional[Proportion] = attr.ib(
+        default=None, validator=optional([unit_interval])
     )
 
     @epochs.validator
@@ -384,6 +510,36 @@ class Deme:
                 raise ValueError("ancestors and proportions must have same length")
             if self.id in self.ancestors:
                 raise ValueError(f"{self.id} cannot be its own ancestor")
+        # if selfing or cloning rates are not given, set them to deme's default rate
+        epoch = self.epochs[0]
+        if epoch.selfing_rate is None:
+            epoch.selfing_rate = self.selfing_rate
+        if epoch.cloning_rate is None:
+            epoch.cloning_rate = self.cloning_rate
+
+    def isclose(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        return (
+            self.__class__ is other.__class__
+            and self.id == other.id
+            and isclose_deme_proportions(
+                self.ancestors,
+                self.proportions,
+                other.ancestors,
+                other.proportions,
+                rel_tol=rel_tol,
+                abs_tol=abs_tol,
+            )
+            and all(
+                e1.isclose(e2, rel_tol=rel_tol, abs_tol=abs_tol)
+                for e1, e2 in zip(self.epochs, other.epochs)
+            )
+        )
 
     def add_epoch(self, epoch: Epoch):
         """
@@ -457,7 +613,6 @@ class Deme:
         return self.start_time - self.end_time
 
 
-@eq_can_be_function
 @attr.s(auto_attribs=True)
 class DemeGraph:
     """
@@ -493,24 +648,24 @@ class DemeGraph:
         Use :meth:`pulse` instead.
     """
 
-    def sorted_eq(a, b):
-        # Order-agnostic equality check.
-        return sorted(a) == sorted(b)
-
-    description: str = attrib(eq=False)
-    time_units: str = attrib()
-    generation_time: Time = attrib(default=None, validator=optional([positive, finite]))
-    default_Ne: Size = attrib(default=None, validator=optional([positive, finite]))
-    doi: str = attrib(default=None, eq=False)
-    demes: List[Deme] = attrib(factory=list, eq=sorted_eq)
-    migrations: List[Migration] = attrib(factory=list, eq=sorted_eq)
-    pulses: List[Pulse] = attrib(factory=list, eq=sorted_eq)
-    splits: List[Split] = attrib(factory=list, eq=False)
-    branches: List[Branch] = attrib(factory=list, eq=False)
-    mergers: List[Merge] = attrib(factory=list, eq=False)
-    admixtures: List[Admix] = attrib(factory=list, eq=False)
-    selfing_rate: Proportion = attrib(default=None, eq=isclose)
-    cloning_rate: Proportion = attrib(default=None, eq=isclose)
+    description: str = attr.ib()
+    time_units: str = attr.ib()
+    generation_time: Optional[Time] = attr.ib(
+        default=None, validator=optional([positive, finite])
+    )
+    default_Ne: Optional[Size] = attr.ib(
+        default=None, validator=optional([positive, finite])
+    )
+    doi: Optional[str] = attr.ib(default=None)
+    demes: List[Deme] = attr.ib(factory=list)
+    migrations: List[Migration] = attr.ib(factory=list)
+    pulses: List[Pulse] = attr.ib(factory=list)
+    splits: List[Split] = attr.ib(factory=list)
+    branches: List[Branch] = attr.ib(factory=list)
+    mergers: List[Merge] = attr.ib(factory=list)
+    admixtures: List[Admix] = attr.ib(factory=list)
+    selfing_rate: Proportion = attr.ib(default=None)
+    cloning_rate: Proportion = attr.ib(default=None)
 
     def __attrs_post_init__(self):
         self._deme_map: Mapping[ID, Deme] = dict()
@@ -526,6 +681,33 @@ class DemeGraph:
         Check if the deme graph contains a deme with the specified id.
         """
         return deme_id in self._deme_map
+
+    def isclose(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        def sorted_eq(aa, bb, *, rel_tol, abs_tol) -> bool:
+            # Order-agnostic equality check.
+            if len(aa) != len(bb):
+                return False
+            for (a, b) in zip(sorted(aa), sorted(bb)):
+                if not a.isclose(b, rel_tol=rel_tol, abs_tol=abs_tol):
+                    return False
+            return True
+
+        return (
+            self.__class__ is other.__class__
+            and self.time_units == other.time_units
+            and self.generation_time == other.generation_time
+            and sorted_eq(self.demes, other.demes, rel_tol=rel_tol, abs_tol=abs_tol)
+            and sorted_eq(
+                self.migrations, other.migrations, rel_tol=rel_tol, abs_tol=abs_tol
+            )
+            and sorted_eq(self.pulses, other.pulses, rel_tol=rel_tol, abs_tol=abs_tol)
+        )
 
     def deme(
         self,
