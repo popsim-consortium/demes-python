@@ -1,3 +1,4 @@
-from .msprime_ import to_msprime, from_msprime  # noqa: F401
-from .stdpopsim_ import to_stdpopsim, from_stdpopsim  # noqa: F401
-from .moments_ import SFS  # noqa: F401
+# flake8: noqa: F401
+from .msprime_ import to_msprime, from_msprime
+from .stdpopsim_ import to_stdpopsim, from_stdpopsim
+from .moments_ import SFS

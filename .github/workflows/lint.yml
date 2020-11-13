@@ -19,6 +19,7 @@ jobs:
         run: |
           sudo apt install libgsl-dev  # for msprime
           pip install -r requirements.txt
+          python setup.py build
 
       - name: black
         run: black --check .
