@@ -10,10 +10,12 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
+import pathlib
 import sys
 
-sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
+
+import demes  # noqa: E402
 
 
 # -- Project information -----------------------------------------------------
@@ -22,6 +24,14 @@ project = "demes"
 copyright = "2020, PopSim Consortium"
 author = "PopSim Consortium"
 
+# The version info for the project you're documenting, acts as replacement for
+# |version| and |release|, also used in various other places throughout the
+# built documents.
+#
+release = demes.__version__
+# Remove trailing git hash stuff.
+release = release.split("+")[0]
+version = release[:3]
 
 # -- General configuration ---------------------------------------------------
 

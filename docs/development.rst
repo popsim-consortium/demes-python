@@ -28,6 +28,8 @@ follows.
     cd demes
     # Install the developer dependencies.
     python -m pip install -r requirements.txt
+    # Generate the version string from the most recent git tag/commit.
+    python setup.py build
 
  .. note::
 
