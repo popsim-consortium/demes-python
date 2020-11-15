@@ -16,6 +16,7 @@ Welcome to demes' documentation!
    gallery
    api
    convert
+   schema
    development
 
 

@@ -616,24 +616,27 @@ class Deme:
 @attr.s(auto_attribs=True)
 class DemeGraph:
     """
-    A directed graph that describes a demography. Vertices are demes and edges
-    correspond to ancestor/descendent relations. Edges are directed from
-    ancestors to descendants.
+    The DemeGraph class provides a high-level API for constructing a demographic
+    model. The methods on this class ensure validity of a  model at all stages
+    of construction. They also allow omission of detail, when there is a single
+    unambiguous interpretation (or a very sensible default). The semantics
+    exactly match those for loading the ``yaml`` file, as the :func:`.load`
+    function uses this API internally.
 
-    :ivar description: A human readable description of the demography.
-    :ivar time_units: The units of time used for the demography. This is
+    :ivar str description: A human readable description of the demography.
+    :ivar str time_units: The units of time used for the demography. This is
         commonly ``years`` or ``generations``, but can be any string.
         This field is intended to be useful for documenting a demography,
         but the actual value provided here should not be relied upon.
-    :ivar generation_time: The generation time of demes, in units given
+    :ivar float generation_time: The generation time of demes, in units given
         by the ``time_units`` parameter. Concretely, dividing all times
         by ``generation_time`` will convert the deme graph to have time
         units in generations.  If ``generation_time`` is ``None``, the units
         are assumed to be in generations already.
         See also: :meth:`.in_generations`.
-    :ivar default_Ne: The default population size to use when creating new
+    :ivar float default_Ne: The default population size to use when creating new
         demes with :meth:`.deme`. May be ``None``.
-    :ivar doi: If the deme graph describes a published demography, the DOI
+    :ivar str doi: If the deme graph describes a published demography, the DOI
         should be be given here. May be ``None``.
     :ivar demes: A list of demes in the demography.
         Not intended to be passed when the deme graph is instantiated.
@@ -646,6 +649,7 @@ class DemeGraph:
     :ivar pulses: A list of migration pulses for the demography.
         Not intended to be passed when the deme graph is instantiated.
         Use :meth:`pulse` instead.
+    :vartype pulses: list of :class:`.Pulse`
     """
 
     description: str = attr.ib()
