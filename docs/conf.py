@@ -10,10 +10,15 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+import os
 import pathlib
 import sys
 
-sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
+src_path = str(pathlib.Path(__file__).parent.parent)
+# So we can `import demes` below.
+sys.path.insert(0, src_path)
+# So jupyter-sphinx finds the package.
+os.environ["PYTHONPATH"] = ":".join((src_path, os.environ.get("PYTHONPATH", "")))
 
 import demes  # noqa: E402
 
@@ -42,6 +47,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.todo",
     "sphinx.ext.viewcode",
+    "jupyter_sphinx",
 ]
 
 # Add any paths that contain templates here, relative to this directory.

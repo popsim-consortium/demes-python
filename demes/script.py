@@ -1,113 +1,26 @@
 """
 Functions to load and dump yaml formatted descriptions of a demography.
-The strictyaml schema defined here follows the DemeGraph construction API.
-
-AR: whole-sale changes to comply with the forwards-in-time construction now
-in `demes.py`.
 """
-# TODO: add symmetric_migration and subgraph schemas.
 
-from strictyaml import (
-    Optional,
-    Map,
-    MapPattern,
-    Float,
-    Int,
-    Seq,
-    Str,
-    dirty_load,
-    as_document,
-    CommaSeparated,
-)
+import strictyaml
 
 import demes
-
-Number = Int() | Float()
-
-_epoch_schema = Map(
-    {
-        Optional("start_time"): Number,
-        "end_time": Number,
-        Optional("initial_size"): Number,
-        Optional("final_size"): Number,
-        Optional("size_function"): Str(),
-        Optional("selfing_rate"): Number,
-        Optional("cloning_rate"): Number,
-    }
-)
-
-_asymmetric_migration_schema = Map(
-    {
-        Optional("start_time"): Number,
-        Optional("end_time"): Number,
-        "source": Str(),
-        "dest": Str(),
-        "rate": Float(),
-    }
-)
-
-_symmetric_migration_schema = Map(
-    {
-        Optional("start_time"): Number,
-        Optional("end_time"): Number,
-        "demes": CommaSeparated(Str()),
-        "rate": Float(),
-    }
-)
-
-_pulse_schema = Map(
-    {"time": Number, "source": Str(), "dest": Str(), "proportion": Float()}
-)
-
-_deme_schema = Map(
-    {
-        Optional("description"): Str(),
-        Optional("ancestors"): CommaSeparated(Str()),
-        Optional("proportions"): CommaSeparated(Float()),
-        Optional("start_time"): Number,
-        Optional("end_time"): Number,
-        Optional("initial_size"): Number,
-        Optional("final_size"): Number,
-        Optional("epochs"): Seq(_epoch_schema),
-        Optional("selfing_rate"): Number,
-        Optional("cloning_rate"): Number,
-    }
-)
-
-_deme_graph_schema = Map(
-    {
-        "description": Str(),
-        "time_units": Str(),
-        Optional("generation_time"): Number,
-        Optional("doi"): Str(),
-        Optional("default_Ne"): Number,
-        "demes": MapPattern(Str(), _deme_schema),
-        Optional("migrations"): Map(
-            {
-                Optional("symmetric"): Seq(_symmetric_migration_schema),
-                Optional("asymmetric"): Seq(_asymmetric_migration_schema),
-            }
-        ),
-        Optional("pulses"): Seq(_pulse_schema),
-        Optional("selfing_rate"): Number,
-        Optional("cloning_rate"): Number,
-    }
-)
+from .schema import deme_graph_schema
 
 
 def loads(string):
     """
     Load a deme graph from a yaml-formatted string.
+    The keywords and structure of the string are defined by the
+    :ref:`schema <sec_schema>`.
 
     :param str string: the ``yaml`` string to be loaded.
     :return: A deme graph.
     :rtype: .DemeGraph
-
-    .. todo:: Describe demes' yaml format. The semantics in the yaml
-        follow that of the :class:`.DemeGraph` demography construction
-        methods.
     """
-    yaml = dirty_load(string, schema=_deme_graph_schema, allow_flow_style=True)
+    yaml = strictyaml.dirty_load(
+        string, schema=deme_graph_schema, allow_flow_style=True
+    )
     d = yaml.data  # data dict
     g = demes.DemeGraph(
         description=d.get("description"),
@@ -140,9 +53,12 @@ def loads(string):
 
 def load(filename):
     """
-    Load a deme graph from a yaml-formatted file.
+    Load a deme graph from a ``yaml`` file.
+    The keywords and structure of the file are defined by the
+    :ref:`schema <sec_schema>`.
 
-    :param str filename: the name of the ``yaml`` file to load.
+    :param filename: The path to the ``yaml`` file to load.
+    :type filename: str or :class:`os.PathLike`
     :return: A deme graph.
     :rtype: .DemeGraph
     """
@@ -153,22 +69,27 @@ def load(filename):
 def dumps(deme_graph):
     """
     Return a yaml-formatted string of the specified deme graph.
+    The keywords and structure of the string are defined by the
+    :ref:`schema <sec_schema>`.
 
     :param .DemeGraph deme_graph: The deme graph to dump.
     :return: A yaml-formatted string.
     :rtype: str
     """
     d = deme_graph.asdict_compact()
-    doc = as_document(d, schema=_deme_graph_schema)
+    doc = strictyaml.as_document(d, schema=deme_graph_schema)
     return doc.as_yaml()
 
 
 def dump(deme_graph, filename):
     """
-    Dump the specified deme graph to a yaml-formatted file.
+    Dump the specified deme graph to a ``yaml`` file.
+    The keywords and structure of the file are defined by the
+    :ref:`schema <sec_schema>`.
 
     :param .DemeGraph deme_graph: The deme graph to dump.
-    :param str filename: Name of the output file.
+    :param filename: Path to the output file.
+    :type filename: str or :class:`os.PathLike`
     """
     with open(filename, "w") as f:
         f.write(dumps(deme_graph))
