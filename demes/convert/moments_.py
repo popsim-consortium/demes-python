@@ -146,7 +146,7 @@ def augment_with_ancient_samples(g, sampled_demes, sample_times):
             frozen_demes.append(sd_frozen)
             sampled_demes[ii] = sd_frozen
             g.deme(id=sd_frozen, start_time=st, end_time=0, initial_size=1)
-            g.branch(sd, sd_frozen, st)
+            g.branch(parent=sd, child=sd_frozen, time=st)
     return g, sampled_demes, frozen_demes
 
 

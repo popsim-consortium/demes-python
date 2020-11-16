@@ -67,8 +67,8 @@ with migration between adjacent demes, can be done with the following code.
     for j in range(M):
         g.deme(f"deme{j}", initial_size=1000)
         if j > 0:
-            g.symmetric_migration([f"deme{j - 1}", f"deme{j}"], rate=1e-5)
-    g.symmetric_migration([f"deme{M - 1}", "deme0"], rate=1e-5)
+            g.symmetric_migration(demes=[f"deme{j - 1}", f"deme{j}"], rate=1e-5)
+    g.symmetric_migration(demes=[f"deme{M - 1}", "deme0"], rate=1e-5)
 
 The deme graph can then be written out to a new ``yaml`` file using the
 :func:`.dump` function.

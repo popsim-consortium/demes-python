@@ -97,52 +97,74 @@ class TestMigration(unittest.TestCase):
     def test_bad_time(self):
         for time in (-10000, -1, -1e-9):
             with self.assertRaises(ValueError):
-                Migration("a", "b", start_time=time, end_time=0, rate=0.1)
+                Migration(source="a", dest="b", start_time=time, end_time=0, rate=0.1)
         for time in (-10000, -1, -1e-9, float("inf")):
             with self.assertRaises(ValueError):
-                Migration("a", "b", start_time=100, end_time=time, rate=0.1)
+                Migration(source="a", dest="b", start_time=100, end_time=time, rate=0.1)
 
     def test_bad_rate(self):
         for rate in (-10000, -1, -1e-9, float("inf")):
             with self.assertRaises(ValueError):
-                Migration("a", "b", start_time=10, end_time=0, rate=rate)
+                Migration(source="a", dest="b", start_time=10, end_time=0, rate=rate)
 
     def test_bad_demes(self):
         with self.assertRaises(ValueError):
-            Migration("a", "a", start_time=10, end_time=0, rate=0.1)
+            Migration(source="a", dest="a", start_time=10, end_time=0, rate=0.1)
 
     def test_valid_migration(self):
-        Migration("a", "b", start_time=float("inf"), end_time=0, rate=1e-9)
-        Migration("a", "b", start_time=1000, end_time=999, rate=0.9)
+        Migration(source="a", dest="b", start_time=float("inf"), end_time=0, rate=1e-9)
+        Migration(source="a", dest="b", start_time=1000, end_time=999, rate=0.9)
 
     def test_isclose(self):
         eps = 1e-50
-        m1 = Migration("a", "b", start_time=1, end_time=0, rate=1e-9)
+        m1 = Migration(source="a", dest="b", start_time=1, end_time=0, rate=1e-9)
         self.assertTrue(m1.isclose(m1))
         self.assertTrue(
-            m1.isclose(Migration("a", "b", start_time=1, end_time=0, rate=1e-9 + eps))
+            m1.isclose(
+                Migration(
+                    source="a", dest="b", start_time=1, end_time=0, rate=1e-9 + eps
+                )
+            )
         )
         self.assertTrue(
-            m1.isclose(Migration("a", "b", start_time=1 + eps, end_time=0, rate=1e-9))
+            m1.isclose(
+                Migration(
+                    source="a", dest="b", start_time=1 + eps, end_time=0, rate=1e-9
+                )
+            )
         )
         self.assertTrue(
-            m1.isclose(Migration("a", "b", start_time=1, end_time=0 + eps, rate=1e-9))
+            m1.isclose(
+                Migration(
+                    source="a", dest="b", start_time=1, end_time=0 + eps, rate=1e-9
+                )
+            )
         )
 
         self.assertFalse(
-            m1.isclose(Migration("b", "a", start_time=1, end_time=0, rate=1e-9))
+            m1.isclose(
+                Migration(source="b", dest="a", start_time=1, end_time=0, rate=1e-9)
+            )
         )
         self.assertFalse(
-            m1.isclose(Migration("a", "b", start_time=1, end_time=0, rate=2e-9))
+            m1.isclose(
+                Migration(source="a", dest="b", start_time=1, end_time=0, rate=2e-9)
+            )
         )
         self.assertFalse(
-            m1.isclose(Migration("a", "c", start_time=1, end_time=0, rate=1e-9))
+            m1.isclose(
+                Migration(source="a", dest="c", start_time=1, end_time=0, rate=1e-9)
+            )
         )
         self.assertFalse(
-            m1.isclose(Migration("a", "c", start_time=2, end_time=0, rate=1e-9))
+            m1.isclose(
+                Migration(source="a", dest="c", start_time=2, end_time=0, rate=1e-9)
+            )
         )
         self.assertFalse(
-            m1.isclose(Migration("a", "c", start_time=1, end_time=0.1, rate=1e-9))
+            m1.isclose(
+                Migration(source="a", dest="c", start_time=1, end_time=0.1, rate=1e-9)
+            )
         )
         self.assertFalse(m1.isclose(None))
         self.assertFalse(m1.isclose(123))
@@ -153,214 +175,368 @@ class TestPulse(unittest.TestCase):
     def test_bad_time(self):
         for time in (-10000, -1, -1e-9, float("inf")):
             with self.assertRaises(ValueError):
-                Pulse("a", "b", time=time, proportion=0.1)
+                Pulse(source="a", dest="b", time=time, proportion=0.1)
 
     def test_bad_proportion(self):
         for proportion in (-10000, -1, -1e-9, 1.2, 100, float("inf")):
             with self.assertRaises(ValueError):
-                Pulse("a", "b", time=1, proportion=proportion)
+                Pulse(source="a", dest="b", time=1, proportion=proportion)
 
     def test_bad_demes(self):
         with self.assertRaises(ValueError):
-            Pulse("a", "a", time=1, proportion=0.1)
+            Pulse(source="a", dest="a", time=1, proportion=0.1)
 
     def test_valid_pulse(self):
-        Pulse("a", "b", time=1, proportion=1e-9)
-        Pulse("a", "b", time=100, proportion=0.9)
+        Pulse(source="a", dest="b", time=1, proportion=1e-9)
+        Pulse(source="a", dest="b", time=100, proportion=0.9)
 
     def test_isclose(self):
         eps = 1e-50
-        p1 = Pulse("a", "b", time=1, proportion=1e-9)
+        p1 = Pulse(source="a", dest="b", time=1, proportion=1e-9)
         self.assertTrue(p1.isclose(p1))
-        self.assertTrue(p1.isclose(Pulse("a", "b", time=1, proportion=1e-9)))
-        self.assertTrue(p1.isclose(Pulse("a", "b", time=1 + eps, proportion=1e-9)))
-        self.assertTrue(p1.isclose(Pulse("a", "b", time=1, proportion=1e-9 + eps)))
+        self.assertTrue(
+            p1.isclose(Pulse(source="a", dest="b", time=1, proportion=1e-9))
+        )
+        self.assertTrue(
+            p1.isclose(Pulse(source="a", dest="b", time=1 + eps, proportion=1e-9))
+        )
+        self.assertTrue(
+            p1.isclose(Pulse(source="a", dest="b", time=1, proportion=1e-9 + eps))
+        )
 
-        self.assertFalse(p1.isclose(Pulse("a", "c", time=1, proportion=1e-9)))
-        self.assertFalse(p1.isclose(Pulse("b", "a", time=1, proportion=1e-9)))
-        self.assertFalse(p1.isclose(Pulse("a", "b", time=1, proportion=2e-9)))
-        self.assertFalse(p1.isclose(Pulse("a", "b", time=1 + 1e-9, proportion=1e-9)))
+        self.assertFalse(
+            p1.isclose(Pulse(source="a", dest="c", time=1, proportion=1e-9))
+        )
+        self.assertFalse(
+            p1.isclose(Pulse(source="b", dest="a", time=1, proportion=1e-9))
+        )
+        self.assertFalse(
+            p1.isclose(Pulse(source="a", dest="b", time=1, proportion=2e-9))
+        )
+        self.assertFalse(
+            p1.isclose(Pulse(source="a", dest="b", time=1 + 1e-9, proportion=1e-9))
+        )
 
 
 class TestSplit(unittest.TestCase):
     def test_bad_time(self):
         for time in [-1e-12, -1, float("inf")]:
             with self.assertRaises(ValueError):
-                Split("a", ["b", "c"], time)
+                Split(parent="a", children=["b", "c"], time=time)
 
     def test_children(self):
         with self.assertRaises(ValueError):
-            Split("a", "b", 1)
+            Split(parent="a", children="b", time=1)
         with self.assertRaises(ValueError):
-            Split("a", ["a", "b"], 1)
+            Split(parent="a", children=["a", "b"], time=1)
 
     def test_valid_split(self):
-        Split("a", ["b", "c"], 10)
-        Split("a", ["b", "c", "d"], 10)
-        Split("a", ["b", "c"], 0)
+        Split(parent="a", children=["b", "c"], time=10)
+        Split(parent="a", children=["b", "c", "d"], time=10)
+        Split(parent="a", children=["b", "c"], time=0)
 
     def test_isclose(self):
         eps = 1e-50
-        s1 = Split("a", ["b", "c"], 1)
+        s1 = Split(parent="a", children=["b", "c"], time=1)
         self.assertTrue(s1.isclose(s1))
-        self.assertTrue(s1.isclose(Split("a", ["b", "c"], 1)))
-        self.assertTrue(s1.isclose(Split("a", ["b", "c"], 1 + eps)))
+        self.assertTrue(s1.isclose(Split(parent="a", children=["b", "c"], time=1)))
+        self.assertTrue(
+            s1.isclose(Split(parent="a", children=["b", "c"], time=1 + eps))
+        )
         # Order of children doesn't matter.
-        self.assertTrue(s1.isclose(Split("a", ["c", "b"], 1)))
+        self.assertTrue(s1.isclose(Split(parent="a", children=["c", "b"], time=1)))
 
-        self.assertFalse(s1.isclose(Split("a", ["x", "c"], 1)))
-        self.assertFalse(s1.isclose(Split("x", ["b", "c"], 1)))
-        self.assertFalse(s1.isclose(Split("a", ["b", "c", "x"], 1)))
-        self.assertFalse(s1.isclose(Split("a", ["b", "c"], 1 + 1e-9)))
+        self.assertFalse(s1.isclose(Split(parent="a", children=["x", "c"], time=1)))
+        self.assertFalse(s1.isclose(Split(parent="x", children=["b", "c"], time=1)))
+        self.assertFalse(
+            s1.isclose(Split(parent="a", children=["b", "c", "x"], time=1))
+        )
+        self.assertFalse(
+            s1.isclose(Split(parent="a", children=["b", "c"], time=1 + 1e-9))
+        )
 
 
 class TestBranch(unittest.TestCase):
     def test_bad_time(self):
         for time in [-1e-12, -1, float("inf")]:
             with self.assertRaises(ValueError):
-                Branch("a", "b", time)
+                Branch(parent="a", child="b", time=time)
 
     def test_branch_demes(self):
         with self.assertRaises(ValueError):
-            Branch("a", "a", 1)
+            Branch(parent="a", child="a", time=1)
 
     def test_valid_branch(self):
-        Branch("a", "b", 10)
-        Branch("a", "b", 0)
+        Branch(parent="a", child="b", time=10)
+        Branch(parent="a", child="b", time=0)
 
     def test_isclose(self):
         eps = 1e-50
-        b1 = Branch("a", "b", 1)
+        b1 = Branch(parent="a", child="b", time=1)
         self.assertTrue(b1.isclose(b1))
-        self.assertTrue(b1.isclose(Branch("a", "b", 1)))
-        self.assertTrue(b1.isclose(Branch("a", "b", 1 + eps)))
+        self.assertTrue(b1.isclose(Branch(parent="a", child="b", time=1)))
+        self.assertTrue(b1.isclose(Branch(parent="a", child="b", time=1 + eps)))
 
-        self.assertFalse(b1.isclose(Branch("x", "b", 1)))
-        self.assertFalse(b1.isclose(Branch("a", "x", 1)))
-        self.assertFalse(b1.isclose(Branch("b", "a", 1)))
-        self.assertFalse(b1.isclose(Branch("a", "b", 1 + 1e-9)))
+        self.assertFalse(b1.isclose(Branch(parent="x", child="b", time=1)))
+        self.assertFalse(b1.isclose(Branch(parent="a", child="x", time=1)))
+        self.assertFalse(b1.isclose(Branch(parent="b", child="a", time=1)))
+        self.assertFalse(b1.isclose(Branch(parent="a", child="b", time=1 + 1e-9)))
 
 
 class TestMerge(unittest.TestCase):
     def test_bad_time(self):
         for time in [-1e-12, -1, float("inf")]:
             with self.assertRaises(ValueError):
-                Merge(["a", "b"], [0.5, 0.5], "c", time)
+                Merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=time)
 
     def test_bad_parents_proportions(self):
         with self.assertRaises(ValueError):
-            Merge("a", [1], "b", 1)
+            Merge(parents="a", proportions=[1], child="b", time=1)
         with self.assertRaises(ValueError):
-            Merge(["a"], 1.0, "b", 10)
+            Merge(parents=["a"], proportions=1.0, child="b", time=10)
         with self.assertRaises(ValueError):
-            Merge(["a"], [1], "b", 1)
+            Merge(parents=["a"], proportions=[1], child="b", time=1)
         with self.assertRaises(ValueError):
-            Merge(["a", "b"], [0.5, 0.5], "a", 1)
+            Merge(parents=["a", "b"], proportions=[0.5, 0.5], child="a", time=1)
         with self.assertRaises(ValueError):
-            Merge(["a", "a"], [0.5, 0.5], "b", 1)
+            Merge(parents=["a", "a"], proportions=[0.5, 0.5], child="b", time=1)
 
     def test_invalid_proportions(self):
         with self.assertRaises(ValueError):
-            Merge(["a", "b"], [0.1, 1], "c", 1)
+            Merge(parents=["a", "b"], proportions=[0.1, 1], child="c", time=1)
         with self.assertRaises(ValueError):
-            Merge(["a", "b"], [0.5], "c", 1)
+            Merge(parents=["a", "b"], proportions=[0.5], child="c", time=1)
         with self.assertRaises(ValueError):
-            Merge(["a", "b"], [1.0], "c", 1)
+            Merge(parents=["a", "b"], proportions=[1.0], child="c", time=1)
         with self.assertRaises(ValueError):
-            Merge(["a", "b", "c"], [0.5, 0.5, 0.5], "d", 1)
+            Merge(
+                parents=["a", "b", "c"], proportions=[0.5, 0.5, 0.5], child="d", time=1
+            )
 
     def test_valid_merge(self):
-        Merge(["a", "b"], [0.5, 0.5], "c", 10)
-        Merge(["a", "b"], [0.5, 0.5], "c", 0)
-        Merge(["a", "b", "c"], [0.5, 0.25, 0.25], "d", 10)
-        Merge(["a", "b", "c"], [0.5, 0.5, 0.0], "d", 10)
-        Merge(["a", "b"], [1, 0], "c", 10)
+        Merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=10)
+        Merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=0)
+        Merge(
+            parents=["a", "b", "c"], proportions=[0.5, 0.25, 0.25], child="d", time=10
+        )
+        Merge(parents=["a", "b", "c"], proportions=[0.5, 0.5, 0.0], child="d", time=10)
+        Merge(parents=["a", "b"], proportions=[1, 0], child="c", time=10)
 
     def test_isclose(self):
         eps = 1e-50
-        m1 = Merge(["a", "b"], [0.1, 0.9], "c", 1)
+        m1 = Merge(parents=["a", "b"], proportions=[0.1, 0.9], child="c", time=1)
         self.assertTrue(m1.isclose(m1))
-        self.assertTrue(m1.isclose(Merge(["a", "b"], [0.1, 0.9], "c", 1)))
-        self.assertTrue(m1.isclose(Merge(["a", "b"], [0.1, 0.9], "c", 1 + eps)))
-        self.assertTrue(m1.isclose(Merge(["a", "b"], [0.1 + eps, 0.9], "c", 1)))
-        self.assertTrue(m1.isclose(Merge(["a", "b"], [0.1, 0.9 + eps], "c", 1)))
-        # Order of parents/proportions doesn't matter.
-        self.assertTrue(m1.isclose(Merge(["b", "a"], [0.9, 0.1], "c", 1)))
-
-        self.assertFalse(m1.isclose(Merge(["a", "x"], [0.1, 0.9], "c", 1)))
-        self.assertFalse(m1.isclose(Merge(["x", "b"], [0.1, 0.9], "c", 1)))
-        self.assertFalse(
-            m1.isclose(Merge(["a", "b"], [0.1 + 1e-9, 0.9 - 1e-9], "c", 1))
+        self.assertTrue(
+            m1.isclose(
+                Merge(parents=["a", "b"], proportions=[0.1, 0.9], child="c", time=1)
+            )
         )
-        self.assertFalse(m1.isclose(Merge(["a", "b"], [0.1, 0.9], "x", 1)))
-        self.assertFalse(m1.isclose(Merge(["a", "b"], [0.1, 0.9], "c", 1 + 1e-9)))
-        self.assertFalse(m1.isclose(Merge(["a", "b", "x"], [0.1, 0.9, 0], "c", 1)))
+        self.assertTrue(
+            m1.isclose(
+                Merge(
+                    parents=["a", "b"], proportions=[0.1, 0.9], child="c", time=1 + eps
+                )
+            )
+        )
+        self.assertTrue(
+            m1.isclose(
+                Merge(
+                    parents=["a", "b"], proportions=[0.1 + eps, 0.9], child="c", time=1
+                )
+            )
+        )
+        self.assertTrue(
+            m1.isclose(
+                Merge(
+                    parents=["a", "b"], proportions=[0.1, 0.9 + eps], child="c", time=1
+                )
+            )
+        )
+        # Order of parents/proportions doesn't matter.
+        self.assertTrue(
+            m1.isclose(
+                Merge(parents=["b", "a"], proportions=[0.9, 0.1], child="c", time=1)
+            )
+        )
+
+        self.assertFalse(
+            m1.isclose(
+                Merge(parents=["a", "x"], proportions=[0.1, 0.9], child="c", time=1)
+            )
+        )
+        self.assertFalse(
+            m1.isclose(
+                Merge(parents=["x", "b"], proportions=[0.1, 0.9], child="c", time=1)
+            )
+        )
+        self.assertFalse(
+            m1.isclose(
+                Merge(
+                    parents=["a", "b"],
+                    proportions=[0.1 + 1e-9, 0.9 - 1e-9],
+                    child="c",
+                    time=1,
+                )
+            )
+        )
+        self.assertFalse(
+            m1.isclose(
+                Merge(parents=["a", "b"], proportions=[0.1, 0.9], child="x", time=1)
+            )
+        )
+        self.assertFalse(
+            m1.isclose(
+                Merge(
+                    parents=["a", "b"], proportions=[0.1, 0.9], child="c", time=1 + 1e-9
+                )
+            )
+        )
+        self.assertFalse(
+            m1.isclose(
+                Merge(
+                    parents=["a", "b", "x"],
+                    proportions=[0.1, 0.9, 0],
+                    child="c",
+                    time=1,
+                )
+            )
+        )
 
 
 class TestAdmix(unittest.TestCase):
     def test_bad_time(self):
         for time in [-1e-12, -1, float("inf")]:
             with self.assertRaises(ValueError):
-                Admix(["a", "b"], [0.5, 0.5], "c", time)
+                Admix(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=time)
 
     def test_bad_parents_proportions(self):
         with self.assertRaises(ValueError):
-            Admix("a", [1], "b", 1)
+            Admix(parents="a", proportions=[1], child="b", time=1)
         with self.assertRaises(ValueError):
-            Admix(["a"], 1.0, "b", 10)
+            Admix(parents=["a"], proportions=1.0, child="b", time=10)
         with self.assertRaises(ValueError):
-            Admix(["a"], [1], "b", 1)
+            Admix(parents=["a"], proportions=[1], child="b", time=1)
         with self.assertRaises(ValueError):
-            Admix(["a", "b"], [0.5, 0.5], "a", 1)
+            Admix(parents=["a", "b"], proportions=[0.5, 0.5], child="a", time=1)
         with self.assertRaises(ValueError):
-            Admix(["a", "a"], [0.5, 0.5], "b", 1)
+            Admix(parents=["a", "a"], proportions=[0.5, 0.5], child="b", time=1)
 
     def test_invalid_proportions(self):
         with self.assertRaises(ValueError):
-            Admix(["a", "b"], [0.1, 1], "c", 1)
+            Admix(parents=["a", "b"], proportions=[0.1, 1], child="c", time=1)
         with self.assertRaises(ValueError):
-            Admix(["a", "b"], [0.5], "c", 1)
+            Admix(parents=["a", "b"], proportions=[0.5], child="c", time=1)
         with self.assertRaises(ValueError):
-            Admix(["a", "b"], [1.0], "c", 1)
+            Admix(parents=["a", "b"], proportions=[1.0], child="c", time=1)
         with self.assertRaises(ValueError):
-            Admix(["a", "b", "c"], [0.5, 0.5, 0.5], "d", 1)
+            Admix(
+                parents=["a", "b", "c"], proportions=[0.5, 0.5, 0.5], child="d", time=1
+            )
 
     def test_valid_admixture(self):
-        Admix(["a", "b"], [0.5, 0.5], "c", 10)
-        Admix(["a", "b"], [0.5, 0.5], "c", 0)
-        Admix(["a", "b", "c"], [0.5, 0.25, 0.25], "d", 10)
-        Admix(["a", "b", "c"], [0.5, 0.5, 0.0], "d", 10)
-        Admix(["a", "b"], [1, 0], "c", 10)
+        Admix(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=10)
+        Admix(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=0)
+        Admix(
+            parents=["a", "b", "c"], proportions=[0.5, 0.25, 0.25], child="d", time=10
+        )
+        Admix(parents=["a", "b", "c"], proportions=[0.5, 0.5, 0.0], child="d", time=10)
+        Admix(parents=["a", "b"], proportions=[1, 0], child="c", time=10)
 
     def test_isclose(self):
         eps = 1e-50
-        a1 = Admix(["a", "b"], [0.1, 0.9], "c", 1)
+        a1 = Admix(parents=["a", "b"], proportions=[0.1, 0.9], child="c", time=1)
         self.assertTrue(a1.isclose(a1))
-        self.assertTrue(a1.isclose(Admix(["a", "b"], [0.1, 0.9], "c", 1)))
-        self.assertTrue(a1.isclose(Admix(["a", "b"], [0.1 + eps, 0.9], "c", 1 + eps)))
-        self.assertTrue(a1.isclose(Admix(["a", "b"], [0.1 + eps, 0.9], "c", 1)))
-        self.assertTrue(a1.isclose(Admix(["a", "b"], [0.1, 0.9 + eps], "c", 1 + eps)))
-        # Order of parents/proportions doesn't matter.
-        self.assertTrue(a1.isclose(Admix(["b", "a"], [0.9, 0.1], "c", 1)))
-
-        self.assertFalse(a1.isclose(Admix(["a", "x"], [0.1, 0.9], "c", 1)))
-        self.assertFalse(a1.isclose(Admix(["x", "b"], [0.1, 0.9], "c", 1)))
-        self.assertFalse(
-            a1.isclose(Admix(["a", "b"], [0.1 + 1e-9, 0.9 - 1e-9], "c", 1))
+        self.assertTrue(
+            a1.isclose(
+                Admix(parents=["a", "b"], proportions=[0.1, 0.9], child="c", time=1)
+            )
         )
-        self.assertFalse(a1.isclose(Admix(["a", "b"], [0.1, 0.9], "x", 1)))
-        self.assertFalse(a1.isclose(Admix(["a", "b"], [0.1, 0.9], "c", 1 + 1e-9)))
-        self.assertFalse(a1.isclose(Admix(["a", "b", "x"], [0.1, 0.9, 0], "c", 1)))
+        self.assertTrue(
+            a1.isclose(
+                Admix(
+                    parents=["a", "b"],
+                    proportions=[0.1 + eps, 0.9],
+                    child="c",
+                    time=1 + eps,
+                )
+            )
+        )
+        self.assertTrue(
+            a1.isclose(
+                Admix(
+                    parents=["a", "b"], proportions=[0.1 + eps, 0.9], child="c", time=1
+                )
+            )
+        )
+        self.assertTrue(
+            a1.isclose(
+                Admix(
+                    parents=["a", "b"],
+                    proportions=[0.1, 0.9 + eps],
+                    child="c",
+                    time=1 + eps,
+                )
+            )
+        )
+        # Order of parents/proportions doesn't matter.
+        self.assertTrue(
+            a1.isclose(
+                Admix(parents=["b", "a"], proportions=[0.9, 0.1], child="c", time=1)
+            )
+        )
+
+        self.assertFalse(
+            a1.isclose(
+                Admix(parents=["a", "x"], proportions=[0.1, 0.9], child="c", time=1)
+            )
+        )
+        self.assertFalse(
+            a1.isclose(
+                Admix(parents=["x", "b"], proportions=[0.1, 0.9], child="c", time=1)
+            )
+        )
+        self.assertFalse(
+            a1.isclose(
+                Admix(
+                    parents=["a", "b"],
+                    proportions=[0.1 + 1e-9, 0.9 - 1e-9],
+                    child="c",
+                    time=1,
+                )
+            )
+        )
+        self.assertFalse(
+            a1.isclose(
+                Admix(parents=["a", "b"], proportions=[0.1, 0.9], child="x", time=1)
+            )
+        )
+        self.assertFalse(
+            a1.isclose(
+                Admix(
+                    parents=["a", "b"], proportions=[0.1, 0.9], child="c", time=1 + 1e-9
+                )
+            )
+        )
+        self.assertFalse(
+            a1.isclose(
+                Admix(
+                    parents=["a", "b", "x"],
+                    proportions=[0.1, 0.9, 0],
+                    child="c",
+                    time=1,
+                )
+            )
+        )
 
 
 class TestDeme(unittest.TestCase):
     def test_properties(self):
         deme = Deme(
-            "a",
-            "b",
-            ["c"],
-            [1],
-            [Epoch(start_time=float("inf"), end_time=0, initial_size=1)],
+            id="a",
+            description="b",
+            ancestors=["c"],
+            proportions=[1],
+            epochs=[Epoch(start_time=float("inf"), end_time=0, initial_size=1)],
         )
         self.assertEqual(deme.start_time, float("inf"))
         self.assertEqual(deme.end_time, 0)
@@ -368,7 +544,11 @@ class TestDeme(unittest.TestCase):
         self.assertEqual(deme.proportions[0], 1)
 
         deme = Deme(
-            "a", "b", ["c"], [1], [Epoch(start_time=100, end_time=50, initial_size=1)]
+            id="a",
+            description="b",
+            ancestors=["c"],
+            proportions=[1],
+            epochs=[Epoch(start_time=100, end_time=50, initial_size=1)],
         )
         self.assertEqual(deme.start_time, 100)
         self.assertEqual(deme.end_time, 50)
@@ -381,53 +561,53 @@ class TestDeme(unittest.TestCase):
 
     def test_no_epochs(self):
         with self.assertRaises(ValueError):
-            Deme("a", "b", ["c"], [1], [])
+            Deme(id="a", description="b", ancestors=["c"], proportions=[1], epochs=[])
 
     def test_bad_ancestors(self):
         with self.assertRaises(TypeError):
             Deme(
-                "a",
-                "b",
-                "c",
-                [1],
-                [Epoch(start_time=10, end_time=0, initial_size=1)],
+                id="a",
+                description="b",
+                ancestors="c",
+                proportions=[1],
+                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
             )
         with self.assertRaises(TypeError):
             Deme(
-                "a",
-                "b",
-                {"c", "d"},
-                [0.2, 0.8],
-                [Epoch(start_time=10, end_time=0, initial_size=1)],
+                id="a",
+                description="b",
+                ancestors={"c", "d"},
+                proportions=[0.2, 0.8],
+                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
             )
         with self.assertRaises(ValueError):
             Deme(
-                "a",
-                "b",
-                ["c", "d"],
-                None,
-                [Epoch(start_time=10, end_time=0, initial_size=1)],
+                id="a",
+                description="b",
+                ancestors=["c", "d"],
+                proportions=None,
+                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
             )
         with self.assertRaises(ValueError):
             Deme(
-                "a",
-                "b",
-                ["c", "d"],
-                [0.5, 0.2, 0.3],
-                [Epoch(start_time=10, end_time=0, initial_size=1)],
+                id="a",
+                description="b",
+                ancestors=["c", "d"],
+                proportions=[0.5, 0.2, 0.3],
+                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
             )
         with self.assertRaises(ValueError):
             Deme(
-                "a",
-                "b",
-                ["a", "c"],
-                [0.5, 0.5],
-                [Epoch(start_time=10, end_time=0, initial_size=1)],
+                id="a",
+                description="b",
+                ancestors=["a", "c"],
+                proportions=[0.5, 0.5],
+                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
             )
         with self.assertRaises(ValueError):
             # duplicate ancestors
             Deme(
-                "a",
+                id="a",
                 description="test",
                 ancestors=["x", "x"],
                 proportions=[0.5, 0.5],
@@ -437,11 +617,11 @@ class TestDeme(unittest.TestCase):
     def test_two_epochs(self):
         with self.assertRaises(ValueError):
             Deme(
-                "a",
-                "b",
-                ["c"],
-                [1],
-                [
+                id="a",
+                description="b",
+                ancestors=["c"],
+                proportions=[1],
+                epochs=[
                     Epoch(start_time=11, end_time=10, initial_size=100),
                     Epoch(start_time=10, end_time=1, initial_size=1),
                 ],
@@ -449,7 +629,11 @@ class TestDeme(unittest.TestCase):
 
     def test_add_epoch(self):
         deme = Deme(
-            "a", "b", ["c"], [1], [Epoch(start_time=100, end_time=50, initial_size=1)]
+            id="a",
+            description="b",
+            ancestors=["c"],
+            proportions=[1],
+            epochs=[Epoch(start_time=100, end_time=50, initial_size=1)],
         )
         with self.assertRaises(ValueError):
             deme.add_epoch(Epoch(start_time=60, end_time=0, initial_size=10))
@@ -470,7 +654,11 @@ class TestDeme(unittest.TestCase):
 
     def test_epochs_out_of_order(self):
         deme = Deme(
-            "a", "b", ["c"], [1], [Epoch(start_time=10, end_time=5, initial_size=1)]
+            id="a",
+            description="b",
+            ancestors=["c"],
+            proportions=[1],
+            epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
         )
         for time in (5, -1, float("inf")):
             with self.assertRaises(ValueError):
@@ -480,11 +668,13 @@ class TestDeme(unittest.TestCase):
     def test_epochs_are_a_partition(self):
         for start_time, end_time in [(float("inf"), 100), (200, 100)]:
             deme = Deme(
-                "a",
-                "b",
-                ["c"],
-                [1],
-                [Epoch(start_time=start_time, end_time=end_time, initial_size=1)],
+                id="a",
+                description="b",
+                ancestors=["c"],
+                proportions=[1],
+                epochs=[
+                    Epoch(start_time=start_time, end_time=end_time, initial_size=1)
+                ],
             )
             with self.assertRaises(ValueError):
                 deme.add_epoch(Epoch(end_time=100, initial_size=100))
@@ -498,11 +688,13 @@ class TestDeme(unittest.TestCase):
     def test_time_span(self):
         for start_time, end_time in zip((float("inf"), 100, 20), (0, 20, 0)):
             deme = Deme(
-                "a",
-                "b",
-                ["c"],
-                [1],
-                [Epoch(start_time=start_time, end_time=end_time, initial_size=1)],
+                id="a",
+                description="b",
+                ancestors=["c"],
+                proportions=[1],
+                epochs=[
+                    Epoch(start_time=start_time, end_time=end_time, initial_size=1)
+                ],
             )
             self.assertEqual(deme.time_span, start_time - end_time)
 
@@ -917,30 +1109,30 @@ class TestDemeGraph(unittest.TestCase):
         with self.assertRaises(ValueError):
             dg.symmetric_migration(demes=["a"], rate=0.1)
         with self.assertRaises(ValueError):
-            dg.migration("a", "b", rate=0.1)
+            dg.migration(source="a", dest="b", rate=0.1)
         dg.deme("a", initial_size=100)
         with self.assertRaises(ValueError):
-            dg.migration("a", "b", rate=0.1)
+            dg.migration(source="a", dest="b", rate=0.1)
         with self.assertRaises(ValueError):
-            dg.migration("b", "a", rate=0.1)
+            dg.migration(source="b", dest="a", rate=0.1)
 
     def test_bad_pulse(self):
         dg = demes.DemeGraph(description="a", time_units="generations")
         dg.deme("a", initial_size=100)
         with self.assertRaises(ValueError):
-            dg.pulse("a", "b", 0.1, 10)
+            dg.pulse(source="a", dest="b", proportion=0.1, time=10)
         with self.assertRaises(ValueError):
-            dg.pulse("b", "a", 0.1, 10)
+            dg.pulse(source="b", dest="a", proportion=0.1, time=10)
 
     def test_bad_split(self):
         dg = demes.DemeGraph(description="a", time_units="generations")
         with self.assertRaises(ValueError):
-            dg.split("a", ["a", "b", "c"], 10)
+            dg.split(parent="a", children=["a", "b", "c"], time=10)
         dg.deme("a", initial_size=100, end_time=50)
         dg.deme("b", initial_size=100, start_time=50, end_time=0)
         dg.deme("c", initial_size=100, start_time=20, end_time=0)
         with self.assertRaises(ValueError):
-            dg.split("a", ["b", "c"], 50)
+            dg.split(parent="a", children=["b", "c"], time=50)
 
     def test_bad_branch(self):
         dg = demes.DemeGraph(description="a", time_units="generations")
@@ -948,9 +1140,9 @@ class TestDemeGraph(unittest.TestCase):
         dg.deme("b", start_time=20, end_time=0, initial_size=10)
         dg.deme("c", start_time=2, end_time=0, initial_size=10)
         with self.assertRaises(ValueError):
-            dg.branch("a", "b", 7)
+            dg.branch(parent="a", child="b", time=7)
         with self.assertRaises(ValueError):
-            dg.branch("a", "c", 7)
+            dg.branch(parent="a", child="c", time=7)
 
     def test_bad_merge(self):
         dg = demes.DemeGraph(description="a", time_units="generations")
@@ -959,9 +1151,9 @@ class TestDemeGraph(unittest.TestCase):
         dg.deme("c", start_time=5, end_time=0, initial_size=10)
         dg.deme("d", start_time=2, end_time=0, initial_size=1)
         with self.assertRaises(ValueError):
-            dg.merge(["a", "b"], [0.5, 0.5], "c", 10)
+            dg.merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=10)
         with self.assertRaises(ValueError):
-            dg.merge(["a", "b"], [0.5, 0.5], "d", 2)
+            dg.merge(parents=["a", "b"], proportions=[0.5, 0.5], child="d", time=2)
 
     def test_merge_cuts_epochs(self):
         dg = demes.DemeGraph(description="a", time_units="generations")
@@ -975,7 +1167,7 @@ class TestDemeGraph(unittest.TestCase):
             ],
         )
         dg.deme("c", start_time=5, initial_size=10)
-        dg.merge(["a", "b"], [0.5, 0.5], "c", 5)
+        dg.merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=5)
         self.assertEqual(dg["a"].end_time, 5)
         self.assertEqual(dg["b"].end_time, 5)
         self.assertEqual(len(dg["b"].epochs), 2)
@@ -984,11 +1176,11 @@ class TestDemeGraph(unittest.TestCase):
         dg = demes.DemeGraph(description="a", time_units="generations")
         dg.deme("a", start_time=2, initial_size=100)
         with self.assertRaises(ValueError):
-            dg.admix(["b", "c"], [0.5, 0.5], "a", 5)
+            dg.admix(parents=["b", "c"], proportions=[0.5, 0.5], child="a", time=5)
         dg.deme("b", end_time=5, initial_size=10)
         dg.deme("c", start_time=5, end_time=0, initial_size=10)
         with self.assertRaises(ValueError):
-            dg.admix(["b", "c"], [0.5, 0.5], "a", 2)
+            dg.admix(parents=["b", "c"], proportions=[0.5, 0.5], child="a", time=2)
 
     def test_isclose(self):
         g1 = DemeGraph(
@@ -1055,17 +1247,17 @@ class TestDemeGraph(unittest.TestCase):
         self.assertTrue(g3.isclose(g4))
 
         # The order in which migrations are added shouldn't matter.
-        g3.migration("d1", "d2", rate=1e-4, start_time=50, end_time=40)
-        g3.migration("d2", "d1", rate=1e-5)
-        g4.migration("d2", "d1", rate=1e-5)
-        g4.migration("d1", "d2", rate=1e-4, start_time=50, end_time=40)
+        g3.migration(source="d1", dest="d2", rate=1e-4, start_time=50, end_time=40)
+        g3.migration(source="d2", dest="d1", rate=1e-5)
+        g4.migration(source="d2", dest="d1", rate=1e-5)
+        g4.migration(source="d1", dest="d2", rate=1e-4, start_time=50, end_time=40)
         self.assertTrue(g3.isclose(g4))
 
         # The order in which pulses are added shouldn't matter.
-        g3.pulse("d1", "d2", proportion=0.01, time=100)
-        g3.pulse("d1", "d2", proportion=0.01, time=50)
-        g4.pulse("d1", "d2", proportion=0.01, time=50)
-        g4.pulse("d1", "d2", proportion=0.01, time=100)
+        g3.pulse(source="d1", dest="d2", proportion=0.01, time=100)
+        g3.pulse(source="d1", dest="d2", proportion=0.01, time=50)
+        g4.pulse(source="d1", dest="d2", proportion=0.01, time=50)
+        g4.pulse(source="d1", dest="d2", proportion=0.01, time=100)
         self.assertTrue(g3.isclose(g4))
 
         #
@@ -1098,27 +1290,27 @@ class TestDemeGraph(unittest.TestCase):
         g4 = copy.deepcopy(g2)
         g4.deme("d1", initial_size=1000)
         g4.deme("d2", initial_size=1000)
-        g4.migration("d2", "d1", rate=1e-5)
+        g4.migration(source="d2", dest="d1", rate=1e-5)
         self.assertFalse(g3.isclose(g4))
 
         g3 = copy.deepcopy(g2)
         g3.deme("d1", initial_size=1000)
         g3.deme("d2", initial_size=1000)
-        g3.migration("d1", "d2", rate=1e-5)
+        g3.migration(source="d1", dest="d2", rate=1e-5)
         g4 = copy.deepcopy(g2)
         g4.deme("d1", initial_size=1000)
         g4.deme("d2", initial_size=1000)
-        g4.migration("d2", "d1", rate=1e-5)
+        g4.migration(source="d2", dest="d1", rate=1e-5)
         self.assertFalse(g3.isclose(g4))
 
         g3 = copy.deepcopy(g2)
         g3.deme("d1", initial_size=1000)
         g3.deme("d2", initial_size=1000)
-        g3.migration("d2", "d1", rate=1e-5)
+        g3.migration(source="d2", dest="d1", rate=1e-5)
         g4 = copy.deepcopy(g2)
         g4.deme("d1", initial_size=1000)
         g4.deme("d2", initial_size=1000)
-        g4.symmetric_migration(["d2", "d1"], rate=1e-5)
+        g4.symmetric_migration(demes=["d2", "d1"], rate=1e-5)
         self.assertFalse(g3.isclose(g4))
 
         g3 = copy.deepcopy(g2)
@@ -1127,17 +1319,17 @@ class TestDemeGraph(unittest.TestCase):
         g4 = copy.deepcopy(g2)
         g4.deme("d1", initial_size=1000)
         g4.deme("d2", initial_size=1000)
-        g4.pulse("d1", "d2", proportion=0.01, time=100)
+        g4.pulse(source="d1", dest="d2", proportion=0.01, time=100)
         self.assertFalse(g3.isclose(g4))
 
         g3 = copy.deepcopy(g2)
         g3.deme("d1", initial_size=1000)
         g3.deme("d2", initial_size=1000)
-        g3.pulse("d2", "d1", proportion=0.01, time=100)
+        g3.pulse(source="d2", dest="d1", proportion=0.01, time=100)
         g4 = copy.deepcopy(g2)
         g4.deme("d1", initial_size=1000)
         g4.deme("d2", initial_size=1000)
-        g3.pulse("d1", "d2", proportion=0.01, time=100)
+        g3.pulse(source="d1", dest="d2", proportion=0.01, time=100)
         self.assertFalse(g3.isclose(g4))
 
 
@@ -1284,7 +1476,7 @@ class TestDemeGraphToDict(unittest.TestCase):
         dg = demes.DemeGraph(description="a", time_units="generations")
         dg.deme("a", initial_size=100)
         dg.deme("b", initial_size=100)
-        dg.migration("a", "b", 0.01, start_time=20, end_time=10)
+        dg.migration(source="a", dest="b", rate=0.01, start_time=20, end_time=10)
         d = dg.asdict_compact()
         self.assertTrue(d["migrations"]["asymmetric"][0]["start_time"] == 20)
         self.assertTrue(d["migrations"]["asymmetric"][0]["end_time"] == 10)
