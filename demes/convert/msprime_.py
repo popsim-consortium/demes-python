@@ -258,13 +258,12 @@ def from_msprime(
 
             if math.isclose(sum(proportions), 1):
                 assert child not in gtmp
-                gtmp.deme(
-                    child,
-                    ancestors=ancestors,
-                    proportions=proportions,
-                    initial_size=1,
-                    start_time=ddb_epoch.start_time,
-                )
+                gtmp.deme(child, initial_size=1)
+                # Set attributes after deme creation, to avoid internal
+                # checks about the ancestors' existence time intervals.
+                gtmp[child].epochs[-1].start_time = ddb_epoch.start_time
+                gtmp[child].ancestors = ancestors
+                gtmp[child].proportions = proportions
             else:
                 if child not in gtmp:
                     pass

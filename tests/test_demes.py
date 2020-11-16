@@ -424,6 +424,15 @@ class TestDeme(unittest.TestCase):
                 [0.5, 0.5],
                 [Epoch(start_time=10, end_time=0, initial_size=1)],
             )
+        with self.assertRaises(ValueError):
+            # duplicate ancestors
+            Deme(
+                "a",
+                description="test",
+                ancestors=["x", "x"],
+                proportions=[0.5, 0.5],
+                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+            )
 
     def test_two_epochs(self):
         with self.assertRaises(ValueError):
@@ -776,13 +785,18 @@ class TestDemeGraph(unittest.TestCase):
 
     def test_bad_deme(self):
         dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme("b", initial_size=1)
         with self.assertRaises(ValueError):
+            # no initial_size
             dg.deme("a")
         with self.assertRaises(TypeError):
+            # ancestors must be a list
             dg.deme("a", initial_size=100, ancestors="b")
         with self.assertRaises(ValueError):
+            # ancestor c doesn't exist
             dg.deme("a", initial_size=100, ancestors=["b", "c"], proportions=[0.5, 0.5])
         with self.assertRaises(ValueError):
+            # end_time and final epoch end_time are different
             dg.deme(
                 "a",
                 initial_size=100,
@@ -794,6 +808,7 @@ class TestDemeGraph(unittest.TestCase):
                 ],
             )
         with self.assertRaises(ValueError):
+            # start_time is more recent than an epoch's start_time
             dg.deme(
                 "a",
                 initial_size=100,
@@ -806,13 +821,104 @@ class TestDemeGraph(unittest.TestCase):
                 ],
             )
 
-    def test_proportions_default(self):
+    def test_duplicate_deme(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme("a", initial_size=1)
+        with self.assertRaises(ValueError):
+            dg.deme("a", initial_size=1)
+
+    def test_ancestor_not_in_graph(self):
         dg = demes.DemeGraph(description="a", time_units="generations")
         with self.assertRaises(ValueError):
-            dg.deme("a", initial_size=100, ancestors=["b", "c"])
-        dg.deme("a", initial_size=100, ancestors=["b"])
-        self.assertEqual(len(dg["a"].proportions), 1)
-        self.assertEqual(dg["a"].proportions[0], 1.0)
+            dg.deme("a", ancestors=["b"], initial_size=1)
+
+    def test_duplicate_ancestors(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme("a", initial_size=100, end_time=50)
+        with self.assertRaises(ValueError):
+            dg.deme(
+                "b",
+                initial_size=100,
+                ancestors=["a", "a"],
+                proportions=[0.5, 0.5],
+                start_time=100,
+            )
+
+    def test_bad_start_time_wrt_ancestors(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme("a", initial_size=100, start_time=100, end_time=50)
+        dg.deme("b", initial_size=100, end_time=0)
+        with self.assertRaises(ValueError):
+            # start_time too old
+            dg.deme("c", initial_size=100, ancestors=["a"], start_time=200)
+        with self.assertRaises(ValueError):
+            # start_time too young
+            dg.deme("c", initial_size=100, ancestors=["a"], start_time=20)
+        with self.assertRaises(ValueError):
+            # start_time too old
+            dg.deme(
+                "c",
+                initial_size=100,
+                ancestors=["a", "b"],
+                proportions=[0.5, 0.5],
+                start_time=200,
+            )
+        with self.assertRaises(ValueError):
+            # start_time too young
+            dg.deme(
+                "c",
+                initial_size=100,
+                ancestors=["a", "b"],
+                proportions=[0.5, 0.5],
+                start_time=20,
+            )
+        with self.assertRaises(ValueError):
+            # start_time not provided
+            dg.deme(
+                "c",
+                initial_size=100,
+                ancestors=["a", "b"],
+                proportions=[0.5, 0.5],
+            )
+
+    def test_proportions_default(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        dg.deme("a", initial_size=100, end_time=50)
+        dg.deme("b", initial_size=100, end_time=50)
+        with self.assertRaises(ValueError):
+            # proportions missing
+            dg.deme("c", initial_size=100, ancestors=["a", "b"], start_time=100)
+        with self.assertRaises(ValueError):
+            # proportions wrong length
+            dg.deme(
+                "c",
+                initial_size=100,
+                ancestors=["a", "b"],
+                proportions=[1],
+                start_time=100,
+            )
+        with self.assertRaises(ValueError):
+            # proportions wrong length
+            dg.deme(
+                "c",
+                initial_size=100,
+                ancestors=["a", "b"],
+                proportions=[1 / 3, 1 / 3, 1 / 3],
+                start_time=100,
+            )
+        dg.deme("c", initial_size=100, ancestors=["b"])
+        self.assertEqual(len(dg["c"].proportions), 1)
+        self.assertEqual(dg["c"].proportions[0], 1.0)
+
+    def test_bad_epochs(self):
+        dg = demes.DemeGraph(description="a", time_units="generations")
+        with self.assertRaises(ValueError):
+            dg.deme(
+                "a",
+                initial_size=1,
+                end_time=50,
+                epochs=[Epoch(initial_size=1, start_time=float("inf"), end_time=0)],
+            )
 
     def test_bad_migration(self):
         dg = demes.DemeGraph(description="a", time_units="generations")
@@ -1001,9 +1107,11 @@ class TestDemeGraph(unittest.TestCase):
         g3.deme("d2", initial_size=1000)
         self.assertFalse(g1.isclose(g3))
 
-        g3 = copy.deepcopy(g2)
-        g3.deme("d1", ancestors=["x"], initial_size=1000)
-        self.assertFalse(g1.isclose(g3))
+        g3 = copy.deepcopy(g1)
+        g4 = copy.deepcopy(g1)
+        g3.deme("d2", initial_size=1000, start_time=50)
+        g4.deme("d2", ancestors=["d1"], initial_size=1000, start_time=50)
+        self.assertFalse(g3.isclose(g4))
 
         g3 = copy.deepcopy(g2)
         g3.deme("d1", initial_size=1000)

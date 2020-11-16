@@ -510,6 +510,8 @@ class Deme:
         if self.ancestors is not None:
             if not isinstance(self.ancestors, (list, tuple)):
                 raise TypeError("ancestors must be a list of deme IDs")
+            if len(set(self.ancestors)) != len(self.ancestors):
+                raise ValueError(f"duplicate ancestors in {self.ancestors}")
             if len(self.ancestors) > 1 and self.proportions is None:
                 raise ValueError("proportions must be set if more than one ancestor")
             if len(self.ancestors) != len(self.proportions):
@@ -800,6 +802,8 @@ class DemeGraph:
             spans from ``start_time`` to ``end_time``, using the ``initial_size``,
             ``final_size``, ``selfing_rate`` and ``cloning_rate`` provided.
         """
+        if id in self:
+            raise ValueError(f"deme {id} already exists in this graph")
         if initial_size is None:
             initial_size = self.default_Ne
         if initial_size is None and epochs is not None:
@@ -810,14 +814,27 @@ class DemeGraph:
             selfing_rate = self.selfing_rate
         if cloning_rate is None:
             cloning_rate = self.cloning_rate
-        # set the start time to inf or to the ancestors end times, if not given
+        # set the start time to inf or to the ancestor's end time, if not given
         if ancestors is not None:
             if not isinstance(ancestors, (list, tuple)):
                 raise TypeError("ancestors must be a list of deme IDs")
-            if len(ancestors) > 1 and start_time is None:
-                raise ValueError("must specify start time if more than one ancestor")
-            if ancestors[0] in self and start_time is None:
-                start_time = self[ancestors[0]].epochs[-1].end_time
+            for ancestor in ancestors:
+                if ancestor not in self:
+                    raise ValueError(f"ancestor deme {ancestor} not in graph")
+                if start_time is not None:
+                    anc = self[ancestor]
+                    if not (anc.start_time >= start_time >= anc.end_time):
+                        raise ValueError(
+                            f"start_time={start_time} is outside the interval "
+                            f"of existence for ancestor {ancestor} "
+                            f"({anc.start_time}, {anc.end_time})"
+                        )
+            if start_time is None:
+                if len(ancestors) > 1:
+                    raise ValueError(
+                        "with multiple ancestors, start_time must be specified"
+                    )
+                start_time = self[ancestors[0]].end_time
             if len(ancestors) == 1 and proportions is None:
                 proportions = [1.0]
         else:
