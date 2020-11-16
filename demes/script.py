@@ -27,7 +27,6 @@ def loads(string):
         time_units=d.get("time_units"),
         generation_time=d.get("generation_time"),
         doi=d.get("doi"),
-        default_Ne=d.get("default_Ne"),
         selfing_rate=d.get("selfing_rate"),
         cloning_rate=d.get("cloning_rate"),
     )

@@ -694,16 +694,6 @@ class TestDemeGraph(unittest.TestCase):
                     generation_time=generation_time,
                 )
 
-    def test_bad_default_Ne(self):
-        for N in (-100, -1e-9, 0, float("inf")):
-            with self.assertRaises(ValueError):
-                DemeGraph(
-                    description="test",
-                    time_units="years",
-                    generation_time=1,
-                    default_Ne=N,
-                )
-
     def check_in_generations(self, dg1):
         assert dg1.generation_time is not None
         assert dg1.generation_time > 1
@@ -1025,17 +1015,6 @@ class TestDemeGraph(unittest.TestCase):
             doi="https://example.com/foo.bar",
         )
         g3.deme("d1", initial_size=1000)
-        self.assertTrue(g1.isclose(g3))
-
-        # The choice of using default_Ne, or alternately setting initial_size
-        # for each deme, is a model implementation detail. So the resulting
-        # deme graphs should compare equal.
-        g3 = DemeGraph(
-            description="test",
-            time_units="generations",
-            default_Ne=1000,
-        )
-        g3.deme("d1")
         self.assertTrue(g1.isclose(g3))
 
         # Selfing rate is a property of a deme's epoch, not a deme graph.
