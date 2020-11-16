@@ -465,19 +465,25 @@ class Admix:
 class Deme:
     """
     A collection of individuals that are exchangeable at any fixed time.
+    This class is not intended to be instantiated directly. It is instead
+    recommended to add demes to a :class:`.DemeGraph` object using the
+    :meth:`DemeGraph.deme` method.
 
-    :ivar id: A string identifier for the deme.
-    :ivar description: An optional description of the deme.
-    :ivar ancestors: List of ancestors to the deme.
-        If the deme has no ancestors, this should be ``None``, and cannot
-        be used with ``ancestor``.
-    :ivar proportions: List of proportions if ``ancestors`` is given.
+    :ivar str id: A string identifier for the deme.
+    :ivar str description: A description of the deme. May be ``None``.
+    :ivar ancestors: List of string identifiers for the deme's ancestors.
+        This may be ``None``, indicating the deme has no ancestors.
+    :vartype ancestors: list of str
+    :ivar proportions: If ``ancestors`` is not ``None``, this indicates the
+        proportions of ancestry from each ancestor. This list has the same
+        length as ``ancestors``, and must sum to 1.
+    :vartype proportions: list of float
     :ivar epochs: A list of epochs, which define the population size(s) of
         the deme. The deme must be initially created with exactly one epoch.
         Additional epochs may be added with :meth:`.add_epoch`
     :vartype epochs: list of :class:`.Epoch`
-    :ivar selfing_rate: An optional selfing rate for this deme.
-    :ivar cloning_rate: An optional cloning rate for this deme.
+    :ivar float selfing_rate: An optional selfing rate for this deme.
+    :ivar float cloning_rate: An optional cloning rate for this deme.
     """
 
     id: ID = attr.ib()
@@ -546,9 +552,10 @@ class Deme:
         Add an epoch to the deme's epoch list.
         Epochs must be non overlapping and added in time-decreasing order, i.e.
         starting with the most ancient epoch and adding epochs sequentially toward
-        present.
+        the present.
 
-        :param .Epoch epoch: The epoch to add.
+        :param epoch: The epoch to add.
+        :type epoch: :class:`.Epoch`
         """
         assert len(self.epochs) > 0
         # if the epoch start time is not given, it equals the previous epoch's end time
@@ -634,8 +641,6 @@ class DemeGraph:
         units in generations.  If ``generation_time`` is ``None``, the units
         are assumed to be in generations already.
         See also: :meth:`.in_generations`.
-    :ivar float default_Ne: The default population size to use when creating new
-        demes with :meth:`.deme`. May be ``None``.
     :ivar str doi: If the deme graph describes a published demography, the DOI
         should be be given here. May be ``None``.
     :ivar demes: A list of demes in the demography.
@@ -693,6 +698,34 @@ class DemeGraph:
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
     ) -> bool:
+        """
+        Returns true if the deme graph and ``other`` implement essentially
+        the same demographic model. Numerical values are compared using the
+        :func:`math.isclose` function, from which this method takes its name.
+        Furthermore, the following implementation details are ignored during
+        the comparison:
+
+            - The deme graph's ``description`` and ``doi`` attributes.
+            - The order in which ``migrations`` were specified.
+            - The order in which admixture ``pulses`` were specified.
+            - The order in which ``demes`` were specified.
+            - The order in which a deme's ``ancestors`` were specified.
+            - The ``selfing_rate`` and ``cloning_rate`` attributes of the deme
+              graph, or of the demes (if any). Theses attributes are considered
+              conveniences, and are propagated to the relevant demes'
+              epochs. The ``selfing_rate`` and ``cloning_rate`` attributes of
+              each epoch *are* evaluated for equality between the two models.
+
+        :param other: The deme graph to compare against.
+        :type other: :class:`.DemeGraph`
+        :param float rel_tol: The relative tolerance permitted for numerical
+            comparisons. See documentation for :func:`math.isclose`.
+        :param float abs_tol: The absolute tolerance permitted for numerical
+            comparisons. See documentation for :func:`math.isclose`.
+        :return: True if the two graphs implement the same model, False otherwise.
+        :rtype: bool
+        """
+
         def sorted_eq(aa, bb, *, rel_tol, abs_tol) -> bool:
             # Order-agnostic equality check.
             if len(aa) != len(bb):
@@ -728,25 +761,44 @@ class DemeGraph:
         cloning_rate=None,
     ):
         """
-        Add a deme to the graph.
+        Add a deme to the graph, with lifetime ``(start_time, end_time]``.
 
         :param str id: A string identifier for the deme.
-        :param list ancestors: A list of ancestors of this deme. May be ``None``.
-            If ``len(ancestors) > 1``, must also give ``proportions``.
-        :param list proportions: A list of proportions of ancestory for ``ancestors``.
-            Proportions must sum to 1.
-        :param start_time: The time at which this deme begins existing.
-        :param end_time: The time at which this deme stops existing.
-            If the deme has an ancestor the ``end_time`` will be set to the
-            ancestor's ``start_time``.
-        :param initial_size: The initial population size of the deme. If ``None``,
-            this is taken from the deme graph's ``default_Ne`` field.
+        :param ancestors: List of string identifiers for the deme's ancestors.
+            This may be ``None``, indicating the deme has no ancestors.
+            If the deme has multiple ancestors, the ``proportions`` parameter
+            must also be provided.
+        :type ancestors: list of str
+        :param list proportions: A list of ancestry proportions for ``ancestors``.
+            This list has the same length as ``ancestors``, and must sum to ``1.0``.
+            May be omitted if the deme has only one, or zero, ancestors.
+        :type proportions: list of float
+        :param float start_time: The time at which this deme begins existing,
+            in units of ``time_units`` before the present.
+
+            - If the deme has zero ancestors, and ``start_time`` is not specified,
+              the start time will be set to ``inf``.
+            - If the deme has one ancestor, and ``start_time`` is not specified,
+              the ``start_time`` will be set to the ancestor's ``end_time``.
+            - If the deme has multiple ancestors, the ``start_time`` must be
+              provided.
+
+        :param float end_time: The time at which this deme stops existing,
+            in units of ``time_units`` before the present.
+            If not specified, defaults to ``0.0`` (the present).
+        :param initial_size: The initial population size of the deme.
+            This must be provided.
         :param final_size: The final population size of the deme. If ``None``,
             the deme has a constant ``initial_size`` population size.
-        :param epochs: Additional epochs that define population size changes for
-            the deme.
-        :ivar selfing_rate: An optional selfing rate for this deme.
-        :ivar cloning_rate: An optional cloning rate for this deme.
+        :param float selfing_rate: The default selfing rate for this deme.
+            May be ``None``.
+        :param float cloning_rate: The default cloning rate for this deme.
+            May be ``None``.
+        :param epochs: Epochs that define population sizes, selfing rates, and
+            cloning rates, for the deme over various time periods.
+            If not specified, a single epoch will be created for the deme that
+            spans from ``start_time`` to ``end_time``, using the ``initial_size``,
+            ``final_size``, ``selfing_rate`` and ``cloning_rate`` provided.
         """
         if initial_size is None:
             initial_size = self.default_Ne
