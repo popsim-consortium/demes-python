@@ -99,7 +99,7 @@ def isclose_deme_proportions(
     return True
 
 
-@attr.s(auto_attribs=True)
+@attr.s(auto_attribs=True, kw_only=True)
 class Epoch:
     """
     Population size parameters for a deme in a specified time period.
@@ -190,7 +190,7 @@ class Epoch:
         )
 
 
-@attr.s(auto_attribs=True)
+@attr.s(auto_attribs=True, kw_only=True)
 class Migration:
     """
     Parameters for continuous migration from one deme to another.
@@ -235,7 +235,7 @@ class Migration:
         )
 
 
-@attr.s(auto_attribs=True)
+@attr.s(auto_attribs=True, kw_only=True)
 class Pulse:
     """
     Parameters for a pulse of migration from one deme to another.
@@ -278,7 +278,7 @@ class Pulse:
         )
 
 
-@attr.s(auto_attribs=True)
+@attr.s(auto_attribs=True, kw_only=True)
 class Split:
     """
     Parameters for a split event, in which a deme ends at a given time and
@@ -317,7 +317,7 @@ class Split:
         )
 
 
-@attr.s(auto_attribs=True)
+@attr.s(auto_attribs=True, kw_only=True)
 class Branch:
     """
     Parameters for a branch event, where a new deme branches off from a parental
@@ -351,7 +351,7 @@ class Branch:
         )
 
 
-@attr.s(auto_attribs=True)
+@attr.s(auto_attribs=True, kw_only=True)
 class Merge:
     """
     Parameters for a merge event, in which two or more demes end at some time and
@@ -406,7 +406,7 @@ class Merge:
         )
 
 
-@attr.s(auto_attribs=True)
+@attr.s(auto_attribs=True, kw_only=True)
 class Admix:
     """
     Parameters for an admixture event, where two or more demes contribute ancestry
@@ -461,7 +461,7 @@ class Admix:
         )
 
 
-@attr.s(auto_attribs=True)
+@attr.s(auto_attribs=True, kw_only=True)
 class Deme:
     """
     A collection of individuals that are exchangeable at any fixed time.
@@ -622,7 +622,7 @@ class Deme:
         return self.start_time - self.end_time
 
 
-@attr.s(auto_attribs=True)
+@attr.s(auto_attribs=True, kw_only=True)
 class DemeGraph:
     """
     The DemeGraph class provides a high-level API for constructing a demographic
@@ -748,6 +748,7 @@ class DemeGraph:
     def deme(
         self,
         id,
+        *,
         description=None,
         ancestors=None,
         proportions=None,
@@ -847,8 +848,8 @@ class DemeGraph:
             else:
                 size_function = "exponential"
             epoch = Epoch(
-                start_time,
-                end_time,
+                start_time=start_time,
+                end_time=end_time,
                 initial_size=initial_size,
                 final_size=final_size,
                 size_function=size_function,
@@ -856,13 +857,13 @@ class DemeGraph:
                 cloning_rate=cloning_rate,
             )
             deme = Deme(
-                id,
-                description,
-                ancestors,
-                proportions,
-                [epoch],
-                selfing_rate,
-                cloning_rate,
+                id=id,
+                description=description,
+                ancestors=ancestors,
+                proportions=proportions,
+                epochs=[epoch],
+                selfing_rate=selfing_rate,
+                cloning_rate=cloning_rate,
             )
         else:
             if end_time is None:
@@ -882,8 +883,8 @@ class DemeGraph:
                 epochs.insert(
                     0,
                     Epoch(
-                        start_time,
-                        epochs[0].start_time,
+                        start_time=start_time,
+                        end_time=epochs[0].start_time,
                         initial_size=initial_size,
                         final_size=initial_size,
                         size_function="constant",
@@ -905,13 +906,13 @@ class DemeGraph:
                 else:
                     epochs[0].size_function = "exponential"
             deme = Deme(
-                id,
-                description,
-                ancestors,
-                proportions,
-                [epochs[0]],
-                selfing_rate,
-                cloning_rate,
+                id=id,
+                description=description,
+                ancestors=ancestors,
+                proportions=proportions,
+                epochs=[epochs[0]],
+                selfing_rate=selfing_rate,
+                cloning_rate=cloning_rate,
             )
             for epoch in epochs[1:]:
                 deme.add_epoch(epoch)
@@ -934,7 +935,7 @@ class DemeGraph:
                 )
         return time_lo, time_hi
 
-    def symmetric_migration(self, demes=[], rate=0, start_time=None, end_time=None):
+    def symmetric_migration(self, *, demes=[], rate=0, start_time=None, end_time=None):
         """
         Add continuous symmetric migrations between all pairs of demes in a list.
 
@@ -947,9 +948,15 @@ class DemeGraph:
         if len(demes) < 2:
             raise ValueError("must specify two or more demes")
         for source, dest in itertools.permutations(demes, 2):
-            self.migration(source, dest, rate, start_time, end_time)
+            self.migration(
+                source=source,
+                dest=dest,
+                rate=rate,
+                start_time=start_time,
+                end_time=end_time,
+            )
 
-    def migration(self, source, dest, rate=0, start_time=None, end_time=None):
+    def migration(self, *, source, dest, rate=0, start_time=None, end_time=None):
         """
         Add continuous migration from one deme to another.
         Source and destination demes follow the forwards-in-time convention,
@@ -978,9 +985,17 @@ class DemeGraph:
             end_time = time_lo
         else:
             self.check_time_intersection(source, dest, end_time)
-        self.migrations.append(Migration(source, dest, start_time, end_time, rate))
+        self.migrations.append(
+            Migration(
+                source=source,
+                dest=dest,
+                start_time=start_time,
+                end_time=end_time,
+                rate=rate,
+            )
+        )
 
-    def pulse(self, source, dest, proportion, time):
+    def pulse(self, *, source, dest, proportion, time):
         """
         Add a pulse of migration at a fixed time.
         Source and destination demes follow the forwards-in-time convention.
@@ -996,7 +1011,9 @@ class DemeGraph:
             if deme_id not in self:
                 raise ValueError(f"{deme_id} not in deme graph")
         self.check_time_intersection(source, dest, time)
-        self.pulses.append(Pulse(source, dest, time, proportion))
+        self.pulses.append(
+            Pulse(source=source, dest=dest, time=time, proportion=proportion)
+        )
 
     @property
     def successors(self):
@@ -1026,14 +1043,15 @@ class DemeGraph:
                     pred[deme_info.id].append(a)
         return pred
 
-    def split(self, parent, children, time):
+    def split(self, *, parent, children, time):
         """
         Add split event at a given time. Split events involve a parental deme
         whose end time equals the start time of all children demes.
 
-        :param parent: The ancestral deme.
-        :param children: A list of descendant demes.
-        :param time: The time at which split occurs.
+        :param str parent: The ID of the parent deme.
+        :param children: A list of IDs of the descendant demes.
+        :type children: list of str
+        :param float time: The time at which split occurs.
         """
         for child in children:
             # check parent/children relationship and end/start times
@@ -1045,15 +1063,15 @@ class DemeGraph:
                 )
             # the ancestor of each child population is set
             self[child].ancestors = [parent]
-        self.splits.append(Split(parent, children, time))
+        self.splits.append(Split(parent=parent, children=children, time=time))
 
-    def branch(self, parent, child, time):
+    def branch(self, *, parent, child, time):
         """
         Add branch event at a given time.
 
-        :param parent: The ancestral deme.
-        :param children: A list of descendant demes.
-        :param time: The time at which branch event occurs.
+        :param str parent: The ID of the parent deme.
+        :param str child: The ID of the child deme.
+        :param float time: The time at which branch event occurs.
         """
         if (
             self[child].start_time < self[parent].end_time
@@ -1064,17 +1082,19 @@ class DemeGraph:
             )
         # set the ancestor of the child population
         self[child].ancestors = [parent]
-        self.branches.append(Branch(parent, child, time))
+        self.branches.append(Branch(parent=parent, child=child, time=time))
 
-    def merge(self, parents, proportions, child, time):
+    def merge(self, *, parents, proportions, child, time):
         """
         Add merger event at a given time, where multiple parents contribute to
         a descendant deme, and the parent demes cease to exist at that time.
 
-        :param parents: The ancestral demes.
+        :param parents: The list of IDs for the ancestral demes.
+        :type parents: list of str
         :param proportions: Proportions of ancestral demes contributing to descendant.
-        :param children: The descendant deme.
-        :param time: The time at which merger occurs.
+        :type proportions: list of float
+        :param str child: The ID of the descendant deme.
+        :param float time: The time at which merger occurs.
         """
         if self[child].start_time != time:
             raise ValueError(
@@ -1096,17 +1116,21 @@ class DemeGraph:
         # set the ancestors and proportions of the child deme
         self[child].ancestors = parents
         self[child].proportions = proportions
-        self.mergers.append(Merge(parents, proportions, child, time))
+        self.mergers.append(
+            Merge(parents=parents, proportions=proportions, child=child, time=time)
+        )
 
-    def admix(self, parents, proportions, child, time):
+    def admix(self, *, parents, proportions, child, time):
         """
         Add admixture event at a given time, where multiple parents contribute to
         a descendant deme, and the parent demes continue to exist beyond that time.
 
-        :param parents: The ancestral demes.
+        :param parents: The list of IDs for the ancestral demes.
+        :type parents: list of str
         :param proportions: Proportions of ancestral demes contributing to descendant.
-        :param children: The descendant deme.
-        :param time: The time at which admixture occurs.
+        :type proportions: list of float
+        :param str child: The ID of the descendant deme.
+        :param float time: The time at which admixture occurs.
         """
         if self[child].start_time != time:
             raise ValueError(
@@ -1119,7 +1143,9 @@ class DemeGraph:
         # set the ancestors and proportions of the child deme
         self[child].ancestors = parents
         self[child].proportions = proportions
-        self.admixtures.append(Admix(parents, proportions, child, time))
+        self.admixtures.append(
+            Admix(parents=parents, proportions=proportions, child=child, time=time)
+        )
 
     def get_demographic_events(self):
         """
@@ -1141,7 +1167,7 @@ class DemeGraph:
                     splits_to_add.setdefault(p[0], set())
                     splits_to_add[p[0]].add(c)
                 else:
-                    self.branch(p[0], c, self[c].start_time)
+                    self.branch(parent=p[0], child=c, time=self[c].start_time)
             else:
                 time_aligned = True
                 for deme_from in p:
@@ -1149,14 +1175,22 @@ class DemeGraph:
                         time_aligned = False
                 if time_aligned is True:
                     self.merge(
-                        self[c].ancestors, self[c].proportions, c, self[c].start_time
+                        parents=self[c].ancestors,
+                        proportions=self[c].proportions,
+                        child=c,
+                        time=self[c].start_time,
                     )
                 else:
                     self.admix(
-                        self[c].ancestors, self[c].proportions, c, self[c].start_time
+                        parents=self[c].ancestors,
+                        proportions=self[c].proportions,
+                        child=c,
+                        time=self[c].start_time,
                     )
         for deme_from, demes_to in splits_to_add.items():
-            self.split(deme_from, list(demes_to), self[deme_from].end_time)
+            self.split(
+                parent=deme_from, children=list(demes_to), time=self[deme_from].end_time
+            )
 
     def validate(self):
         """
