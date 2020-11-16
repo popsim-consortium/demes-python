@@ -189,9 +189,8 @@ def IM(num_demes, N, m, time_units="generations", generation_time=1):
         description="Isolation with migration.",
         time_units=time_units,
         generation_time=generation_time,
-        default_Ne=N,
     )
     for k in range(num_demes):
-        g.deme(f"D{k}")
+        g.deme(f"D{k}", initial_size=N)
     g.symmetric_migration(demes=[deme.id for deme in g.demes], rate=m)
     return g

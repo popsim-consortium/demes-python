@@ -664,9 +664,6 @@ class DemeGraph:
     generation_time: Optional[Time] = attr.ib(
         default=None, validator=optional([positive, finite])
     )
-    default_Ne: Optional[Size] = attr.ib(
-        default=None, validator=optional([positive, finite])
-    )
     doi: Optional[str] = attr.ib(default=None)
     demes: List[Deme] = attr.ib(factory=list)
     migrations: List[Migration] = attr.ib(factory=list)
@@ -804,8 +801,6 @@ class DemeGraph:
         """
         if id in self:
             raise ValueError(f"deme {id} already exists in this graph")
-        if initial_size is None:
-            initial_size = self.default_Ne
         if initial_size is None and epochs is not None:
             initial_size = epochs[0].initial_size
         if initial_size is None:
@@ -1213,8 +1208,6 @@ class DemeGraph:
             d.update(generation_time=self.generation_time)
         if self.doi is not None:
             d.update(doi=self.doi)
-        if self.default_Ne is not None:
-            d.update(default_Ne=self.default_Ne)
 
         if self.selfing_rate is not None:
             d.update(selfing_rate=self.selfing_rate)

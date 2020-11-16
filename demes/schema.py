@@ -71,7 +71,6 @@ deme_graph_schema = Map(
         "time_units": Str(),
         Optional("generation_time"): Number,
         Optional("doi"): Str(),
-        Optional("default_Ne"): Number,
         "demes": MapPattern(Str(), deme_schema),
         Optional("migrations"): Map(
             {
