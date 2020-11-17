@@ -669,10 +669,6 @@ class DemeGraph:
     demes: List[Deme] = attr.ib(factory=list)
     migrations: List[Migration] = attr.ib(factory=list)
     pulses: List[Pulse] = attr.ib(factory=list)
-    splits: List[Split] = attr.ib(factory=list)
-    branches: List[Branch] = attr.ib(factory=list)
-    mergers: List[Merge] = attr.ib(factory=list)
-    admixtures: List[Admix] = attr.ib(factory=list)
     selfing_rate: Proportion = attr.ib(default=None)
     cloning_rate: Proportion = attr.ib(default=None)
 
@@ -1067,7 +1063,7 @@ class DemeGraph:
                     pred[deme_info.id].append(a)
         return pred
 
-    def split(self, *, parent, children, time):
+    def _split(self, *, parent, children, time):
         """
         Add split event at a given time. Split events involve a parental deme
         whose end time equals the start time of all children demes.
@@ -1087,9 +1083,8 @@ class DemeGraph:
                 )
             # the ancestor of each child population is set
             self[child].ancestors = [parent]
-        self.splits.append(Split(parent=parent, children=children, time=time))
 
-    def branch(self, *, parent, child, time):
+    def _branch(self, *, parent, child, time):
         """
         Add branch event at a given time.
 
@@ -1106,9 +1101,8 @@ class DemeGraph:
             )
         # set the ancestor of the child population
         self[child].ancestors = [parent]
-        self.branches.append(Branch(parent=parent, child=child, time=time))
 
-    def merge(self, *, parents, proportions, child, time):
+    def _merge(self, *, parents, proportions, child, time):
         """
         Add merger event at a given time, where multiple parents contribute to
         a descendant deme, and the parent demes cease to exist at that time.
@@ -1140,11 +1134,8 @@ class DemeGraph:
         # set the ancestors and proportions of the child deme
         self[child].ancestors = parents
         self[child].proportions = proportions
-        self.mergers.append(
-            Merge(parents=parents, proportions=proportions, child=child, time=time)
-        )
 
-    def admix(self, *, parents, proportions, child, time):
+    def _admix(self, *, parents, proportions, child, time):
         """
         Add admixture event at a given time, where multiple parents contribute to
         a descendant deme, and the parent demes continue to exist beyond that time.
@@ -1167,21 +1158,25 @@ class DemeGraph:
         # set the ancestors and proportions of the child deme
         self[child].ancestors = parents
         self[child].proportions = proportions
-        self.admixtures.append(
-            Admix(parents=parents, proportions=proportions, child=child, time=time)
-        )
 
-    def get_demographic_events(self):
+    def list_demographic_events(self):
         """
-        Loop through successors/predecessors to add splits, branches, mergers,
-        and admixtures to the deme graph. If a deme has more than one predecessor,
+        Loop through successors/predecessors to generate a list of splits, branches,
+        mergers, and admixtures. If a deme has more than one predecessor,
         then it is a merger or an admixture event, which we differentiate by end and
         start times of those demes. If a deme has a single predecessor, we check
         whether it is a branch (start time != predecessor's end time), or split.
 
-        This is only used when we build a demography from a YAML file, since it
-        uses the successors/predecessors that are determined by ancestor relationships.
+        Returns a dictionary containing all discrete demographic events, including
+        pulses that are listed as a DemeGraph attribute.
         """
+        demo_events = {
+            "pulses": self.pulses,
+            "splits": [],
+            "branches": [],
+            "mergers": [],
+            "admixtures": [],
+        }
         splits_to_add = {}
         for c, p in self.predecessors.items():
             if len(p) == 0:
@@ -1191,30 +1186,41 @@ class DemeGraph:
                     splits_to_add.setdefault(p[0], set())
                     splits_to_add[p[0]].add(c)
                 else:
-                    self.branch(parent=p[0], child=c, time=self[c].start_time)
+                    demo_events["branches"].append(
+                        Branch(parent=p[0], child=c, time=self[c].start_time)
+                    )
             else:
                 time_aligned = True
                 for deme_from in p:
                     if self[c].start_time != self[deme_from].end_time:
                         time_aligned = False
                 if time_aligned is True:
-                    self.merge(
-                        parents=self[c].ancestors,
-                        proportions=self[c].proportions,
-                        child=c,
-                        time=self[c].start_time,
+                    demo_events["mergers"].append(
+                        Merge(
+                            parents=self[c].ancestors,
+                            proportions=self[c].proportions,
+                            child=c,
+                            time=self[c].start_time,
+                        )
                     )
                 else:
-                    self.admix(
-                        parents=self[c].ancestors,
-                        proportions=self[c].proportions,
-                        child=c,
-                        time=self[c].start_time,
+                    demo_events["admixtures"].append(
+                        Admix(
+                            parents=self[c].ancestors,
+                            proportions=self[c].proportions,
+                            child=c,
+                            time=self[c].start_time,
+                        )
                     )
         for deme_from, demes_to in splits_to_add.items():
-            self.split(
-                parent=deme_from, children=list(demes_to), time=self[deme_from].end_time
+            demo_events["splits"].append(
+                Split(
+                    parent=deme_from,
+                    children=list(demes_to),
+                    time=self[deme_from].end_time,
+                )
             )
+        return demo_events
 
     def validate(self):
         """
@@ -1240,11 +1246,6 @@ class DemeGraph:
                 migration.end_time /= generation_time
             for pulse in deme_graph.pulses:
                 pulse.time /= generation_time
-            deme_graph.splits = []
-            deme_graph.branches = []
-            deme_graph.mergers = []
-            deme_graph.admixtures = []
-            deme_graph.get_demographic_events()
         return deme_graph
 
     def asdict(self):

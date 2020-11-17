@@ -50,12 +50,7 @@ class TestExamples(unittest.TestCase):
         g.deme(id="ancestral", end_time=50, initial_size=100)
         g.deme(id="pop1", start_time=50, initial_size=200)
         g.deme(id="pop2", start_time=50, initial_size=300)
-        g.split(parent="ancestral", children=["pop1", "pop2"], time=50)
-        self.assertEqual(len(g.splits), 1)
-        self.assertTrue(g.splits[0].parent == "ancestral")
-        self.assertTrue("pop1" in g.splits[0].children)
-        self.assertTrue("pop2" in g.splits[0].children)
-        self.assertTrue(g.splits[0].time == 50)
+        g._split(parent="ancestral", children=["pop1", "pop2"], time=50)
         self.assertTrue("ancestral" in g["pop1"].ancestors)
         self.assertTrue("ancestral" in g["pop2"].ancestors)
         self.assertTrue(g["ancestral"].ancestors is None)
@@ -66,11 +61,7 @@ class TestExamples(unittest.TestCase):
         )
         g.deme(id="ancestral", initial_size=100)
         g.deme(id="pop1", start_time=50, initial_size=200)
-        g.branch(parent="ancestral", child="pop1", time=50)
-        self.assertEqual(len(g.branches), 1)
-        self.assertTrue(g.branches[0].parent == "ancestral")
-        self.assertTrue(g.branches[0].child == "pop1")
-        self.assertTrue(g.branches[0].time == 50)
+        g._branch(parent="ancestral", child="pop1", time=50)
         self.assertTrue("ancestral" in g["pop1"].ancestors)
 
     def test_simple_merge(self):
@@ -80,17 +71,12 @@ class TestExamples(unittest.TestCase):
         g.deme(id="ancestral1", initial_size=100, end_time=10)
         g.deme(id="ancestral2", initial_size=100, end_time=10)
         g.deme(id="child", initial_size=100, start_time=10)
-        g.merge(
+        g._merge(
             parents=["ancestral1", "ancestral2"],
             proportions=[0.5, 0.5],
             child="child",
             time=10,
         )
-        self.assertEqual(len(g.mergers), 1)
-        self.assertEqual(g.mergers[0].time, 10)
-        self.assertEqual(g.mergers[0].child, "child")
-        for anc in ["ancestral1", "ancestral2"]:
-            self.assertTrue(anc in g.mergers[0].parents)
         self.assertEqual(g["ancestral1"].end_time, 10)
         self.assertEqual(g["ancestral2"].end_time, 10)
         self.assertEqual(g["child"].start_time, 10)
@@ -104,17 +90,12 @@ class TestExamples(unittest.TestCase):
         g.deme(id="ancestral1", initial_size=100)  # don't set their end times
         g.deme(id="ancestral2", initial_size=100)
         g.deme(id="child", initial_size=100, start_time=10)
-        g.merge(
+        g._merge(
             parents=["ancestral1", "ancestral2"],
             proportions=[0.5, 0.5],
             child="child",
             time=10,
         )
-        self.assertEqual(len(g.mergers), 1)
-        self.assertEqual(g.mergers[0].time, 10)
-        self.assertEqual(g.mergers[0].child, "child")
-        for anc in ["ancestral1", "ancestral2"]:
-            self.assertTrue(anc in g.mergers[0].parents)
         self.assertEqual(g["ancestral1"].end_time, 10)
         self.assertEqual(g["ancestral2"].end_time, 10)
         self.assertEqual(g["child"].start_time, 10)
@@ -126,7 +107,7 @@ class TestExamples(unittest.TestCase):
         g.deme(id="ancestral1", initial_size=100)
         g.deme(id="ancestral2", initial_size=100)
         g.deme(id="child", initial_size=100, start_time=10)
-        g.admix(
+        g._admix(
             parents=["ancestral1", "ancestral2"],
             proportions=[0.5, 0.5],
             child="child",
@@ -136,8 +117,5 @@ class TestExamples(unittest.TestCase):
         self.assertEqual(g["ancestral2"].end_time, 0)
         self.assertEqual(g["child"].end_time, 0)
         self.assertEqual(g["child"].start_time, 10)
-        self.assertEqual(len(g.admixtures), 1)
-        self.assertEqual(g.admixtures[0].time, 10)
         for anc in ["ancestral1", "ancestral2"]:
-            self.assertTrue(anc in g.admixtures[0].parents)
             self.assertTrue(anc in g["child"].ancestors)

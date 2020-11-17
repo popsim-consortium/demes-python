@@ -51,7 +51,7 @@ def SFS(g, sampled_demes, sample_sizes, sample_times=None, Ne=None, unsampled_n=
         sample_times = [g[d].end_time for d in sampled_demes]
 
     # for any ancient samples, we need to add frozen branches
-    # with this, all "sample times" are at time 0, and ancient sampleddemes are frozen
+    # with this, all "sample times" are at time 0, and ancient sampled demes are frozen
     if np.any(np.array(sample_times) != 0):
         g, sampled_demes, list_of_frozen_demes = augment_with_ancient_samples(
             g, sampled_demes, sample_times
@@ -68,13 +68,20 @@ def SFS(g, sampled_demes, sample_sizes, sample_times=None, Ne=None, unsampled_n=
         if t < g[d].end_time or t >= g[d].start_time:
             raise ValueError("sample time for {deme} must be within its time span")
 
+    # get the list of demographic events from demes, which is a dictionary with
+    # lists of splits, admixtures, mergers, branches, and pulses
+    demes_demo_events = g.list_demographic_events()
+
     # get the dict of events and event times that partition integration epochs, in
     # descending order. events include demographic events, such as splits and
     # mergers and admixtures, as well as changes in population sizes or migration
     # rates that require instantaneous changes in the size function or migration matrix.
     # get the list of demes present in each epoch, as a dictionary with non-overlapping
     # adjoint epoch time intervals
-    demo_events, demes_present = get_demographic_events(g, sampled_demes)
+    demo_events, demes_present = get_demographic_events(
+        g, demes_demo_events, sampled_demes
+    )
+
     for epoch, epoch_demes in demes_present.items():
         if len(epoch_demes) > 5:
             raise ValueError(
@@ -145,12 +152,17 @@ def augment_with_ancient_samples(g, sampled_demes, sample_times):
             sd_frozen = sd + f"_sampled_{st}"
             frozen_demes.append(sd_frozen)
             sampled_demes[ii] = sd_frozen
-            g.deme(id=sd_frozen, start_time=st, end_time=0, initial_size=1)
-            g.branch(parent=sd, child=sd_frozen, time=st)
+            g.deme(
+                id=sd_frozen,
+                start_time=st,
+                end_time=0,
+                initial_size=1,
+                ancestors=[sd],
+            )
     return g, sampled_demes, frozen_demes
 
 
-def get_demographic_events(g, sampled_demes):
+def get_demographic_events(g, demes_demo_events, sampled_demes):
     """
     Returns demographic events and present demes over each epoch.
     Epochs are divided by any demographic event.
@@ -203,19 +215,19 @@ def get_demographic_events(g, sampled_demes):
     # same time with same dest can be converted to an admixture event, and split the
     # dest deme into two demes)
     demo_events = defaultdict(list)
-    for pulse in g.pulses:
+    for pulse in demes_demo_events["pulses"]:
         event = ("pulse", pulse.source, pulse.dest, pulse.proportion)
         demo_events[pulse.time].append(event)
-    for branch in g.branches:
+    for branch in demes_demo_events["branches"]:
         event = ("branch", branch.parent, branch.child)
         demo_events[branch.time].append(event)
-    for merge in g.mergers:
+    for merge in demes_demo_events["mergers"]:
         event = ("merge", merge.parents, merge.proportions, merge.child)
         demo_events[merge.time].append(event)
-    for admix in g.admixtures:
+    for admix in demes_demo_events["admixtures"]:
         event = ("admix", admix.parents, admix.proportions, admix.child)
         demo_events[admix.time].append(event)
-    for split in g.splits:
+    for split in demes_demo_events["splits"]:
         event = ("split", split.parent, split.children)
         demo_events[split.time].append(event)
 
