@@ -21,3 +21,4 @@ from .demes import (
     Admix,
 )
 from .load_dump import load_asdict, loads_asdict, load, loads, dump, dumps
+from .ms import from_ms

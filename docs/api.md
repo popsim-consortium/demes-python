@@ -58,3 +58,9 @@
 .. autoclass:: demes.Admix
     :members:
 ```
+
+## Conversion functions
+
+```{eval-rst}
+.. autofunction:: demes.from_ms
+```

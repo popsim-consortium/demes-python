@@ -1,7 +1,8 @@
 
 # Need to set PYTHONPATH so that we pick up the local demes
 export PYTHONPATH=$(realpath ..)
-DEMES_VERSION:=$(shell python3 -c 'import demes; print(demes.__version__.split("+")[0])')
+DEMES_VERSION:=$(shell PYTHONPATH=${PYTHONPATH} \
+	python3 -c 'import demes; print(demes.__version__.split("+")[0])')
 
 dev:
 	./build.sh

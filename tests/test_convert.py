@@ -1,11 +1,9 @@
-import unittest
-
 import stdpopsim
 
 import demes.convert
 
 
-class TestConvertStdpopsim(unittest.TestCase):
+class TestConvertStdpopsim:
     def test_all_models_back_and_forth(self):
         # XXX: The success or failure of this test depends upon what models
         # are available in stdpopsim. This leaves open the possibility that
