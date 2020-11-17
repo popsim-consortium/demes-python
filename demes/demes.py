@@ -5,6 +5,7 @@ import math
 import collections
 import copy
 import operator
+import warnings
 
 import attr
 from attr.validators import optional
@@ -963,8 +964,8 @@ class DemeGraph:
         so that the migration rate refers to the movement of individuals from
         the ``source`` deme to the ``dest`` deme.
 
-        :param source: The source deme.
-        :param dest: The destination deme.
+        :param source: The ID of the source deme.
+        :param dest: The ID of the destination deme.
         :param rate: The rate of migration per generation.
         :param start_time: The time at which the migration rate is enabled.
             If ``None``, the start time is defined by the earliest time at
@@ -1000,8 +1001,8 @@ class DemeGraph:
         Add a pulse of migration at a fixed time.
         Source and destination demes follow the forwards-in-time convention.
 
-        :param source: The source deme.
-        :param dest: The destination deme.
+        :param source: The ID of the source deme.
+        :param dest: The ID of the destination deme.
         :param proportion: At the instant after migration, this is the expected
             proportion of individuals in the destination deme made up of individuals
             from the source deme.
@@ -1011,6 +1012,29 @@ class DemeGraph:
             if deme_id not in self:
                 raise ValueError(f"{deme_id} not in deme graph")
         self.check_time_intersection(source, dest, time)
+
+        # Check for models that have multiple pulses defined at the same time.
+        # E.g. chains of pulses like: deme0 -> deme1; deme1 -> deme2,
+        # where reversing the order of the pulse definitions changes the
+        # interpretation of the model. Such models are valid, but the behaviour
+        # may not be what the user expects.
+        # See https://github.com/grahamgower/demes/issues/46
+        sources = set()
+        dests = set()
+        for pulse in self.pulses:
+            if pulse.time == time:
+                sources.add(pulse.source)
+                dests.add(pulse.dest)
+        if source in dests or dest in (sources | dests):
+            warnings.warn(
+                "Multiple pulses are defined for the same deme(s) at time "
+                f"{time}. The ancestry proportions after this time will thus "
+                "depend on the order in which the pulses have been specified. "
+                "To avoid unexpected behaviour, the deme graph can instead "
+                "be structured to introduce a new deme at this time with "
+                "the desired ancestry proportions."
+            )
+
         self.pulses.append(
             Pulse(source=source, dest=dest, time=time, proportion=proportion)
         )

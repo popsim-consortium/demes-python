@@ -2,6 +2,8 @@ import unittest
 import copy
 import pathlib
 
+import pytest
+
 from demes import (
     Epoch,
     Migration,
@@ -14,7 +16,6 @@ from demes import (
     Admix,
     load,
 )
-
 import demes
 
 
@@ -1182,6 +1183,59 @@ class TestDemeGraph(unittest.TestCase):
         with self.assertRaises(ValueError):
             dg.admix(parents=["b", "c"], proportions=[0.5, 0.5], child="a", time=2)
 
+    def test_pulse_same_time(self):
+        g1 = DemeGraph(description="test", time_units="generations")
+        for j in range(4):
+            g1.deme(f"d{j}", initial_size=1000)
+
+        T = 100  # time of pulses
+
+        # Warn for duplicate pulses
+        g2 = copy.deepcopy(g1)
+        g2.pulse(source="d0", dest="d1", time=T, proportion=0.1)
+        with pytest.warns(UserWarning):
+            g2.pulse(source="d0", dest="d1", time=T, proportion=0.1)
+
+        # Warn for: d0 -> d1; d1 -> d2.
+        g2 = copy.deepcopy(g1)
+        g2.pulse(source="d0", dest="d1", time=T, proportion=0.1)
+        with pytest.warns(UserWarning):
+            g2.pulse(source="d1", dest="d2", time=T, proportion=0.1)
+
+        # Warn for: d0 -> d2; d1 -> d2.
+        g2 = copy.deepcopy(g1)
+        g2.pulse(source="d0", dest="d2", time=T, proportion=0.1)
+        with pytest.warns(UserWarning):
+            g2.pulse(source="d1", dest="d2", time=T, proportion=0.1)
+
+        # Shouldn't warn for: d0 -> d1; d0 -> d2.
+        g2 = copy.deepcopy(g1)
+        g2.pulse(source="d0", dest="d1", time=T, proportion=0.1)
+        with pytest.warns(None) as record:
+            g2.pulse(source="d0", dest="d2", time=T, proportion=0.1)
+        assert len(record) == 0
+
+        # Shouldn't warn for: d0 -> d1; d2 -> d3.
+        g2 = copy.deepcopy(g1)
+        g2.pulse(source="d0", dest="d1", time=T, proportion=0.1)
+        with pytest.warns(None) as record:
+            g2.pulse(source="d2", dest="d3", time=T, proportion=0.1)
+        assert len(record) == 0
+
+        # Different pulse times shouldn't warn for: d0 -> d1; d1 -> d2.
+        g2 = copy.deepcopy(g1)
+        g2.pulse(source="d0", dest="d1", time=T, proportion=0.1)
+        with pytest.warns(None) as record:
+            g2.pulse(source="d1", dest="d2", time=2 * T, proportion=0.1)
+        assert len(record) == 0
+
+        # Different pulse times shouldn't warn for: d0 -> d2; d1 -> d2.
+        g2 = copy.deepcopy(g1)
+        g2.pulse(source="d0", dest="d2", time=T, proportion=0.1)
+        with pytest.warns(None) as record:
+            g2.pulse(source="d1", dest="d2", time=2 * T, proportion=0.1)
+        assert len(record) == 0
+
     def test_isclose(self):
         g1 = DemeGraph(
             description="test",
@@ -1329,7 +1383,7 @@ class TestDemeGraph(unittest.TestCase):
         g4 = copy.deepcopy(g2)
         g4.deme("d1", initial_size=1000)
         g4.deme("d2", initial_size=1000)
-        g3.pulse(source="d1", dest="d2", proportion=0.01, time=100)
+        g4.pulse(source="d1", dest="d2", proportion=0.01, time=100)
         self.assertFalse(g3.isclose(g4))
 
 
