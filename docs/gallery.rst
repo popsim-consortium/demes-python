@@ -36,8 +36,9 @@ Gutenkunst et al. (2009) Out-of-Africa expansion
 
 .. _sec_denisova_example:
 
-Jacobs et al. (20xx) Denisovan admixture
+Jacobs et al. (2019) Denisovan admixture
 ----------------------------------------
 
-To do.
-
+.. literalinclude:: ../examples/jacobs_papuans.yml
+   :language: yaml
+   :linenos:

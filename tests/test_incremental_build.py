@@ -2,7 +2,7 @@ import unittest
 
 import demes
 
-# test_examples.py tests importing and exporting YAML files
+# test_yaml.py tests importing and exporting YAML files
 # these tests are for incremental builds of demographic models, where we
 # add demes to an "empty" demography using the demographic event functions
 

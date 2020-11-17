@@ -72,6 +72,6 @@ if __name__ == "__main__":
     g2 = from_stdpopsim(dm2)
     # print(demes.dumps(g2))
 
-    assert g == g2
+    assert g.isclose(g2)
 
     print(demes.dumps(g))
