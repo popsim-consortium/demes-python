@@ -1,11 +1,17 @@
 import math
+import pathlib
 import unittest
 
 import numpy as np
 import moments
 
-import demes.examples
+import demes
 from demes.convert import moments_
+
+
+def gutenkunst_ooa():
+    examples_path = pathlib.Path(__file__).parent.parent / "examples"
+    return demes.load(examples_path / "gutenkunst_ooa.yml")
 
 
 def moments_ooa(ns):
@@ -45,7 +51,7 @@ def moments_ooa(ns):
 class TestMomentsSFS(unittest.TestCase):
     # test function operations
     def test_convert_to_generations(self):
-        g = demes.examples.gutenkunst_ooa()
+        g = gutenkunst_ooa()
         sample_times = [10, 20, 50]
         sample_times_gens = [s / g.generation_time for s in sample_times]
         g, sample_times = moments_.convert_to_generations(g, sample_times)
@@ -151,7 +157,7 @@ class TestMomentsSFS(unittest.TestCase):
 
     def test_OOA(self):
         # this tests symmetric migration, size changes, splits
-        g = demes.examples.gutenkunst_ooa()
+        g = gutenkunst_ooa()
 
         sample_sizes = [10, 10, 10]
         sampled_demes = ["YRI", "CEU", "CHB"]
