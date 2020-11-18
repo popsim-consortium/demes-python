@@ -45,8 +45,6 @@ def loads(string):
                 g.migration(**m)
     for pulse_dict in d.get("pulses", []):
         g.pulse(**pulse_dict)
-    # add population relationship events to the deme graph
-    g.get_demographic_events()
     return g
 
 

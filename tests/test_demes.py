@@ -1128,12 +1128,12 @@ class TestDemeGraph(unittest.TestCase):
     def test_bad_split(self):
         dg = demes.DemeGraph(description="a", time_units="generations")
         with self.assertRaises(ValueError):
-            dg.split(parent="a", children=["a", "b", "c"], time=10)
+            dg._split(parent="a", children=["a", "b", "c"], time=10)
         dg.deme("a", initial_size=100, end_time=50)
         dg.deme("b", initial_size=100, start_time=50, end_time=0)
         dg.deme("c", initial_size=100, start_time=20, end_time=0)
         with self.assertRaises(ValueError):
-            dg.split(parent="a", children=["b", "c"], time=50)
+            dg._split(parent="a", children=["b", "c"], time=50)
 
     def test_bad_branch(self):
         dg = demes.DemeGraph(description="a", time_units="generations")
@@ -1141,9 +1141,9 @@ class TestDemeGraph(unittest.TestCase):
         dg.deme("b", start_time=20, end_time=0, initial_size=10)
         dg.deme("c", start_time=2, end_time=0, initial_size=10)
         with self.assertRaises(ValueError):
-            dg.branch(parent="a", child="b", time=7)
+            dg._branch(parent="a", child="b", time=7)
         with self.assertRaises(ValueError):
-            dg.branch(parent="a", child="c", time=7)
+            dg._branch(parent="a", child="c", time=7)
 
     def test_bad_merge(self):
         dg = demes.DemeGraph(description="a", time_units="generations")
@@ -1152,9 +1152,9 @@ class TestDemeGraph(unittest.TestCase):
         dg.deme("c", start_time=5, end_time=0, initial_size=10)
         dg.deme("d", start_time=2, end_time=0, initial_size=1)
         with self.assertRaises(ValueError):
-            dg.merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=10)
+            dg._merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=10)
         with self.assertRaises(ValueError):
-            dg.merge(parents=["a", "b"], proportions=[0.5, 0.5], child="d", time=2)
+            dg._merge(parents=["a", "b"], proportions=[0.5, 0.5], child="d", time=2)
 
     def test_merge_cuts_epochs(self):
         dg = demes.DemeGraph(description="a", time_units="generations")
@@ -1168,7 +1168,7 @@ class TestDemeGraph(unittest.TestCase):
             ],
         )
         dg.deme("c", start_time=5, initial_size=10)
-        dg.merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=5)
+        dg._merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=5)
         self.assertEqual(dg["a"].end_time, 5)
         self.assertEqual(dg["b"].end_time, 5)
         self.assertEqual(len(dg["b"].epochs), 2)
@@ -1177,11 +1177,11 @@ class TestDemeGraph(unittest.TestCase):
         dg = demes.DemeGraph(description="a", time_units="generations")
         dg.deme("a", start_time=2, initial_size=100)
         with self.assertRaises(ValueError):
-            dg.admix(parents=["b", "c"], proportions=[0.5, 0.5], child="a", time=5)
+            dg._admix(parents=["b", "c"], proportions=[0.5, 0.5], child="a", time=5)
         dg.deme("b", end_time=5, initial_size=10)
         dg.deme("c", start_time=5, end_time=0, initial_size=10)
         with self.assertRaises(ValueError):
-            dg.admix(parents=["b", "c"], proportions=[0.5, 0.5], child="a", time=2)
+            dg._admix(parents=["b", "c"], proportions=[0.5, 0.5], child="a", time=2)
 
     def test_pulse_same_time(self):
         g1 = DemeGraph(description="test", time_units="generations")

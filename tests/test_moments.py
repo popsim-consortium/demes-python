@@ -74,9 +74,11 @@ class TestMomentsSFS(unittest.TestCase):
             start_time=10,
             end_time=0,
         )
-        g.get_demographic_events()
         sampled_demes = ["pop"]
-        demo_events, demes_present = moments_.get_demographic_events(g, sampled_demes)
+        demes_demo_events = g.list_demographic_events()
+        demo_events, demes_present = moments_.get_demographic_events(
+            g, demes_demo_events, sampled_demes
+        )
         deme_sample_sizes = moments_.get_deme_sample_sizes(
             g, demo_events, sampled_demes, [20], demes_present
         )
@@ -99,9 +101,11 @@ class TestMomentsSFS(unittest.TestCase):
             start_time=10,
             end_time=0,
         )
-        g.get_demographic_events()
         sampled_demes = ["pop"]
-        demo_events, demes_present = moments_.get_demographic_events(g, sampled_demes)
+        demes_demo_events = g.list_demographic_events()
+        demo_events, demes_present = moments_.get_demographic_events(
+            g, demes_demo_events, sampled_demes
+        )
         deme_sample_sizes = moments_.get_deme_sample_sizes(
             g, demo_events, sampled_demes, [20], demes_present, unsampled_n=10
         )
@@ -178,7 +182,6 @@ class TestMomentsSFS(unittest.TestCase):
             proportions=[0.8, 0.2],
             start_time=10,
         )
-        g.get_demographic_events()
         fs = moments_.SFS(g, ["Pop"], [20])
 
         fs_m = moments.Demographics1D.snm([40])
@@ -200,7 +203,6 @@ class TestMomentsSFS(unittest.TestCase):
             proportions=[0.8, 0.2],
             start_time=10,
         )
-        g.get_demographic_events()
         fs = moments_.SFS(g, ["Source1", "Source2", "Pop"], [10, 10, 10])
 
         fs_m = moments.Demographics1D.snm([40])
@@ -258,7 +260,6 @@ class TestMomentsSFS(unittest.TestCase):
         g.deme(id="source", initial_size=1000, ancestors=["anc"])
         g.deme(id="dest", initial_size=1000, ancestors=["anc"])
         g.pulse(source="source", dest="dest", time=10, proportion=0.1)
-        g.get_demographic_events()
         fs = moments_.SFS(g, ["source", "dest"], [20, 20])
 
         fs_m = moments.Demographics1D.snm([60])
@@ -274,7 +275,6 @@ class TestMomentsSFS(unittest.TestCase):
         g.deme(id="deme1", initial_size=1000, ancestors=["anc"])
         g.deme(id="deme2", initial_size=1000, ancestors=["anc"])
         g.deme(id="deme3", initial_size=1000, ancestors=["anc"])
-        g.get_demographic_events()
         ns = [10, 15, 20]
         fs = moments_.SFS(g, ["deme1", "deme2", "deme3"], ns)
         self.assertTrue(np.all([fs.sample_sizes[i] == ns[i] for i in range(len(ns))]))
@@ -306,7 +306,6 @@ class TestMomentsSFS(unittest.TestCase):
             proportions=[0.5, 0.2, 0.3],
             start_time=10,
         )
-        g.get_demographic_events()
         ns = [10]
         fs = moments_.SFS(g, ["merged"], ns)
 
@@ -332,7 +331,6 @@ class TestMomentsSFS(unittest.TestCase):
             proportions=[0.5, 0.2, 0.3],
             start_time=10,
         )
-        g.get_demographic_events()
         ns = [10]
         fs = moments_.SFS(g, ["admixed"], ns)
 
