@@ -123,8 +123,13 @@ class TestMomentsSFS(unittest.TestCase):
         self.assertTrue(np.allclose(fs.data, fs_m.data))
 
         g = demes.DemeGraph(description="test", time_units="generations")
-        g.deme(id="Pop", initial_size=1000, end_time=2000)
-        g["Pop"].add_epoch(demes.Epoch(start_time=2000, end_time=0, initial_size=10000))
+        g.deme(
+            id="Pop",
+            epochs=[
+                demes.Epoch(initial_size=1000, end_time=2000),
+                demes.Epoch(end_time=0, initial_size=10000),
+            ],
+        )
         fs = moments_.SFS(g, ["Pop"], [20])
         fs_m = moments.Demographics1D.snm([20])
         fs_m.integrate([10], 1)

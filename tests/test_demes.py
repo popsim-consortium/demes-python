@@ -549,14 +549,12 @@ class TestDeme(unittest.TestCase):
             description="b",
             ancestors=["c"],
             proportions=[1],
-            epochs=[Epoch(start_time=100, end_time=50, initial_size=1)],
+            epochs=[
+                Epoch(start_time=100, end_time=50, initial_size=1),
+                Epoch(start_time=50, end_time=20, initial_size=100),
+                Epoch(start_time=20, end_time=1, initial_size=200),
+            ],
         )
-        self.assertEqual(deme.start_time, 100)
-        self.assertEqual(deme.end_time, 50)
-        deme.add_epoch(Epoch(start_time=50, end_time=20, initial_size=100))
-        self.assertEqual(deme.start_time, 100)
-        self.assertEqual(deme.end_time, 20)
-        deme.add_epoch(Epoch(start_time=20, end_time=1, initial_size=200))
         self.assertEqual(deme.start_time, 100)
         self.assertEqual(deme.end_time, 1)
 
@@ -615,76 +613,33 @@ class TestDeme(unittest.TestCase):
                 epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
             )
 
-    def test_two_epochs(self):
-        with self.assertRaises(ValueError):
-            Deme(
-                id="a",
-                description="b",
-                ancestors=["c"],
-                proportions=[1],
-                epochs=[
-                    Epoch(start_time=11, end_time=10, initial_size=100),
-                    Epoch(start_time=10, end_time=1, initial_size=1),
-                ],
-            )
-
-    def test_add_epoch(self):
-        deme = Deme(
-            id="a",
-            description="b",
-            ancestors=["c"],
-            proportions=[1],
-            epochs=[Epoch(start_time=100, end_time=50, initial_size=1)],
-        )
-        with self.assertRaises(ValueError):
-            deme.add_epoch(Epoch(start_time=60, end_time=0, initial_size=10))
-        with self.assertRaises(ValueError):
-            deme.add_epoch(Epoch(start_time=40, end_time=0, initial_size=10))
-        with self.assertRaises(ValueError):
-            deme.add_epoch(Epoch(start_time=50, end_time=50, initial_size=10))
-        with self.assertRaises(ValueError):
-            deme.add_epoch(
-                Epoch(
-                    start_time=50,
-                    end_time=0,
-                    initial_size=10,
-                    final_size=20,
-                    size_function="constant",
-                )
-            )
-
     def test_epochs_out_of_order(self):
-        deme = Deme(
-            id="a",
-            description="b",
-            ancestors=["c"],
-            proportions=[1],
-            epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
-        )
         for time in (5, -1, float("inf")):
             with self.assertRaises(ValueError):
-                deme.add_epoch(Epoch(start_time=5, end_time=time, initial_size=100))
-        deme.add_epoch(Epoch(start_time=5, end_time=0, initial_size=100))
+                Deme(
+                    id="a",
+                    description="b",
+                    ancestors=["c"],
+                    proportions=[1],
+                    epochs=[
+                        Epoch(start_time=10, end_time=5, initial_size=1),
+                        Epoch(start_time=5, end_time=time, initial_size=100),
+                    ],
+                )
 
     def test_epochs_are_a_partition(self):
         for start_time, end_time in [(float("inf"), 100), (200, 100)]:
-            deme = Deme(
-                id="a",
-                description="b",
-                ancestors=["c"],
-                proportions=[1],
-                epochs=[
-                    Epoch(start_time=start_time, end_time=end_time, initial_size=1)
-                ],
-            )
             with self.assertRaises(ValueError):
-                deme.add_epoch(Epoch(end_time=100, initial_size=100))
-            for t in (50, 20, 10):
-                deme.add_epoch(Epoch(end_time=t, initial_size=t))
-            prev_end_time = end_time
-            for epoch in deme.epochs[1:]:
-                self.assertEqual(epoch.start_time, prev_end_time)
-                prev_end_time = epoch.end_time
+                Deme(
+                    id="a",
+                    description="b",
+                    ancestors=["c"],
+                    proportions=[1],
+                    epochs=[
+                        Epoch(start_time=start_time, end_time=end_time, initial_size=1),
+                        Epoch(start_time=50, end_time=0, initial_size=2),
+                    ],
+                )
 
     def test_time_span(self):
         for start_time, end_time in zip((float("inf"), 100, 20), (0, 20, 0)):
@@ -698,6 +653,14 @@ class TestDeme(unittest.TestCase):
                 ],
             )
             self.assertEqual(deme.time_span, start_time - end_time)
+        with self.assertRaises(ValueError):
+            deme = Deme(
+                id="a",
+                description="b",
+                ancestors=["c"],
+                proportions=[1],
+                epochs=[Epoch(start_time=100, end_time=100, initial_size=1)],
+            )
 
     def test_isclose(self):
         d1 = Deme(
@@ -868,9 +831,6 @@ class TestDeme(unittest.TestCase):
                 )
             )
         )
-        d2 = copy.deepcopy(d1)
-        d2.add_epoch(Epoch(end_time=0, initial_size=1))
-        self.assertFalse(d1 == d2)
 
     # APR (7/28): Add tests for selfing rate, cloning rate, and size function.
     # Add tests for testing ancestors and proportions.
@@ -1124,64 +1084,6 @@ class TestDemeGraph(unittest.TestCase):
             dg.pulse(source="a", dest="b", proportion=0.1, time=10)
         with self.assertRaises(ValueError):
             dg.pulse(source="b", dest="a", proportion=0.1, time=10)
-
-    def test_bad_split(self):
-        dg = demes.DemeGraph(description="a", time_units="generations")
-        with self.assertRaises(ValueError):
-            dg._split(parent="a", children=["a", "b", "c"], time=10)
-        dg.deme("a", initial_size=100, end_time=50)
-        dg.deme("b", initial_size=100, start_time=50, end_time=0)
-        dg.deme("c", initial_size=100, start_time=20, end_time=0)
-        with self.assertRaises(ValueError):
-            dg._split(parent="a", children=["b", "c"], time=50)
-
-    def test_bad_branch(self):
-        dg = demes.DemeGraph(description="a", time_units="generations")
-        dg.deme("a", start_time=10, end_time=5, initial_size=10)
-        dg.deme("b", start_time=20, end_time=0, initial_size=10)
-        dg.deme("c", start_time=2, end_time=0, initial_size=10)
-        with self.assertRaises(ValueError):
-            dg._branch(parent="a", child="b", time=7)
-        with self.assertRaises(ValueError):
-            dg._branch(parent="a", child="c", time=7)
-
-    def test_bad_merge(self):
-        dg = demes.DemeGraph(description="a", time_units="generations")
-        dg.deme("a", end_time=5, initial_size=10)
-        dg.deme("b", end_time=5, initial_size=10)
-        dg.deme("c", start_time=5, end_time=0, initial_size=10)
-        dg.deme("d", start_time=2, end_time=0, initial_size=1)
-        with self.assertRaises(ValueError):
-            dg._merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=10)
-        with self.assertRaises(ValueError):
-            dg._merge(parents=["a", "b"], proportions=[0.5, 0.5], child="d", time=2)
-
-    def test_merge_cuts_epochs(self):
-        dg = demes.DemeGraph(description="a", time_units="generations")
-        dg.deme("a", initial_size=10, end_time=0)
-        dg.deme(
-            "b",
-            epochs=[
-                Epoch(end_time=10, initial_size=5),
-                Epoch(end_time=5, initial_size=10),
-                Epoch(end_time=0, initial_size=2),
-            ],
-        )
-        dg.deme("c", start_time=5, initial_size=10)
-        dg._merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=5)
-        self.assertEqual(dg["a"].end_time, 5)
-        self.assertEqual(dg["b"].end_time, 5)
-        self.assertEqual(len(dg["b"].epochs), 2)
-
-    def test_bad_admixture(self):
-        dg = demes.DemeGraph(description="a", time_units="generations")
-        dg.deme("a", start_time=2, initial_size=100)
-        with self.assertRaises(ValueError):
-            dg._admix(parents=["b", "c"], proportions=[0.5, 0.5], child="a", time=5)
-        dg.deme("b", end_time=5, initial_size=10)
-        dg.deme("c", start_time=5, end_time=0, initial_size=10)
-        with self.assertRaises(ValueError):
-            dg._admix(parents=["b", "c"], proportions=[0.5, 0.5], child="a", time=2)
 
     def test_pulse_same_time(self):
         g1 = DemeGraph(description="test", time_units="generations")
