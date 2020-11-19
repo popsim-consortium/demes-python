@@ -9,6 +9,47 @@ import demes
 from .schema import deme_graph_schema
 
 
+def loads_asdict(string, *, format="yaml"):
+    """
+    Load a YAML or JSON string into a dictionary of nested objects.
+    The keywords and structure of the string are defined by the
+    :ref:`schema <sec_schema>`.
+
+    :param str string: The string to be loaded.
+    :param str format: The format of the input string. Either "yaml" or "json".
+    :return: A dictionary of nested objects, with the same data model as the
+        YAML or JSON input string.
+    :rtype: dict
+    """
+    if format == "json":
+        d = json.loads(string)
+    elif format == "yaml":
+        yaml = strictyaml.dirty_load(
+            string, schema=deme_graph_schema, allow_flow_style=True
+        )
+        d = yaml.data
+    else:
+        raise ValueError(f"unknown format: {format}")
+    return d
+
+
+def load_asdict(filename, *, format="yaml"):
+    """
+    Load a YAML or JSON file into a dictionary of nested objects.
+    The keywords and structure of the string are defined by the
+    :ref:`schema <sec_schema>`.
+
+    :param filename: The path to the file to be loaded.
+    :type filename: str or :class:`os.PathLike`
+    :param str format: The format of the input string. Either "yaml" or "json".
+    :return: A dictionary of nested objects, with the same data model as the
+        YAML or JSON input string.
+    :rtype: dict
+    """
+    with open(filename) as f:
+        return loads_asdict(f.read(), format=format)
+
+
 def loads(string, *, format="yaml"):
     """
     Load a graph from a YAML or JSON string.
@@ -20,15 +61,7 @@ def loads(string, *, format="yaml"):
     :return: A graph.
     :rtype: .Graph
     """
-    if format == "json":
-        d = json.loads(string)
-    elif format == "yaml":
-        yaml = strictyaml.dirty_load(
-            string, schema=deme_graph_schema, allow_flow_style=True
-        )
-        d = yaml.data
-    else:
-        raise ValueError(f"unknown format: {format}")
+    d = loads_asdict(string, format=format)
     return demes.Graph.fromdict(d)
 
 
@@ -44,8 +77,8 @@ def load(filename, *, format="yaml"):
     :return: A graph.
     :rtype: .Graph
     """
-    with open(filename) as f:
-        return loads(f.read(), format=format)
+    d = load_asdict(filename, format=format)
+    return demes.Graph.fromdict(d)
 
 
 def dumps(graph, *, format="yaml", compact=True):

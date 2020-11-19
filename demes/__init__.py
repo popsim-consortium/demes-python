@@ -9,4 +9,4 @@ except ImportError:
     pass
 
 from .demes import Epoch, Migration, Pulse, Deme, Graph, Split, Branch, Merge, Admix
-from .load_dump import load, loads, dump, dumps
+from .load_dump import load_asdict, loads_asdict, load, loads, dump, dumps
