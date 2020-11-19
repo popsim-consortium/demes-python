@@ -11,12 +11,12 @@ import msprime
 import demes
 
 
-def to_msprime(deme_graph: demes.DemeGraph):
+def to_msprime(graph: demes.Graph):
     """
     Convert a demes graph to an msprime demography.
 
-    :param deme_graph: the demes graph to convert.
-    :type deme_graph: :class:`demes.DemeGraph`
+    :param graph: the demes graph to convert.
+    :type graph: :class:`demes.Graph`
     :return: a 3-tuple ``(pc, de, mm)``, where
         ``pc`` is a list of population configurations,
         ``de`` is a list of demographic events, and
@@ -26,13 +26,11 @@ def to_msprime(deme_graph: demes.DemeGraph):
         list of :class:`msprime.DemographicEvent`,
         list of list of float)
     """
-    deme_graph = deme_graph.in_generations()
+    graph = graph.in_generations()
     population_configurations = []
     demographic_events = []
-    migration_matrix = [
-        [0.0] * len(deme_graph.demes) for _ in range(len(deme_graph.demes))
-    ]
-    pop_id = {deme.id: j for j, deme in enumerate(deme_graph.demes)}
+    migration_matrix = [[0.0] * len(graph.demes) for _ in range(len(graph.demes))]
+    pop_id = {deme.id: j for j, deme in enumerate(graph.demes)}
 
     def growth_rate(epoch: demes.Epoch) -> float:
         initial_size = typing.cast(float, epoch.final_size)
@@ -56,7 +54,7 @@ def to_msprime(deme_graph: demes.DemeGraph):
         # Msprime < 1.0 rejects initial_size=0, so use a small positive value.
         Ne_invalid = 1e-15
 
-    for deme in deme_graph.demes:
+    for deme in graph.demes:
 
         if deme.end_time != 0:
             # If this deme doesn't exist at time=0, invalidate Ne.
@@ -110,7 +108,7 @@ def to_msprime(deme_graph: demes.DemeGraph):
                     )
                 )
 
-    for pulse in deme_graph.pulses:
+    for pulse in graph.pulses:
         demographic_events.append(
             msprime.MassMigration(
                 time=pulse.time,
@@ -121,7 +119,7 @@ def to_msprime(deme_graph: demes.DemeGraph):
         )
 
     mig_rate_events = []
-    for migration in reversed(deme_graph.migrations):
+    for migration in reversed(graph.migrations):
         dest = pop_id[migration.source]
         source = pop_id[migration.dest]
         start_time = migration.end_time
@@ -180,7 +178,7 @@ def from_msprime(
     demographic_events=None,
     migration_matrix=None,
     pop_names=None,
-) -> demes.DemeGraph:
+) -> demes.Graph:
     """
     Convert an msprime demography into a demes graph.
 
@@ -194,7 +192,7 @@ def from_msprime(
         If None, the names will be pop0, pop1, ..., popN.
     :param pop_names: list of str
     :return: A demes graph.
-    :rtype: :class:`demes.DemeGraph`
+    :rtype: :class:`demes.Graph`
     """
     ddb = msprime.DemographyDebugger(
         population_configurations=population_configurations,
@@ -207,12 +205,12 @@ def from_msprime(
         pop_names = [f"pop{j}" for j in range(num_pops)]
     name = {j: pop_name for j, pop_name in enumerate(pop_names)}
 
-    # We first construct a temporary deme graph, to build ancestor/descendent
+    # We first construct a temporary demes graph, to build ancestor/descendent
     # relationships. At the time of insertion into the temporary graph, we
     # don't have complete information about each deme's life-span or population
     # size(s). So we insert dummy epochs into the temporary graph, and build
     # up the correct `Epoch`s, `Migration`s, and `Pulse`s outside of the graph.
-    gtmp = demes.DemeGraph(
+    gtmp = demes.Graph(
         description="Temporary graph.",
         time_units="generations",
     )
@@ -325,9 +323,9 @@ def from_msprime(
                             m.end_time = ddb_epoch.start_time
         prev_mm = msp_mm
 
-    # Create a fresh deme graph, now that we have complete epoch information
+    # Create a fresh demes graph, now that we have complete epoch information
     # for each deme. This also validates consistency between parameters.
-    g = demes.DemeGraph(
+    g = demes.Graph(
         description="Converted from msprime demography.",
         time_units="generations",
     )

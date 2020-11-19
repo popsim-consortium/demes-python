@@ -467,8 +467,8 @@ class Deme:
     """
     A collection of individuals that are exchangeable at any fixed time.
     This class is not intended to be instantiated directly. It is instead
-    recommended to add demes to a :class:`.DemeGraph` object using the
-    :meth:`DemeGraph.deme` method.
+    recommended to add demes to a :class:`.Graph` object using the
+    :meth:`Graph.deme` method.
 
     :ivar str id: A string identifier for the deme.
     :ivar str description: A description of the deme. May be ``None``.
@@ -572,9 +572,9 @@ class Deme:
 
 
 @attr.s(auto_attribs=True, kw_only=True)
-class DemeGraph:
+class Graph:
     """
-    The DemeGraph class provides a high-level API for constructing a demographic
+    The Graph class provides a high-level API for constructing a demographic
     model. The methods on this class ensure validity of a  model at all stages
     of construction. They also allow omission of detail, when there is a single
     unambiguous interpretation (or a very sensible default). The semantics
@@ -588,22 +588,22 @@ class DemeGraph:
         but the actual value provided here should not be relied upon.
     :ivar float generation_time: The generation time of demes, in units given
         by the ``time_units`` parameter. Concretely, dividing all times
-        by ``generation_time`` will convert the deme graph to have time
+        by ``generation_time`` will convert the graph to have time
         units in generations.  If ``generation_time`` is ``None``, the units
         are assumed to be in generations already.
         See also: :meth:`.in_generations`.
-    :ivar str doi: If the deme graph describes a published demography, the DOI
+    :ivar str doi: If the graph describes a published demography, the DOI
         should be be given here. May be ``None``.
     :ivar demes: A list of demes in the demography.
-        Not intended to be passed when the deme graph is instantiated.
+        Not intended to be passed when the graph is instantiated.
         Use :meth:`.deme` instead.
     :vartype demes: list of :class:`.Deme`
     :ivar migrations: A list of continuous migrations for the demography.
-        Not intended to be passed when the deme graph is instantiated.
+        Not intended to be passed when the graph is instantiated.
         Use :meth:`migration` or :meth:`symmetric_migration` instead.
     :vartype migrations: list of :class:`.Migration`
     :ivar pulses: A list of migration pulses for the demography.
-        Not intended to be passed when the deme graph is instantiated.
+        Not intended to be passed when the graph is instantiated.
         Use :meth:`pulse` instead.
     :vartype pulses: list of :class:`.Pulse`
     """
@@ -631,7 +631,7 @@ class DemeGraph:
 
     def __contains__(self, deme_id):
         """
-        Check if the deme graph contains a deme with the specified id.
+        Check if the graph contains a deme with the specified id.
         """
         return deme_id in self._deme_map
 
@@ -643,13 +643,13 @@ class DemeGraph:
         abs_tol=_ISCLOSE_ABS_TOL,
     ) -> bool:
         """
-        Returns true if the deme graph and ``other`` implement essentially
+        Returns true if the graph and ``other`` implement essentially
         the same demographic model. Numerical values are compared using the
         :func:`math.isclose` function, from which this method takes its name.
         Furthermore, the following implementation details are ignored during
         the comparison:
 
-            - The deme graph's ``description`` and ``doi`` attributes.
+            - The graphs' ``description`` and ``doi`` attributes.
             - The order in which ``migrations`` were specified.
             - The order in which admixture ``pulses`` were specified.
             - The order in which ``demes`` were specified.
@@ -660,8 +660,8 @@ class DemeGraph:
               epochs. The ``selfing_rate`` and ``cloning_rate`` attributes of
               each epoch *are* evaluated for equality between the two models.
 
-        :param other: The deme graph to compare against.
-        :type other: :class:`.DemeGraph`
+        :param other: The graph to compare against.
+        :type other: :class:`.Graph`
         :param float rel_tol: The relative tolerance permitted for numerical
             comparisons. See documentation for :func:`math.isclose`.
         :param float abs_tol: The absolute tolerance permitted for numerical
@@ -927,7 +927,7 @@ class DemeGraph:
         """
         for deme_id in (source, dest):
             if deme_id not in self:
-                raise ValueError(f"{deme_id} not in deme graph")
+                raise ValueError(f"{deme_id} not in graph")
         time_lo, time_hi = self._check_time_intersection(source, dest, start_time)
         if start_time is None:
             start_time = time_hi
@@ -961,7 +961,7 @@ class DemeGraph:
         """
         for deme_id in (source, dest):
             if deme_id not in self:
-                raise ValueError(f"{deme_id} not in deme graph")
+                raise ValueError(f"{deme_id} not in graph")
         self._check_time_intersection(source, dest, time)
 
         # Check for models that have multiple pulses defined at the same time.
@@ -981,7 +981,7 @@ class DemeGraph:
                 "Multiple pulses are defined for the same deme(s) at time "
                 f"{time}. The ancestry proportions after this time will thus "
                 "depend on the order in which the pulses have been specified. "
-                "To avoid unexpected behaviour, the deme graph can instead "
+                "To avoid unexpected behaviour, the graph can instead "
                 "be structured to introduce a new deme at this time with "
                 "the desired ancestry proportions."
             )
@@ -1027,7 +1027,7 @@ class DemeGraph:
         whether it is a branch (start time != predecessor's end time), or split.
 
         Returns a dictionary containing all discrete demographic events, including
-        pulses that are listed as a DemeGraph attribute.
+        pulses that are listed as a Graph attribute.
         """
         demo_events = {
             "pulses": self.pulses,
@@ -1089,23 +1089,23 @@ class DemeGraph:
 
     def in_generations(self):
         """
-        Return a copy of the demes graph with times in units of generations.
+        Return a copy of the graph with times in units of generations.
         """
-        deme_graph = copy.deepcopy(self)
-        deme_graph.time_units = "generations"
+        graph = copy.deepcopy(self)
+        graph.time_units = "generations"
         generation_time = self.generation_time
         if generation_time is not None:
-            deme_graph.generation_time = None
-            for deme in deme_graph.demes:
+            graph.generation_time = None
+            for deme in graph.demes:
                 for epoch in deme.epochs:
                     epoch.start_time /= generation_time
                     epoch.end_time /= generation_time
-            for migration in deme_graph.migrations:
+            for migration in graph.migrations:
                 migration.start_time /= generation_time
                 migration.end_time /= generation_time
-            for pulse in deme_graph.pulses:
+            for pulse in graph.pulses:
                 pulse.time /= generation_time
-        return deme_graph
+        return graph
 
     @classmethod
     def fromdict(cls, d):
@@ -1139,7 +1139,7 @@ class DemeGraph:
 
     def asdict(self):
         """
-        Return a dict representation of the deme graph.
+        Return a dict representation of the graph.
         """
 
         def filt(_attrib, val):
@@ -1161,7 +1161,7 @@ class DemeGraph:
 
     def asdict_compact(self):
         """
-        Return a dict representation of the deme graph, with default and
+        Return a dict representation of the graph, with default and
         implicit values removed.
         """
         d = dict(

@@ -61,7 +61,7 @@ class TestMomentsSFS(unittest.TestCase):
 
     def test_num_lineages(self):
         # simple merge model
-        g = demes.DemeGraph(description="test", time_units="generations")
+        g = demes.Graph(description="test", time_units="generations")
         g.deme(id="anc", initial_size=100, end_time=100)
         g.deme(id="pop1", initial_size=100, ancestors=["anc"], end_time=10)
         g.deme(id="pop2", initial_size=100, ancestors=["anc"], end_time=10)
@@ -88,7 +88,7 @@ class TestMomentsSFS(unittest.TestCase):
         )
 
         # simple admix model
-        g = demes.DemeGraph(description="test", time_units="generations")
+        g = demes.Graph(description="test", time_units="generations")
         g.deme(id="anc", initial_size=100, end_time=100)
         g.deme(id="pop1", initial_size=100, ancestors=["anc"])
         g.deme(id="pop2", initial_size=100, ancestors=["anc"])
@@ -116,13 +116,13 @@ class TestMomentsSFS(unittest.TestCase):
 
     # test basic results against moments implementation
     def test_one_pop(self):
-        g = demes.DemeGraph(description="test", time_units="generations")
+        g = demes.Graph(description="test", time_units="generations")
         g.deme(id="Pop", initial_size=1000)
         fs = moments_.SFS(g, ["Pop"], [20])
         fs_m = moments.Demographics1D.snm([20])
         self.assertTrue(np.allclose(fs.data, fs_m.data))
 
-        g = demes.DemeGraph(description="test", time_units="generations")
+        g = demes.Graph(description="test", time_units="generations")
         g.deme(
             id="Pop",
             epochs=[
@@ -136,14 +136,14 @@ class TestMomentsSFS(unittest.TestCase):
         self.assertTrue(np.allclose(fs.data, fs_m.data))
 
     def test_more_than_5_demes(self):
-        g = demes.DemeGraph(description="test", time_units="generations")
+        g = demes.Graph(description="test", time_units="generations")
         g.deme(id="anc", initial_size=1000, end_time=1000)
         for i in range(6):
             g.deme(id=f"pop{i}", initial_size=1000, ancestors=["anc"])
         with self.assertRaises(ValueError):
             moments_.SFS(g, ["pop{i}" for i in range(6)], [10 for i in range(6)])
 
-        g = demes.DemeGraph(description="test", time_units="generations")
+        g = demes.Graph(description="test", time_units="generations")
         g.deme(id="anc", initial_size=1000, end_time=1000)
         for i in range(3):
             g.deme(id=f"pop{i}", initial_size=1000, ancestors=["anc"])
@@ -156,7 +156,7 @@ class TestMomentsSFS(unittest.TestCase):
             )
 
     def test_one_pop_ancient_samples(self):
-        g = demes.DemeGraph(description="test", time_units="generations")
+        g = demes.Graph(description="test", time_units="generations")
         g.deme(id="Pop", initial_size=1000)
         fs = moments_.SFS(g, ["Pop", "Pop"], [20, 4], sample_times=[0, 100])
         fs_m = moments.Demographics1D.snm([24])
@@ -176,7 +176,7 @@ class TestMomentsSFS(unittest.TestCase):
         self.assertTrue(np.allclose(fs.data, fs_m.data))
 
     def test_simple_merge(self):
-        g = demes.DemeGraph(description="test", time_units="generations")
+        g = demes.Graph(description="test", time_units="generations")
         g.deme(id="Anc", initial_size=1000, end_time=100)
         g.deme(id="Source1", initial_size=2000, ancestors=["Anc"], end_time=10)
         g.deme(id="Source2", initial_size=3000, ancestors=["Anc"], end_time=10)
@@ -197,7 +197,7 @@ class TestMomentsSFS(unittest.TestCase):
         self.assertTrue(np.allclose(fs.data, fs_m.data))
 
     def test_simple_admixture(self):
-        g = demes.DemeGraph(description="test", time_units="generations")
+        g = demes.Graph(description="test", time_units="generations")
         g.deme(id="Anc", initial_size=1000, end_time=100)
         g.deme(id="Source1", initial_size=2000, ancestors=["Anc"])
         g.deme(id="Source2", initial_size=3000, ancestors=["Anc"])
@@ -218,7 +218,7 @@ class TestMomentsSFS(unittest.TestCase):
         self.assertTrue(np.allclose(fs.data, fs_m.data))
 
     def test_simple_growth_models(self):
-        g = demes.DemeGraph(description="test", time_units="generations")
+        g = demes.Graph(description="test", time_units="generations")
         g.deme(
             id="Pop",
             epochs=[
@@ -236,7 +236,7 @@ class TestMomentsSFS(unittest.TestCase):
         fs_m.integrate(nu_func, 0.5)
         self.assertTrue(np.allclose(fs.data, fs_m.data))
 
-        g = demes.DemeGraph(description="test", time_units="generations")
+        g = demes.Graph(description="test", time_units="generations")
         g.deme(
             id="Pop",
             epochs=[
@@ -260,7 +260,7 @@ class TestMomentsSFS(unittest.TestCase):
         self.assertTrue(np.allclose(fs.data, fs_m.data))
 
     def test_simple_pulse_model(self):
-        g = demes.DemeGraph(description="test", time_units="generations")
+        g = demes.Graph(description="test", time_units="generations")
         g.deme(id="anc", initial_size=1000, end_time=100)
         g.deme(id="source", initial_size=1000, ancestors=["anc"])
         g.deme(id="dest", initial_size=1000, ancestors=["anc"])
@@ -275,7 +275,7 @@ class TestMomentsSFS(unittest.TestCase):
         self.assertTrue(np.allclose(fs.data, fs_m.data))
 
     def test_n_way_split(self):
-        g = demes.DemeGraph(description="three-way", time_units="generations")
+        g = demes.Graph(description="three-way", time_units="generations")
         g.deme(id="anc", initial_size=1000, end_time=10)
         g.deme(id="deme1", initial_size=1000, ancestors=["anc"])
         g.deme(id="deme2", initial_size=1000, ancestors=["anc"])
@@ -299,7 +299,7 @@ class TestMomentsSFS(unittest.TestCase):
         self.assertTrue(np.allclose(fs.data, fs_m2.data))
 
     def test_n_way_admixture(self):
-        g = demes.DemeGraph(description="three-way merge", time_units="generations")
+        g = demes.Graph(description="three-way merge", time_units="generations")
         g.deme(id="anc", initial_size=1000, end_time=100)
         g.deme(id="source1", initial_size=1000, end_time=10, ancestors=["anc"])
         g.deme(id="source2", initial_size=1000, end_time=10, ancestors=["anc"])
@@ -324,7 +324,7 @@ class TestMomentsSFS(unittest.TestCase):
 
         self.assertTrue(np.allclose(fs_m.data, fs.data))
 
-        g = demes.DemeGraph(description="three-way admix", time_units="generations")
+        g = demes.Graph(description="three-way admix", time_units="generations")
         g.deme(id="anc", initial_size=1000, end_time=100)
         g.deme(id="source1", initial_size=1000, ancestors=["anc"])
         g.deme(id="source2", initial_size=1000, ancestors=["anc"])

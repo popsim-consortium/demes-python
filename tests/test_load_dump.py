@@ -20,7 +20,7 @@ def jacobs_papuans():
     N_ghost = 8516
     T_Eu_bottleneck = 1659
 
-    g = demes.DemeGraph(
+    g = demes.Graph(
         description="Jacobs et al. (2019) archaic admixture into Papuans",
         doi="10.1016/j.cell.2019.02.035",
         time_units="generations",
@@ -142,7 +142,7 @@ class TestLoadAndDump:
                     demes.dump(g, tmpfile, format="not a format", compact=compact)
 
     def check_dumps_simple(self, *, format, compact):
-        g = demes.DemeGraph(
+        g = demes.Graph(
             description="some very concise descr",
             time_units="years",
             generation_time=42,
@@ -327,7 +327,7 @@ class TestLoadAndDump:
         assert n > 1
 
     def check_dump_and_load_simple(self, *, format, compact):
-        g1 = demes.DemeGraph(
+        g1 = demes.Graph(
             description="some very concise description",
             time_units="years",
             generation_time=42,

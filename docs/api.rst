@@ -6,7 +6,7 @@ Example usage
 -------------
 
 A ``yaml`` file can be loaded into python with the :func:`.load` function,
-to obtain a :class:`.DemeGraph` instance.
+to obtain a :class:`.Graph` instance.
 Here we load the Gutenkunst et al. (2009) Out-of-Africa model from
 :ref:`the gallery<sec_ooa_example>`.
 
@@ -21,12 +21,12 @@ Here we load the Gutenkunst et al. (2009) Out-of-Africa model from
         print(migration)
 
 A demographic model can instead be constructed by instantiating a
-:class:`.DemeGraph` directly, then adding demes, migrations, and admixture
+:class:`.Graph` directly, then adding demes, migrations, and admixture
 pulses via the methods available on this class.
 
 .. jupyter-execute::
 
-    g = demes.DemeGraph(
+    g = demes.Graph(
         description="Gutenkunst et al. (2009) three-population model.",
         doi="10.1371/journal.pgen.1000695",
         time_units="years",
@@ -44,7 +44,7 @@ pulses via the methods available on this class.
     g.symmetric_migration(demes=["CEU", "CHB"], rate=9.6e-5)
 
 We can check that our implementation matches the example from the gallery
-with the :meth:`DemeGraph.isclose` method.
+with the :meth:`Graph.isclose` method.
 
 .. jupyter-execute::
 
@@ -59,7 +59,7 @@ with migration between adjacent demes, can be done with the following code.
     import demes
 
     M = 10  # number of demes
-    g = demes.DemeGraph(
+    g = demes.Graph(
         description=f"a ring of {M} demes, with migration between adjacent demes",
         time_units="generations",
     )
@@ -70,7 +70,7 @@ with migration between adjacent demes, can be done with the following code.
             g.symmetric_migration(demes=[f"deme{j - 1}", f"deme{j}"], rate=1e-5)
     g.symmetric_migration(demes=[f"deme{M - 1}", "deme0"], rate=1e-5)
 
-The deme graph can then be written out to a new ``yaml`` file using the
+The graph can then be written out to a new ``yaml`` file using the
 :func:`.dump` function.
 
 .. jupyter-execute::
@@ -85,7 +85,7 @@ API Reference
 .. autofunction:: demes.dump
 .. autofunction:: demes.dumps
 
-.. autoclass:: demes.DemeGraph
+.. autoclass:: demes.Graph
     :members:
 
 .. autoclass:: demes.Deme
