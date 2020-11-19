@@ -871,7 +871,7 @@ class DemeGraph:
         self._deme_map[deme.id] = deme
         self.demes.append(deme)
 
-    def check_time_intersection(self, deme1, deme2, time):
+    def _check_time_intersection(self, deme1, deme2, time):
         deme1 = self[deme1]
         deme2 = self[deme2]
         time_lo = max(deme1.end_time, deme2.end_time)
@@ -928,15 +928,15 @@ class DemeGraph:
         for deme_id in (source, dest):
             if deme_id not in self:
                 raise ValueError(f"{deme_id} not in deme graph")
-        time_lo, time_hi = self.check_time_intersection(source, dest, start_time)
+        time_lo, time_hi = self._check_time_intersection(source, dest, start_time)
         if start_time is None:
             start_time = time_hi
         else:
-            self.check_time_intersection(source, dest, start_time)
+            self._check_time_intersection(source, dest, start_time)
         if end_time is None:
             end_time = time_lo
         else:
-            self.check_time_intersection(source, dest, end_time)
+            self._check_time_intersection(source, dest, end_time)
         self.migrations.append(
             Migration(
                 source=source,
@@ -962,7 +962,7 @@ class DemeGraph:
         for deme_id in (source, dest):
             if deme_id not in self:
                 raise ValueError(f"{deme_id} not in deme graph")
-        self.check_time_intersection(source, dest, time)
+        self._check_time_intersection(source, dest, time)
 
         # Check for models that have multiple pulses defined at the same time.
         # E.g. chains of pulses like: deme0 -> deme1; deme1 -> deme2,
@@ -1212,7 +1212,7 @@ class DemeGraph:
                 m_dict[(migration.source, migration.dest)].append(
                     dict(rate=migration.rate)
                 )
-                time_lo, time_hi = self.check_time_intersection(
+                time_lo, time_hi = self._check_time_intersection(
                     migration.source, migration.dest, None
                 )
                 if migration.end_time != time_lo:
