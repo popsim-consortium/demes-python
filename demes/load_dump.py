@@ -11,14 +11,14 @@ from .schema import deme_graph_schema
 
 def loads(string, *, format="yaml"):
     """
-    Load a deme graph from a YAML or JSON string.
+    Load a graph from a YAML or JSON string.
     The keywords and structure of the string are defined by the
     :ref:`schema <sec_schema>`.
 
     :param str string: The string to be loaded.
     :param str format: The format of the input string. Either "yaml" or "json".
-    :return: A deme graph.
-    :rtype: .DemeGraph
+    :return: A graph.
+    :rtype: .Graph
     """
     if format == "json":
         d = json.loads(string)
@@ -29,32 +29,32 @@ def loads(string, *, format="yaml"):
         d = yaml.data
     else:
         raise ValueError(f"unknown format: {format}")
-    return demes.DemeGraph.fromdict(d)
+    return demes.Graph.fromdict(d)
 
 
 def load(filename, *, format="yaml"):
     """
-    Load a deme graph from a YAML or JSON file.
+    Load a graph from a YAML or JSON file.
     The keywords and structure of the file are defined by the
     :ref:`schema <sec_schema>`.
 
     :param filename: The path to the file to be loaded.
     :type filename: str or :class:`os.PathLike`
     :param str format: The format of the input file. Either "yaml" or "json".
-    :return: A deme graph.
-    :rtype: .DemeGraph
+    :return: A graph.
+    :rtype: .Graph
     """
     with open(filename) as f:
         return loads(f.read(), format=format)
 
 
-def dumps(deme_graph, *, format="yaml", compact=True):
+def dumps(graph, *, format="yaml", compact=True):
     """
-    Dump the specified deme graph to a YAML or JSON string.
+    Dump the specified graph to a YAML or JSON string.
     The keywords and structure of the string are defined by the
     :ref:`schema <sec_schema>`.
 
-    :param .DemeGraph deme_graph: The deme graph to dump.
+    :param .Graph graph: The graph to dump.
     :param str format: The format of the output file. Either "yaml" or "json".
     :param bool compact: If ``True``, a compact representation of the graph
         will be returned, where default and implicit values are removed.
@@ -63,9 +63,9 @@ def dumps(deme_graph, *, format="yaml", compact=True):
     :rtype: str
     """
     if compact:
-        d = deme_graph.asdict_compact()
+        d = graph.asdict_compact()
     else:
-        d = deme_graph.asdict()
+        d = graph.asdict()
 
     if format == "json":
         string = json.dumps(d, indent=4)
@@ -78,16 +78,16 @@ def dumps(deme_graph, *, format="yaml", compact=True):
     return string
 
 
-def dump(deme_graph, filename, *, format="yaml", compact=True):
+def dump(graph, filename, *, format="yaml", compact=True):
     """
-    Dump the specified deme graph to a file.
+    Dump the specified graph to a file.
     The keywords and structure of the file are defined by the
     :ref:`schema <sec_schema>`.
 
-    :param .DemeGraph deme_graph: The deme graph to dump.
+    :param .Graph graph: The graph to dump.
     :param filename: Path to the output file.
     :type filename: str or :class:`os.PathLike`
     :param str format: The format of the output file. Either "yaml" or "json".
     """
     with open(filename, "w") as f:
-        f.write(dumps(deme_graph, format=format, compact=compact))
+        f.write(dumps(graph, format=format, compact=compact))

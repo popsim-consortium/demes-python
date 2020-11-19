@@ -39,7 +39,7 @@ size (say, :math:`N_e=1000`) would be written as
 Since we did not specify a ``start_time`` or ``end_time`` of the deme's
 existence, by defult it spans all time from time :math:`\infty` in the past
 to 0 ("now").  See the :ref:`next section <sec_time_units>` that describes
-time conventions in a ``DemeGraph``.
+time conventions in a ``Graph``.
 
 .. _sec_time_units:
 
@@ -56,7 +56,7 @@ We measure time in ``time_units`` in the past, so that ``time = 0`` implies
 `now` (or rather, the final generation of the simulation). Thus, time counts
 down from as we advance from one generation from the next.
 
-When defining a ``DemeGraph`` in YAML, we must specify the ``time_units``.
+When defining a ``Graph`` in YAML, we must specify the ``time_units``.
 Typically, we set ``time_units: generations``, so that all times are specified
 in generations in the past. However, we allow the flexibility to use any unit
 of time, such as years, weeks, thousands of years, etc. In the case that the

@@ -6,26 +6,24 @@ import demes
 from demes.convert import to_msprime, from_msprime
 
 
-def to_stdpopsim(deme_graph: demes.DemeGraph) -> stdpopsim.DemographicModel:
+def to_stdpopsim(graph: demes.Graph) -> stdpopsim.DemographicModel:
     """
     Convert a demes graph to a stdpopsim demographic model.
 
-    :param deme_graph: the demes graph to convert.
-    :type deme_graph: :class:`demes.DemeGraph`
+    :param graph: the demes graph to convert.
+    :type graph: :class:`demes.Graph`
     :return: A stdpopsim demographic model.
     :rtype demographic_model: :class:`stdpopsim.DemographicModel`
     """
-    pc, de, mm = to_msprime(deme_graph)
+    pc, de, mm = to_msprime(graph)
     return stdpopsim.DemographicModel(
         id="",
-        description="Converted from demes.DemeGraph; see long_description.",
-        long_description=deme_graph.description,
-        citations=[
-            stdpopsim.Citation(author="Unknown", year="1234", doi=deme_graph.doi)
-        ],
+        description="Converted from demes.Graph; see long_description.",
+        long_description=graph.description,
+        citations=[stdpopsim.Citation(author="Unknown", year="1234", doi=graph.doi)],
         generation_time=1,
         populations=[
-            stdpopsim.Population(deme.id, deme.description) for deme in deme_graph.demes
+            stdpopsim.Population(deme.id, deme.description) for deme in graph.demes
         ],
         population_configurations=pc,
         demographic_events=de,
@@ -33,14 +31,14 @@ def to_stdpopsim(deme_graph: demes.DemeGraph) -> stdpopsim.DemographicModel:
     )
 
 
-def from_stdpopsim(demographic_model: stdpopsim.DemographicModel) -> demes.DemeGraph:
+def from_stdpopsim(demographic_model: stdpopsim.DemographicModel) -> demes.Graph:
     """
     Convert a stdpopsim demographic model into a demes graph.
 
     :param demographic_model: A stdpopsim demographic model.
     :type demographic_model: :class:`stdpopsim.DemographicModel`
     :return: A demes graph.
-    :rtype: :class:`demes.DemeGraph`
+    :rtype: :class:`demes.Graph`
     """
     g = from_msprime(
         population_configurations=demographic_model.population_configurations,
