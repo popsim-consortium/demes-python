@@ -10,7 +10,7 @@ import warnings
 import attr
 from attr.validators import optional
 
-from .script import dumps, loads
+from .load_dump import dumps, loads
 
 Number = Union[int, float]
 ID = str
@@ -1107,11 +1107,57 @@ class DemeGraph:
                 pulse.time /= generation_time
         return deme_graph
 
+    @classmethod
+    def fromdict(cls, d):
+        """
+        Return a graph from a dict representation. The inverse of asdict().
+        """
+        g = cls(
+            description=d.get("description"),
+            time_units=d.get("time_units"),
+            generation_time=d.get("generation_time"),
+            doi=d.get("doi"),
+            selfing_rate=d.get("selfing_rate"),
+            cloning_rate=d.get("cloning_rate"),
+        )
+        for deme_id, deme_dict in d.get("demes", dict()).items():
+            if "epochs" in deme_dict:
+                deme_dict["epochs"] = [
+                    Epoch(**epoch_dict) for epoch_dict in deme_dict["epochs"]
+                ]
+            g.deme(deme_id, **deme_dict)
+        for migration_type, migration_dict in d.get("migrations", dict()).items():
+            if migration_type == "symmetric":
+                for m in migration_dict:
+                    g.symmetric_migration(**m)
+            if migration_type == "asymmetric":
+                for m in migration_dict:
+                    g.migration(**m)
+        for pulse_dict in d.get("pulses", []):
+            g.pulse(**pulse_dict)
+        return g
+
     def asdict(self):
         """
         Return a dict representation of the deme graph.
         """
-        return attr.asdict(self)
+
+        def filt(_attrib, val):
+            return val is not None and not (hasattr(val, "__len__") and len(val) == 0)
+
+        d = attr.asdict(self, filter=filt)
+        # translate to spec data model
+        demes_dict = dict()
+        for deme in d["demes"]:
+            id = deme.pop("id")
+            demes_dict[id] = deme
+            deme["start_time"] = deme["epochs"][0]["start_time"]
+            deme["end_time"] = deme["epochs"][-1]["end_time"]
+        d["demes"] = demes_dict
+        migrations = d.pop("migrations", None)
+        if migrations is not None:
+            d["migrations"] = {"asymmetric": migrations}
+        return d
 
     def asdict_compact(self):
         """
