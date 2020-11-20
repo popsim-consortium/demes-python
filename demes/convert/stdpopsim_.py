@@ -20,7 +20,10 @@ def to_stdpopsim(graph: demes.Graph) -> stdpopsim.DemographicModel:
         id="",
         description="Converted from demes.Graph; see long_description.",
         long_description=graph.description,
-        citations=[stdpopsim.Citation(author="Unknown", year="1234", doi=graph.doi)],
+        citations=[
+            stdpopsim.Citation(author=f"Unknown_{j}", year="0000", doi=doi)
+            for j, doi in enumerate(graph.doi)
+        ],
         generation_time=1,
         populations=[
             stdpopsim.Population(deme.id, deme.description) for deme in graph.demes
@@ -48,9 +51,7 @@ def from_stdpopsim(demographic_model: stdpopsim.DemographicModel) -> demes.Graph
     )
 
     g.description = textwrap.dedent(demographic_model.long_description).strip()
-    # The doi field is a free-form string, so just dump the string-ified
-    # citations in there.
-    g.doi = "\n".join([str(cite) for cite in demographic_model.citations])
+    g.doi = [cite.doi for cite in demographic_model.citations]
     return g
 
 

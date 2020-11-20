@@ -847,6 +847,56 @@ class TestGraph(unittest.TestCase):
                     generation_time=generation_time,
                 )
 
+    def test_doi(self):
+        # We currently accept arbitrary strings in DOIs.
+        # In any event here are some examples that should always be accepted.
+        # https://www.doi.org/doi_handbook/2_Numbering.html
+        for doi in [
+            "10.1000/123456",
+            "10.1000.10/123456",
+            "10.1038/issn.1476-4687",
+            # old doi proxy url; still supported
+            "http://dx.doi.org/10.1006/jmbi.1998.2354",
+            "https://dx.doi.org/10.1006/jmbi.1998.2354",
+            # recommended doi proxy
+            "http://doi.org/10.1006/jmbi.1998.2354",
+            # https preferred
+            "https://doi.org/10.1006/jmbi.1998.2354",
+            # some symbols (e.g. #) must be encoded for the url to work
+            "https://doi.org/10.1000/456%23789",
+        ]:
+            Graph(
+                description="test",
+                time_units="generations",
+                doi=[doi],
+            )
+
+        # multiple DOIs
+        Graph(
+            description="test",
+            time_units="generations",
+            doi=[
+                "10.1038/issn.1476-4687",
+                "https://doi.org/10.1006/jmbi.1998.2354",
+            ],
+        )
+
+        # empty list should also be fine
+        Graph(
+            description="test",
+            time_units="generations",
+            doi=[],
+        )
+
+    def test_bad_doi(self):
+        # passing a string instead of a list will be the most common user error
+        with self.assertRaises(ValueError):
+            Graph(
+                description="test",
+                time_units="generations",
+                doi="10.1000/123456",
+            )
+
     def check_in_generations(self, dg1):
         assert dg1.generation_time is not None
         assert dg1.generation_time > 1
@@ -1158,7 +1208,7 @@ class TestGraph(unittest.TestCase):
         g3 = Graph(
             description="test",
             time_units="generations",
-            doi="https://example.com/foo.bar",
+            doi=["https://example.com/foo.bar"],
         )
         g3.deme("d1", initial_size=1000)
         self.assertTrue(g1.isclose(g3))
@@ -1342,23 +1392,23 @@ class TestGraphToDict(unittest.TestCase):
         dg = demes.Graph(description="a", time_units="generations")
         dg.deme("a", initial_size=100, start_time=100)
         d = dg.asdict_compact()
-        self.assertTrue(d["demes"]["a"]["start_time"] == dg["a"].start_time)
+        self.assertTrue(d["demes"][0]["start_time"] == dg["a"].start_time)
 
     def test_deme_selfing_rate(self):
         dg = demes.Graph(description="a", time_units="generations")
         dg.deme("a", initial_size=100, selfing_rate=0.1)
         d = dg.asdict_compact()
-        self.assertTrue(d["demes"]["a"]["selfing_rate"] == dg["a"].selfing_rate)
+        self.assertTrue(d["demes"][0]["selfing_rate"] == dg["a"].selfing_rate)
         dg = demes.Graph(description="a", time_units="generations", selfing_rate=0.01)
         dg.deme("a", initial_size=100, selfing_rate=0.1)
         d = dg.asdict_compact()
-        self.assertTrue(d["demes"]["a"]["selfing_rate"] == dg["a"].selfing_rate)
+        self.assertTrue(d["demes"][0]["selfing_rate"] == dg["a"].selfing_rate)
 
     def test_deme_cloning_rate(self):
         dg = demes.Graph(description="a", time_units="generations")
         dg.deme("a", initial_size=100, cloning_rate=0.1)
         d = dg.asdict_compact()
-        self.assertTrue(d["demes"]["a"]["cloning_rate"] == dg["a"].cloning_rate)
+        self.assertTrue(d["demes"][0]["cloning_rate"] == dg["a"].cloning_rate)
 
     def test_fill_nonstandard_size_function(self):
         dg = demes.Graph(description="a", time_units="generations")
@@ -1370,7 +1420,7 @@ class TestGraphToDict(unittest.TestCase):
             ],
         )
         d = dg.asdict_compact()
-        self.assertTrue(d["demes"]["a"]["epochs"][-1]["size_function"] == "linear")
+        self.assertTrue(d["demes"][0]["epochs"][-1]["size_function"] == "linear")
 
     def test_fill_epoch_selfing_rates(self):
         dg = demes.Graph(description="a", time_units="generations", selfing_rate=0.2)
@@ -1383,8 +1433,8 @@ class TestGraphToDict(unittest.TestCase):
         )
         d = dg.asdict_compact()
         self.assertTrue(d["selfing_rate"] == 0.2)
-        self.assertTrue("selfing_rate" not in d["demes"]["a"]["epochs"][0])
-        self.assertTrue(d["demes"]["a"]["epochs"][1]["selfing_rate"] == 0.1)
+        self.assertTrue("selfing_rate" not in d["demes"][0]["epochs"][0])
+        self.assertTrue(d["demes"][0]["epochs"][1]["selfing_rate"] == 0.1)
 
         dg = demes.Graph(description="a", time_units="generations")
         dg.deme(
@@ -1396,9 +1446,9 @@ class TestGraphToDict(unittest.TestCase):
             ],
         )
         d = dg.asdict_compact()
-        self.assertTrue(d["demes"]["a"]["selfing_rate"] == 0.2)
-        self.assertTrue("selfing_rate" not in d["demes"]["a"]["epochs"][0])
-        self.assertTrue(d["demes"]["a"]["epochs"][1]["selfing_rate"] == 0.1)
+        self.assertTrue(d["demes"][0]["selfing_rate"] == 0.2)
+        self.assertTrue("selfing_rate" not in d["demes"][0]["epochs"][0])
+        self.assertTrue(d["demes"][0]["epochs"][1]["selfing_rate"] == 0.1)
 
         dg = demes.Graph(description="a", time_units="generations")
         dg.deme(
@@ -1409,7 +1459,7 @@ class TestGraphToDict(unittest.TestCase):
             ],
         )
         d = dg.asdict_compact()
-        self.assertTrue(d["demes"]["a"]["epochs"][1]["selfing_rate"] == 0.1)
+        self.assertTrue(d["demes"][0]["epochs"][1]["selfing_rate"] == 0.1)
 
     def test_fill_epoch_cloning_rates(self):
         dg = demes.Graph(description="a", time_units="generations", cloning_rate=0.2)
@@ -1422,7 +1472,7 @@ class TestGraphToDict(unittest.TestCase):
         )
         d = dg.asdict_compact()
         self.assertTrue(d["cloning_rate"] == 0.2)
-        self.assertTrue(d["demes"]["a"]["epochs"][1]["cloning_rate"] == 0.1)
+        self.assertTrue(d["demes"][0]["epochs"][1]["cloning_rate"] == 0.1)
 
         dg = demes.Graph(description="a", time_units="generations")
         dg.deme(
@@ -1434,8 +1484,8 @@ class TestGraphToDict(unittest.TestCase):
             ],
         )
         d = dg.asdict_compact()
-        self.assertTrue(d["demes"]["a"]["cloning_rate"] == 0.2)
-        self.assertTrue(d["demes"]["a"]["epochs"][1]["cloning_rate"] == 0.1)
+        self.assertTrue(d["demes"][0]["cloning_rate"] == 0.2)
+        self.assertTrue(d["demes"][0]["epochs"][1]["cloning_rate"] == 0.1)
 
         dg = demes.Graph(description="a", time_units="generations")
         dg.deme(
@@ -1446,13 +1496,13 @@ class TestGraphToDict(unittest.TestCase):
             ],
         )
         d = dg.asdict_compact()
-        self.assertTrue(d["demes"]["a"]["epochs"][1]["cloning_rate"] == 0.1)
+        self.assertTrue(d["demes"][0]["epochs"][1]["cloning_rate"] == 0.1)
 
     def test_fill_description(self):
         dg = demes.Graph(description="a", time_units="generations")
         dg.deme("a", description="described", initial_size=100)
         d = dg.asdict_compact()
-        self.assertTrue(d["demes"]["a"]["description"] == dg["a"].description)
+        self.assertTrue(d["demes"][0]["description"] == dg["a"].description)
 
     def test_fill_migration_bounds(self):
         dg = demes.Graph(description="a", time_units="generations")

@@ -590,8 +590,9 @@ class Graph:
         units in generations.  If ``generation_time`` is ``None``, the units
         are assumed to be in generations already.
         See also: :meth:`.in_generations`.
-    :ivar str doi: If the graph describes a published demography, the DOI
-        should be be given here. May be ``None``.
+    :ivar doi: If the graph describes a published demography, the DOI(s)
+        should be be given here as a list.
+    :vartype doi: list of str
     :ivar demes: A list of demes in the demography.
         Use :meth:`.deme` to add a deme.
     :vartype demes: list of :class:`.Deme`
@@ -608,7 +609,7 @@ class Graph:
     generation_time: Optional[Time] = attr.ib(
         default=None, validator=optional([positive, finite])
     )
-    doi: Optional[str] = attr.ib(default=None)
+    doi: List[str] = attr.ib(factory=list)
     demes: List[Deme] = attr.ib(factory=list, init=False)
     migrations: List[Migration] = attr.ib(factory=list, init=False)
     pulses: List[Pulse] = attr.ib(factory=list, init=False)
@@ -617,6 +618,8 @@ class Graph:
 
     def __attrs_post_init__(self):
         self._deme_map: Mapping[ID, Deme] = dict()
+        if not isinstance(self.doi, list):
+            raise ValueError("doi must be a list of strings")
 
     def __getitem__(self, deme_id):
         """
@@ -1111,25 +1114,23 @@ class Graph:
             description=d.get("description"),
             time_units=d.get("time_units"),
             generation_time=d.get("generation_time"),
-            doi=d.get("doi"),
+            doi=d.get("doi", []),
             selfing_rate=d.get("selfing_rate"),
             cloning_rate=d.get("cloning_rate"),
         )
-        for deme_id, deme_dict in d.get("demes", dict()).items():
-            if "epochs" in deme_dict:
-                deme_dict["epochs"] = [
-                    Epoch(**epoch_dict) for epoch_dict in deme_dict["epochs"]
-                ]
-            g.deme(deme_id, **deme_dict)
-        for migration_type, migration_dict in d.get("migrations", dict()).items():
+        for deme in d.get("demes", []):
+            if "epochs" in deme:
+                deme["epochs"] = [Epoch(**epoch) for epoch in deme["epochs"]]
+            g.deme(**deme)
+        for migration_type, migration_list in d.get("migrations", dict()).items():
             if migration_type == "symmetric":
-                for m in migration_dict:
+                for m in migration_list:
                     g.symmetric_migration(**m)
             if migration_type == "asymmetric":
-                for m in migration_dict:
+                for m in migration_list:
                     g.migration(**m)
-        for pulse_dict in d.get("pulses", []):
-            g.pulse(**pulse_dict)
+        for pulse in d.get("pulses", []):
+            g.pulse(**pulse)
         return g
 
     def asdict(self):
@@ -1140,19 +1141,15 @@ class Graph:
         def filt(_attrib, val):
             return val is not None and not (hasattr(val, "__len__") and len(val) == 0)
 
-        d = attr.asdict(self, filter=filt)
+        data = attr.asdict(self, filter=filt)
         # translate to spec data model
-        demes_dict = dict()
-        for deme in d["demes"]:
-            id = deme.pop("id")
-            demes_dict[id] = deme
+        for deme in data["demes"]:
             deme["start_time"] = deme["epochs"][0]["start_time"]
             deme["end_time"] = deme["epochs"][-1]["end_time"]
-        d["demes"] = demes_dict
-        migrations = d.pop("migrations", None)
+        migrations = data.pop("migrations", None)
         if migrations is not None:
-            d["migrations"] = {"asymmetric": migrations}
-        return d
+            data["migrations"] = {"asymmetric": migrations}
+        return data
 
     def asdict_compact(self):
         """
@@ -1165,7 +1162,7 @@ class Graph:
         )
         if self.generation_time is not None:
             d.update(generation_time=self.generation_time)
-        if self.doi is not None:
+        if len(self.doi) > 0:
             d.update(doi=self.doi)
 
         if self.selfing_rate is not None:
@@ -1174,9 +1171,9 @@ class Graph:
             d.update(cloning_rate=self.cloning_rate)
 
         assert len(self.demes) > 0
-        d.update(demes=dict())
+        d.update(demes=list())
         for deme in self.demes:
-            deme_dict = dict()
+            deme_dict = dict(id=deme.id)
             # add ancestors to deme if not None
             if deme.ancestors is not None:
                 deme_dict.update(ancestors=deme.ancestors)
@@ -1245,7 +1242,7 @@ class Graph:
                     deme_dict.update(end_time=e_list[0]["end_time"])
             if deme.description is not None:
                 deme_dict.update(description=deme.description)
-            d["demes"][deme.id] = deme_dict
+            d["demes"].append(deme_dict)
 
         if len(self.migrations) > 0:
             m_dict = collections.defaultdict(list)

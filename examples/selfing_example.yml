@@ -3,12 +3,12 @@ generation_time: 1
 time_units: generations
 selfing_rate: 0.05
 demes:
-  root:
+  - id: root
     description: Root population
     end_time: 1000
     initial_size: 1e3
     selfing_rate: 0.1
-  pop1:
+  - id: pop1
     description: Population with epochs and changing selfing rates
     ancestors: root
     selfing_rate: 0.2
@@ -20,7 +20,7 @@ demes:
     - initial_size: 1e4
       end_time: 0
       selfing_rate: 0.5
-  pop2:
+  - id: pop2
     description: Population with epochs and changing selfing rates
     ancestors: root
     epochs:

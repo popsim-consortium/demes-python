@@ -28,7 +28,7 @@ pulses via the methods available on this class.
 
     g = demes.Graph(
         description="Gutenkunst et al. (2009) three-population model.",
-        doi="10.1371/journal.pgen.1000695",
+        doi=["10.1371/journal.pgen.1000695"],
         time_units="years",
         generation_time=25,
     )

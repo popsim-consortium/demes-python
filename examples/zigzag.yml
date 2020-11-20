@@ -1,9 +1,10 @@
 description: A single population model with epochs of exponential growth and decay.
-doi: 10.1038/ng.3015
+doi:
+  - https://doi.org/10.1038/ng.3015
 time_units: generations
 generation_time: 29
 demes: 
-  generic:
+  - id: generic
     description: All epochs wrapped into the same population, so that epoch intervals
       do not overlap, and they tile the entire existence of the population (all time,
       in this case).

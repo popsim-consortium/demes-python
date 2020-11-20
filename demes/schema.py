@@ -5,7 +5,6 @@ The YAML subset accepted by ``demes`` is defined here as a ``strictyaml`` schema
 from strictyaml import (
     CommaSeparated,
     Map,
-    MapPattern,
     Float,
     Int,
     Optional,
@@ -52,6 +51,7 @@ pulse_schema = Map(
 
 deme_schema = Map(
     {
+        "id": Str(),
         Optional("description"): Str(),
         Optional("ancestors"): CommaSeparated(Str()),
         Optional("proportions"): CommaSeparated(Float()),
@@ -70,8 +70,8 @@ deme_graph_schema = Map(
         "description": Str(),
         "time_units": Str(),
         Optional("generation_time"): Number,
-        Optional("doi"): Str(),
-        "demes": MapPattern(Str(), deme_schema),
+        Optional("doi"): Seq(Str()),
+        "demes": Seq(deme_schema),
         Optional("migrations"): Map(
             {
                 Optional("symmetric"): Seq(symmetric_migration_schema),
