@@ -10,8 +10,6 @@ import warnings
 import attr
 from attr.validators import optional
 
-from .load_dump import dumps, loads
-
 Number = Union[int, float]
 ID = str
 Time = Number
@@ -595,16 +593,13 @@ class Graph:
     :ivar str doi: If the graph describes a published demography, the DOI
         should be be given here. May be ``None``.
     :ivar demes: A list of demes in the demography.
-        Not intended to be passed when the graph is instantiated.
-        Use :meth:`.deme` instead.
+        Use :meth:`.deme` to add a deme.
     :vartype demes: list of :class:`.Deme`
     :ivar migrations: A list of continuous migrations for the demography.
-        Not intended to be passed when the graph is instantiated.
-        Use :meth:`migration` or :meth:`symmetric_migration` instead.
+        Use :meth:`migration` or :meth:`symmetric_migration` to add migrations.
     :vartype migrations: list of :class:`.Migration`
     :ivar pulses: A list of migration pulses for the demography.
-        Not intended to be passed when the graph is instantiated.
-        Use :meth:`pulse` instead.
+        Use :meth:`pulse` to add a pulse.
     :vartype pulses: list of :class:`.Pulse`
     """
 
@@ -614,9 +609,9 @@ class Graph:
         default=None, validator=optional([positive, finite])
     )
     doi: Optional[str] = attr.ib(default=None)
-    demes: List[Deme] = attr.ib(factory=list)
-    migrations: List[Migration] = attr.ib(factory=list)
-    pulses: List[Pulse] = attr.ib(factory=list)
+    demes: List[Deme] = attr.ib(factory=list, init=False)
+    migrations: List[Migration] = attr.ib(factory=list, init=False)
+    pulses: List[Pulse] = attr.ib(factory=list, init=False)
     selfing_rate: Proportion = attr.ib(default=None)
     cloning_rate: Proportion = attr.ib(default=None)
 
@@ -887,7 +882,7 @@ class Graph:
                 )
         return time_lo, time_hi
 
-    def symmetric_migration(self, *, demes=[], rate=0, start_time=None, end_time=None):
+    def symmetric_migration(self, *, demes, rate, start_time=None, end_time=None):
         """
         Add continuous symmetric migrations between all pairs of demes in a list.
 
@@ -897,8 +892,8 @@ class Graph:
         :param start_time: The time at which the migration rate is enabled.
         :param end_time: The time at which the migration rate is disabled.
         """
-        if len(demes) < 2:
-            raise ValueError("must specify two or more demes")
+        if not isinstance(demes, list) or len(demes) < 2:
+            raise ValueError("must specify a list of two or more deme IDs")
         for source, dest in itertools.permutations(demes, 2):
             self.migration(
                 source=source,
@@ -908,7 +903,7 @@ class Graph:
                 end_time=end_time,
             )
 
-    def migration(self, *, source, dest, rate=0, start_time=None, end_time=None):
+    def migration(self, *, source, dest, rate, start_time=None, end_time=None):
         """
         Add continuous migration from one deme to another.
         Source and destination demes follow the forwards-in-time convention,
@@ -1085,7 +1080,7 @@ class Graph:
         """
         Validates the demographic model.
         """
-        loads(dumps(self))
+        self.fromdict(self.asdict())
 
     def in_generations(self):
         """

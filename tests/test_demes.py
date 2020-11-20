@@ -1064,7 +1064,7 @@ class TestGraph(unittest.TestCase):
     def test_bad_migration(self):
         dg = demes.Graph(description="a", time_units="generations")
         with self.assertRaises(ValueError):
-            dg.symmetric_migration()
+            dg.symmetric_migration(demes=[], rate=0)
         with self.assertRaises(ValueError):
             dg.symmetric_migration(demes=["a"], rate=0.1)
         with self.assertRaises(ValueError):
@@ -1285,6 +1285,44 @@ class TestGraph(unittest.TestCase):
         g4.deme("d2", initial_size=1000)
         g4.pulse(source="d1", dest="d2", proportion=0.01, time=100)
         self.assertFalse(g3.isclose(g4))
+
+    def test_validate(self):
+        g1 = demes.Graph(description="test", time_units="generations")
+        g1.deme("a", initial_size=1, end_time=100)
+        g1.deme("b", initial_size=1, start_time=50)
+        g1.validate()
+
+        #
+        # bypass the usual API to invalidate the graph
+        #
+
+        # add an ancestor deme that's not in the graph
+        g2 = copy.deepcopy(g1)
+        g2["a"].ancestors = ["x"]
+        g2["a"].proportions = [1]
+        with self.assertRaises(ValueError):
+            g2.validate()
+
+        # add an ancestor deme that's temporally not possible
+        g2 = copy.deepcopy(g1)
+        g2["b"].ancestors = ["a"]
+        g2["b"].proportions = [1]
+        with self.assertRaises(ValueError):
+            g2.validate()
+
+        # add an overlapping epoch
+        g2 = copy.deepcopy(g1)
+        g2["a"].epochs.append(Epoch(start_time=200, end_time=0, initial_size=1))
+        with self.assertRaises(ValueError):
+            g2.validate()
+
+        # add migration between non-temporally overlapping populations
+        g2 = copy.deepcopy(g1)
+        g2.migrations.append(
+            Migration(source="a", dest="b", start_time=200, end_time=0, rate=1e-5)
+        )
+        with self.assertRaises(ValueError):
+            g2.validate()
 
 
 class TestGraphToDict(unittest.TestCase):
