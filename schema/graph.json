@@ -1,0 +1,183 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+        "id": {
+            "type": "string"
+        },
+        "rate": {
+            "type": "number",
+            "minumum": 0,
+            "maximum": 1
+        },
+        "proportion": {
+            "type": "number",
+            "exclusiveMinumum": 0,
+            "maximum": 1
+        },
+        "size": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "exclusiveMaximum": Infinity
+        },
+        "start_time": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": Infinity
+        },
+        "end_time": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMaximum": Infinity
+        },
+        "epoch": {
+            "type": "object",
+            "properties": {
+                "initial_size": {
+                    "$ref": "#/definitions/size"
+                },
+                "final_size": {
+                    "$ref": "#/definitions/size"
+                },
+                "size_function": {
+                    "type": "string"
+                },
+                "start_time": {
+                    "$ref": "#/definitions/start_time"
+                },
+                "end_time": {
+                    "$ref": "#/definitions/end_time"
+                },
+                "cloning_rate": {
+                    "$ref": "#/definitions/rate",
+                    "default": 0
+                },
+                "selfing_rate": {
+                    "$ref": "#/definitions/rate",
+                    "default": 0
+                }
+            },
+            "required": ["initial_size", "final_size", "size_function", "start_time", "end_time"]
+        },
+        "deme": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "$ref": "#/definitions/id"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "ancestors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/id"
+                    },
+                    "default": []
+                },
+                "proportions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/proportion"
+                    },
+                    "default": []
+                },
+                "epochs": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/epoch"
+                    }
+                }
+            },
+            "required" : ["id", "epochs"]
+        },
+        "pulse": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "$ref": "#/definitions/id"
+                },
+                "dest": {
+                    "$ref": "#/definitions/id"
+                },
+                "time": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "exclusiveMaximum": Infinity
+                },
+                "proportion": {
+                    "$ref": "#/definitions/proportion"
+                }
+            },
+            "required" : ["source", "dest", "time", "proportion"]
+        },
+        "asymmetric_migration": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "$ref": "#/definitions/id"
+                },
+                "dest": {
+                    "$ref": "#/definitions/id"
+                },
+                "start_time": {
+                    "$ref": "#/definitions/start_time"
+                },
+                "end_time": {
+                    "$ref": "#/definitions/end_time"
+                },
+                "rate": {
+                    "$ref": "#/definitions/rate"
+                }
+            },
+            "required" : ["source", "dest", "start_time", "end_time", "rate"]
+        }
+    },
+    "title": "Fully-qualified demes graph",
+    "type": "object",
+    "properties": {
+        "description": {
+            "type": "string"
+        },
+        "doi": {
+            "type": "array",
+            "items": {
+                "type" : "string"
+            }
+        },
+        "time_units": {
+            "type": "string"
+        },
+        "generation_time": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "exclusiveMaximum": Infinity
+        },
+        "demes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/definitions/deme"
+            }
+        },
+        "pulses": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/pulse"
+            }
+        },
+        "migrations": {
+            "type": "object",
+            "properties": {
+                "asymmetric": {
+                    "type": "array",
+                    "items": {
+                        "$ref" : "#/definitions/asymmetric_migration"
+                    }
+                }
+            },
+            "required": ["asymmetric"]
+        }
+    },
+    "required": ["description", "time_units", "demes"]
+}

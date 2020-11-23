@@ -1,7 +1,9 @@
 import unittest
 import copy
 import pathlib
+import json
 
+import jsonschema
 import pytest
 
 from demes import (
@@ -1449,3 +1451,14 @@ class TestGraphToDict(unittest.TestCase):
         d = dg.asdict()
         self.assertTrue(d["migrations"]["asymmetric"][0]["start_time"] == 20)
         self.assertTrue(d["migrations"]["asymmetric"][0]["end_time"] == 10)
+
+    def test_schema_validate(self):
+        topdir = pathlib.Path(__file__).parent.parent
+        with open(topdir / "schema" / "graph.json") as f:
+            schema = json.load(f)
+        n = 0
+        for example in (topdir / "examples").glob("*.yml"):
+            n += 1
+            data = demes.load(example).asdict()
+            jsonschema.validate(data, schema)
+        assert n > 0
