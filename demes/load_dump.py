@@ -81,7 +81,7 @@ def load(filename, *, format="yaml"):
     return demes.Graph.fromdict(data)
 
 
-def dumps(graph, *, format="yaml"):
+def dumps(graph, *, format="yaml", simplified=True):
     """
     Dump the specified graph to a YAML or JSON string.
     The keywords and structure of the string are defined by the
@@ -89,10 +89,15 @@ def dumps(graph, *, format="yaml"):
 
     :param .Graph graph: The graph to dump.
     :param str format: The format of the output file. Either "yaml" or "json".
+    :param bool simplified: If True, returns a simplified graph. If False, returns
+        a complete redundant graph.
     :return: The YAML or JSON string.
     :rtype: str
     """
-    data = graph.asdict()
+    if simplified:
+        data = graph.asdict_simplified()
+    else:
+        data = graph.asdict()
 
     if format == "json":
         string = json.dumps(data)
@@ -105,7 +110,7 @@ def dumps(graph, *, format="yaml"):
     return string
 
 
-def dump(graph, filename, *, format="yaml"):
+def dump(graph, filename, *, format="yaml", simplified=True):
     """
     Dump the specified graph to a file.
     The keywords and structure of the file are defined by the
@@ -115,6 +120,8 @@ def dump(graph, filename, *, format="yaml"):
     :param filename: Path to the output file.
     :type filename: str or :class:`os.PathLike`
     :param str format: The format of the output file. Either "yaml" or "json".
+    :param bool simplified: If True, outputs a simplified graph. If False, outputs
+        a redundant graph.
     """
     with open(filename, "w") as f:
-        f.write(dumps(graph, format=format))
+        f.write(dumps(graph, format=format, simplified=simplified))

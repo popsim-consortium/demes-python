@@ -120,7 +120,9 @@ class Epoch:
     """
 
     start_time: Optional[Time] = attr.ib(default=None, validator=optional(non_negative))
-    end_time: Time = attr.ib(default=None, validator=[non_negative, finite])
+    end_time: Optional[Time] = attr.ib(
+        default=None, validator=optional([non_negative, finite])
+    )
     initial_size: Optional[Size] = attr.ib(
         default=None, validator=optional([positive, finite])
     )
@@ -734,32 +736,37 @@ class Graph:
             initial_size = epochs[0].initial_size
         if initial_size is None:
             raise ValueError(f"must set initial_size for {id}")
-        # set the start time to inf or to the ancestor's end time, if not given
         if ancestors is not None:
             if not isinstance(ancestors, (list, tuple)):
                 raise TypeError("ancestors must be a list of deme IDs")
             for ancestor in ancestors:
                 if ancestor not in self:
                     raise ValueError(f"ancestor deme {ancestor} not in graph")
-                if start_time is not None:
-                    anc = self[ancestor]
-                    if not (anc.start_time >= start_time >= anc.end_time):
-                        raise ValueError(
-                            f"start_time={start_time} is outside the interval "
-                            f"of existence for ancestor {ancestor} "
-                            f"({anc.start_time}, {anc.end_time})"
-                        )
-            if start_time is None:
+            if len(ancestors) == 1 and proportions is None:
+                proportions = [1.0]
+        # set the start time to first epoch's start time, to inf or to
+        # the ancestor's end time, if not given
+        if start_time is None:
+            if epochs is not None and epochs[0].start_time is not None:
+                start_time = epochs[0].start_time
+            elif ancestors is not None:
                 if len(ancestors) > 1:
                     raise ValueError(
                         "with multiple ancestors, start_time must be specified"
                     )
                 start_time = self[ancestors[0]].end_time
-            if len(ancestors) == 1 and proportions is None:
-                proportions = [1.0]
-        else:
-            if start_time is None:
+            else:
                 start_time = float("inf")
+        # check start time is valid wrt ancestor time intervals
+        if ancestors is not None:
+            for ancestor in ancestors:
+                anc = self[ancestor]
+                if not (anc.start_time >= start_time >= anc.end_time):
+                    raise ValueError(
+                        f"start_time={start_time} is outside the interval "
+                        f"of existence for ancestor {ancestor} "
+                        f"({anc.start_time}, {anc.end_time})"
+                    )
         # build the deme
         if epochs is None:
             # if epochs are not given, we assign a single epoch over that deme
@@ -783,6 +790,12 @@ class Graph:
                 )
             ]
         else:
+            # the last epoch needs to have an end time
+            if epochs[-1].end_time is None:
+                if end_time is not None:
+                    epochs[-1].end_time = end_time
+                else:
+                    raise ValueError("last epoch's end_time must be specified")
             if end_time is None:
                 end_time = epochs[-1].end_time
             if end_time != epochs[-1].end_time:
@@ -791,41 +804,23 @@ class Graph:
             if epochs[0].start_time is None:
                 # first epoch starts at deme start time
                 epochs[0].start_time = start_time
-            elif epochs[0].start_time < start_time:
-                # insert const size epoch to reach the start of first listed epoch
-                epochs.insert(
-                    0,
-                    Epoch(
-                        start_time=start_time,
-                        end_time=epochs[0].start_time,
-                        initial_size=initial_size,
-                        final_size=initial_size,
-                        size_function="constant",
-                        selfing_rate=selfing_rate,
-                        cloning_rate=cloning_rate,
-                    ),
-                )
-            elif epochs[0].start_time > start_time:
-                raise ValueError(
-                    "first epoch start time must be less than or equal to "
-                    "deme start time"
-                )
+            elif epochs[0].start_time != start_time:
+                raise ValueError("deme and first epoch start times do not align")
             # fill in all attributes of epochs
             for i in range(len(epochs)):
-                # assign size attributes if needed
-                if i == 0:
-                    # set up sizes of first deme, since next demes are built from it
-                    if epochs[i].final_size is None:
-                        epochs[i].final_size = epochs[i].initial_size
-                else:
-                    if epochs[i].start_time is None:
-                        epochs[i].start_time = epochs[i - 1].end_time
-                    # for each subsequent epoch, fill in start size, final size,
-                    # and size function as necessary based on last epoch
-                    if epochs[i].initial_size is None:
-                        epochs[i].initial_size = epochs[i - 1].final_size
-                    if epochs[i].final_size is None:
-                        epochs[i].final_size = epochs[i].initial_size
+                # set the start and end times based on surrounding demes
+                if epochs[i].start_time is None:
+                    epochs[i].start_time = epochs[i - 1].end_time
+                if epochs[i].end_time is None:
+                    if epochs[i + 1].start_time is None:
+                        raise ValueError("ambiguity about epochs' start/end times")
+                    epochs[i].end_time = epochs[i + 1].start_time
+                # for each subsequent epoch, fill in start size, final size,
+                # and size function as necessary based on last epoch
+                if epochs[i].initial_size is None:
+                    epochs[i].initial_size = epochs[i - 1].final_size
+                if epochs[i].final_size is None:
+                    epochs[i].final_size = epochs[i].initial_size
                 if epochs[i].size_function is None:
                     if epochs[i].initial_size == epochs[i].final_size:
                         epochs[i].size_function = "constant"
@@ -1156,4 +1151,105 @@ class Graph:
         migrations = data.pop("migrations", None)
         if migrations is not None:
             data["migrations"] = {"asymmetric": migrations}
+        return data
+
+    def asdict_simplified(self, custom_attributes=[]):
+        """
+        Return a simplified dict representation of the graph.
+
+        This function removes redundancies in the graph. Specifically, we ...
+        continue docs
+
+        :param custom_attributes: List of additional attributes to simplify, which
+            are not ``selfing_rate`` or ``cloning_rate``.
+        """
+        if not isinstance(custom_attributes, list):
+            raise TypeError("custom_attributes must be a list of attributes")
+
+        def simplify_epochs(data):
+            """
+            Remove epoch start times if implied by previous epoch's end time
+            or if implied by the deme ancestor(s)'s end time(s).
+            """
+            for deme in data["demes"]:
+                for j, epoch in enumerate(deme["epochs"]):
+                    # remove implied start times
+                    if j == 0:
+                        if math.isinf(epoch["start_time"]):
+                            del epoch["start_time"]
+                        if "ancestors" in deme and len(deme["ancestors"]) == 1:
+                            # start time needed for more than 1 ancestor
+                            if (
+                                self[deme["ancestors"][0]].end_time
+                                == epoch["start_time"]
+                            ):
+                                del epoch["start_time"]
+                    else:
+                        del epoch["start_time"]
+                    if epoch["size_function"] in ("constant", "exponential"):
+                        del epoch["size_function"]
+                    if epoch["initial_size"] == epoch["final_size"]:
+                        del epoch["final_size"]
+
+            # we don't specify the deme's start and end time, since it's included in the
+            # epoch information. in the case that a single epoch is specified in a deme
+            # we carry that information up to the deme level
+            for deme in data["demes"]:
+                del deme["start_time"]
+                del deme["end_time"]
+                if (
+                    len(deme["epochs"]) == 1
+                    and "size_function" not in deme["epochs"][0]
+                ):
+                    deme.update(**deme["epochs"][0])
+                    del deme["epochs"]
+
+                if "ancestors" in deme and len(deme["ancestors"]) == 1:
+                    del deme["proportions"]
+
+        def simplify_migration_rates(data):
+            """
+            Collapse symmetric migration rates, and remove redundant information
+            about start and end times if they are implied by the time overlap
+            interval of the demes involved.
+            """
+            symmetric = []
+            asymmetric = data["migrations"]["asymmetric"].copy()
+            # first remove start/end times if equal time intersections
+            for migration in data["migrations"]["asymmetric"]:
+                source = migration["source"]
+                dest = migration["dest"]
+                time_lo, time_hi = self._check_time_intersection(source, dest, None)
+                if migration["end_time"] == time_lo:
+                    del migration["end_time"]
+                if migration["start_time"] == time_hi:
+                    del migration["start_time"]
+            # then check for the same event in the opposite direction
+            for migration in data["migrations"]["asymmetric"]:
+                source = migration["source"]
+                dest = migration["dest"]
+                opposite = copy.deepcopy(migration)
+                opposite["dest"] = source
+                opposite["source"] = dest
+                if opposite in asymmetric:
+                    asymmetric.remove(migration)
+                    asymmetric.remove(opposite)
+                    sym = dict(demes=[dest, source], **opposite)
+                    del sym["source"]
+                    del sym["dest"]
+                    symmetric.append(sym)
+
+            if len(symmetric) > 0:
+                data["migrations"]["symmetric"] = symmetric
+            if len(asymmetric) == 0:
+                del data["migrations"]["asymmetric"]
+            else:
+                data["migrations"]["asymmetric"] = asymmetric
+
+        data = self.asdict()
+
+        if "migrations" in data:
+            simplify_migration_rates(data)
+        simplify_epochs(data)
+
         return data
