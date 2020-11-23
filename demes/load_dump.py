@@ -22,15 +22,15 @@ def loads_asdict(string, *, format="yaml"):
     :rtype: dict
     """
     if format == "json":
-        d = json.loads(string)
+        data = json.loads(string)
     elif format == "yaml":
         yaml = strictyaml.dirty_load(
             string, schema=deme_graph_schema, allow_flow_style=True
         )
-        d = yaml.data
+        data = yaml.data
     else:
         raise ValueError(f"unknown format: {format}")
-    return d
+    return data
 
 
 def load_asdict(filename, *, format="yaml"):
@@ -61,8 +61,8 @@ def loads(string, *, format="yaml"):
     :return: A graph.
     :rtype: .Graph
     """
-    d = loads_asdict(string, format=format)
-    return demes.Graph.fromdict(d)
+    data = loads_asdict(string, format=format)
+    return demes.Graph.fromdict(data)
 
 
 def load(filename, *, format="yaml"):
@@ -77,11 +77,11 @@ def load(filename, *, format="yaml"):
     :return: A graph.
     :rtype: .Graph
     """
-    d = load_asdict(filename, format=format)
-    return demes.Graph.fromdict(d)
+    data = load_asdict(filename, format=format)
+    return demes.Graph.fromdict(data)
 
 
-def dumps(graph, *, format="yaml", compact=True):
+def dumps(graph, *, format="yaml"):
     """
     Dump the specified graph to a YAML or JSON string.
     The keywords and structure of the string are defined by the
@@ -89,21 +89,15 @@ def dumps(graph, *, format="yaml", compact=True):
 
     :param .Graph graph: The graph to dump.
     :param str format: The format of the output file. Either "yaml" or "json".
-    :param bool compact: If ``True``, a compact representation of the graph
-        will be returned, where default and implicit values are removed.
-        If ``False``, the complete graph will be returned.
     :return: The YAML or JSON string.
     :rtype: str
     """
-    if compact:
-        d = graph.asdict_compact()
-    else:
-        d = graph.asdict()
+    data = graph.asdict()
 
     if format == "json":
-        string = json.dumps(d, indent=4)
+        string = json.dumps(data)
     elif format == "yaml":
-        doc = strictyaml.as_document(d, schema=deme_graph_schema)
+        doc = strictyaml.as_document(data, schema=deme_graph_schema)
         string = doc.as_yaml()
     else:
         raise ValueError(f"unknown format: {format}")
@@ -111,7 +105,7 @@ def dumps(graph, *, format="yaml", compact=True):
     return string
 
 
-def dump(graph, filename, *, format="yaml", compact=True):
+def dump(graph, filename, *, format="yaml"):
     """
     Dump the specified graph to a file.
     The keywords and structure of the file are defined by the
@@ -123,4 +117,4 @@ def dump(graph, filename, *, format="yaml", compact=True):
     :param str format: The format of the output file. Either "yaml" or "json".
     """
     with open(filename, "w") as f:
-        f.write(dumps(graph, format=format, compact=compact))
+        f.write(dumps(graph, format=format))

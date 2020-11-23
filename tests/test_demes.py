@@ -1355,20 +1355,20 @@ class TestGraphToDict(unittest.TestCase):
     def test_finite_start_time(self):
         dg = demes.Graph(description="a", time_units="generations")
         dg.deme("a", initial_size=100, start_time=100)
-        d = dg.asdict_compact()
-        self.assertTrue(d["demes"][0]["start_time"] == dg["a"].start_time)
+        d = dg.asdict()
+        self.assertTrue(d["demes"][0]["epochs"][0]["start_time"] == dg["a"].start_time)
 
     def test_deme_selfing_rate(self):
         dg = demes.Graph(description="a", time_units="generations")
         dg.deme("a", initial_size=100, selfing_rate=0.1)
-        d = dg.asdict_compact()
-        self.assertTrue(d["demes"][0]["selfing_rate"] == 0.1)
+        d = dg.asdict()
+        self.assertTrue(d["demes"][0]["epochs"][0]["selfing_rate"] == 0.1)
 
     def test_deme_cloning_rate(self):
         dg = demes.Graph(description="a", time_units="generations")
         dg.deme("a", initial_size=100, cloning_rate=0.1)
-        d = dg.asdict_compact()
-        self.assertTrue(d["demes"][0]["cloning_rate"] == 0.1)
+        d = dg.asdict()
+        self.assertTrue(d["demes"][0]["epochs"][0]["cloning_rate"] == 0.1)
 
     def test_fill_nonstandard_size_function(self):
         dg = demes.Graph(description="a", time_units="generations")
@@ -1379,7 +1379,7 @@ class TestGraphToDict(unittest.TestCase):
                 Epoch(final_size=10, size_function="linear", end_time=0),
             ],
         )
-        d = dg.asdict_compact()
+        d = dg.asdict()
         self.assertTrue(d["demes"][0]["epochs"][-1]["size_function"] == "linear")
 
     def test_fill_epoch_selfing_rates(self):
@@ -1392,7 +1392,7 @@ class TestGraphToDict(unittest.TestCase):
                 Epoch(final_size=20, end_time=0, selfing_rate=0.1),
             ],
         )
-        d = dg.asdict_compact()
+        d = dg.asdict()
         self.assertTrue(d["demes"][0]["epochs"][0]["selfing_rate"] == 0.2)
         self.assertTrue(d["demes"][0]["epochs"][1]["selfing_rate"] == 0.1)
 
@@ -1404,7 +1404,7 @@ class TestGraphToDict(unittest.TestCase):
                 Epoch(final_size=20, end_time=0, selfing_rate=0.1),
             ],
         )
-        d = dg.asdict_compact()
+        d = dg.asdict()
         self.assertTrue(d["demes"][0]["epochs"][1]["selfing_rate"] == 0.1)
 
     def test_fill_epoch_cloning_rates(self):
@@ -1417,7 +1417,7 @@ class TestGraphToDict(unittest.TestCase):
                 Epoch(final_size=20, end_time=0, cloning_rate=0.1),
             ],
         )
-        d = dg.asdict_compact()
+        d = dg.asdict()
         self.assertTrue(d["demes"][0]["epochs"][0]["cloning_rate"] == 0.2)
         self.assertTrue(d["demes"][0]["epochs"][1]["cloning_rate"] == 0.1)
 
@@ -1429,13 +1429,13 @@ class TestGraphToDict(unittest.TestCase):
                 Epoch(final_size=20, end_time=0, cloning_rate=0.1),
             ],
         )
-        d = dg.asdict_compact()
+        d = dg.asdict()
         self.assertTrue(d["demes"][0]["epochs"][1]["cloning_rate"] == 0.1)
 
     def test_fill_description(self):
         dg = demes.Graph(description="a", time_units="generations")
         dg.deme("a", description="described", initial_size=100)
-        d = dg.asdict_compact()
+        d = dg.asdict()
         self.assertTrue(d["demes"][0]["description"] == dg["a"].description)
 
     def test_fill_migration_bounds(self):
@@ -1443,6 +1443,6 @@ class TestGraphToDict(unittest.TestCase):
         dg.deme("a", initial_size=100)
         dg.deme("b", initial_size=100)
         dg.migration(source="a", dest="b", rate=0.01, start_time=20, end_time=10)
-        d = dg.asdict_compact()
+        d = dg.asdict()
         self.assertTrue(d["migrations"]["asymmetric"][0]["start_time"] == 20)
         self.assertTrue(d["migrations"]["asymmetric"][0]["end_time"] == 10)
