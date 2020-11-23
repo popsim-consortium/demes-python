@@ -2,7 +2,6 @@ import typing
 from typing import List, Mapping, Union, Optional
 import itertools
 import math
-import collections
 import copy
 import operator
 import warnings
@@ -970,7 +969,6 @@ class Graph:
         """
         Lists of successors for all demes in the graph.
         """
-        # use collections.defaultdict(list)
         succ = {}
         for deme_info in self.demes:
             succ.setdefault(deme_info.id, [])
@@ -1095,7 +1093,7 @@ class Graph:
             if selfing_rate is not None and "selfing_rate" not in deme:
                 deme["selfing_rate"] = selfing_rate
             if cloning_rate is not None and "cloning_rate" not in deme:
-                deme["cloning_rate"] = selfing_rate
+                deme["cloning_rate"] = cloning_rate
 
         g = cls(
             description=data.get("description"),
@@ -1136,137 +1134,3 @@ class Graph:
         if migrations is not None:
             data["migrations"] = {"asymmetric": migrations}
         return data
-
-    def asdict_compact(self):
-        """
-        Return a dict representation of the graph, with default and
-        implicit values removed.
-        """
-        d = dict(
-            description=self.description,
-            time_units=self.time_units,
-        )
-        if self.generation_time is not None:
-            d.update(generation_time=self.generation_time)
-        if len(self.doi) > 0:
-            d.update(doi=self.doi)
-
-        assert len(self.demes) > 0
-        d.update(demes=list())
-        for deme in self.demes:
-            deme_dict = dict(id=deme.id)
-            # add ancestors to deme if not None
-            if deme.ancestors is not None:
-                deme_dict.update(ancestors=deme.ancestors)
-                if len(deme.ancestors) > 1:
-                    deme_dict.update(proportions=deme.proportions)
-                if any([deme.start_time != self[a].end_time for a in deme.ancestors]):
-                    deme_dict.update(start_time=deme.start_time)
-            else:
-                # corner case of no ancestors but finite start time
-                if math.isfinite(deme.start_time):
-                    deme_dict.update(start_time=deme.start_time)
-
-            assert len(deme.epochs) > 0
-            e_list = []
-            for j, epoch in enumerate(deme.epochs):
-                e = dict()
-                # end time required for epochs
-                e.update(end_time=epoch.end_time)
-                e.update(initial_size=epoch.initial_size)
-                if epoch.final_size != epoch.initial_size:
-                    e.update(final_size=epoch.final_size)
-                if epoch.size_function not in ["constant", "exponential"]:
-                    e.update(size_function=epoch.size_function)
-                if epoch.selfing_rate is not None:
-                    e.update(selfing_rate=epoch.selfing_rate)
-                if epoch.cloning_rate is not None:
-                    e.update(cloning_rate=epoch.cloning_rate)
-                e_list.append(e)
-            if len(e_list) > 1:
-                # if more than one epoch, list all epochs
-                deme_dict.update(epochs=e_list)
-            else:
-                # if a single epoch, don't list as under epochs
-                deme_dict.update(initial_size=e_list[0]["initial_size"])
-                if "final_size" in e_list[0]:
-                    if e_list[0]["final_size"] != e_list[0]["initial_size"]:
-                        deme_dict.update(final_size=e_list[0]["final_size"])
-                if e_list[0]["end_time"] > 0:
-                    deme_dict.update(end_time=e_list[0]["end_time"])
-                if "selfing_rate" in e_list[0]:
-                    deme_dict.update(selfing_rate=e_list[0]["selfing_rate"])
-                if "cloning_rate" in e_list[0]:
-                    deme_dict.update(cloning_rate=e_list[0]["cloning_rate"])
-            if deme.description is not None:
-                deme_dict.update(description=deme.description)
-            d["demes"].append(deme_dict)
-
-        if len(self.migrations) > 0:
-            m_dict = collections.defaultdict(list)
-            for migration in self.migrations:
-                m_dict[(migration.source, migration.dest)].append(
-                    dict(rate=migration.rate)
-                )
-                time_lo, time_hi = self._check_time_intersection(
-                    migration.source, migration.dest, None
-                )
-                if migration.end_time != time_lo:
-                    m_dict[(migration.source, migration.dest)][-1].update(
-                        end_time=migration.end_time
-                    )
-                if migration.start_time != time_hi:
-                    m_dict[(migration.source, migration.dest)][-1].update(
-                        start_time=migration.start_time
-                    )
-            # collapse into symmetric and asymmetric migrations
-            m_symmetric = []
-            m_asymmetric = []
-            for (source, dest), m_list in m_dict.items():
-                # check if there is equal, reverse migration over the same epoch
-                if (dest, source) in m_dict:
-                    for m in m_list:
-                        no_symmetry = True
-                        for i, m_compare in enumerate(m_dict[(dest, source)]):
-                            if m == m_compare:
-                                m_symmetric.append(
-                                    dict(demes=[source, dest], rate=m["rate"])
-                                )
-                                if "start_time" in m:
-                                    m_symmetric[-1]["start_time"] = m["start_time"]
-                                if "end_time" in m:
-                                    m_symmetric[-1]["end_time"] = m["end_time"]
-                                # pop the m_compare so we don't repeat it
-                                m_dict[(dest, source)].remove(m_compare)
-                                no_symmetry = False
-                                break
-                        if no_symmetry:
-                            m_asymmetric.append(
-                                dict(source=source, dest=dest, rate=m["rate"])
-                            )
-                            if "start_time" in m:
-                                m_asymmetric[-1]["start_time"] = m["start_time"]
-                            if "end_time" in m:
-                                m_asymmetric[-1]["end_time"] = m["end_time"]
-                else:
-                    # all ms in m_list are asymmetric
-                    for m in m_list:
-                        m_asymmetric.append(
-                            dict(source=source, dest=dest, rate=m["rate"])
-                        )
-                        if "start_time" in m:
-                            m_asymmetric[-1]["start_time"] = m["start_time"]
-                        if "end_time" in m:
-                            m_asymmetric[-1]["end_time"] = m["end_time"]
-            migrations_out = {}
-            if len(m_symmetric) > 0:
-                migrations_out["symmetric"] = m_symmetric
-            if len(m_asymmetric) > 0:
-                migrations_out["asymmetric"] = m_asymmetric
-            if len(migrations_out) > 0:
-                d.update(migrations=migrations_out)
-
-        if len(self.pulses) > 0:
-            d.update(pulses=[attr.asdict(pulse) for pulse in self.pulses])
-
-        return d
