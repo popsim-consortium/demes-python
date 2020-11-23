@@ -56,6 +56,12 @@ class TestEpoch(unittest.TestCase):
         Epoch(end_time=0, initial_size=100, final_size=1)
         Epoch(start_time=20, end_time=10, initial_size=1, final_size=100)
 
+    def test_time_span(self):
+        e = Epoch(start_time=float("inf"), end_time=0, initial_size=1)
+        self.assertEqual(e.time_span, float("inf"))
+        e = Epoch(start_time=100, end_time=20, initial_size=1)
+        self.assertEqual(e.time_span, 80)
+
     def test_inf_start_time_constant_epoch(self):
         with self.assertRaises(ValueError):
             Epoch(start_time=float("inf"), end_time=0, initial_size=10, final_size=20)
@@ -947,19 +953,16 @@ class TestGraph(unittest.TestCase):
         self.assertEqual(dg2.asdict(), dg3.asdict())
 
     def test_in_generations(self):
-        examples = list(pathlib.Path("examples").glob("*.yml"))
-        examples.extend(list(pathlib.Path("../examples").glob("*.yml")))
-        if len(examples) == 0:
-            raise RuntimeError(
-                "Can't find any examples. The tests should be run from the "
-                "'test' directory or the toplevel directory."
-            )
+        examples_path = pathlib.Path(__file__).parent.parent / "examples"
         i = 0
-        for yml in examples:
+        for yml in examples_path.glob("*.yml"):
             dg = load(yml)
-            if dg.generation_time not in (None, 1):
-                self.check_in_generations(dg)
-                i += 1
+            if dg.generation_time in (None, 1):
+                # fake it
+                dg.generation_time = 6
+                dg.time_units = "years"
+            self.check_in_generations(dg)
+            i += 1
         self.assertGreater(i, 0)
 
     def test_bad_migration_time(self):
