@@ -2,11 +2,39 @@
 Functions to load and dump graphs in YAML and JSON formats.
 """
 import json
+import copy
 
-import strictyaml
+import ruamel.yaml
 
 import demes
-from .schema import deme_graph_schema
+
+
+def _loads_yaml_asdict(string):
+    with ruamel.yaml.YAML(typ="safe", pure=True) as yaml:
+        data = yaml.load(string)
+    # split comma separated fields
+    for deme in data.get("demes", []):
+        if "ancestors" in deme:
+            deme["ancestors"] = [anc.strip() for anc in deme["ancestors"].split(",")]
+        if "proportions" in deme:
+            deme["proportions"] = [float(p) for p in deme["proportions"].split(",")]
+    for mig in data.get("migrations", {}).get("symmetric", []):
+        mig["demes"] = [deme.strip() for deme in mig["demes"].split(",")]
+    return data
+
+
+def _dumps_yaml_fromdict(data):
+    data = copy.deepcopy(data)
+    # collapse comma separated fields
+    for deme in data.get("demes", []):
+        if "ancestors" in deme:
+            deme["ancestors"] = ", ".join(deme["ancestors"])
+        if "proportions" in deme:
+            deme["proportions"] = ", ".join([str(p) for p in deme["proportions"]])
+    for mig in data.get("migrations", {}).get("symmetric", []):
+        mig["demes"] = ", ".join(mig["demes"])
+    string = ruamel.yaml.dump(data)
+    return string
 
 
 def loads_asdict(string, *, format="yaml"):
@@ -24,10 +52,7 @@ def loads_asdict(string, *, format="yaml"):
     if format == "json":
         data = json.loads(string)
     elif format == "yaml":
-        yaml = strictyaml.dirty_load(
-            string, schema=deme_graph_schema, allow_flow_style=True
-        )
-        data = yaml.data
+        data = _loads_yaml_asdict(string)
     else:
         raise ValueError(f"unknown format: {format}")
     return data
@@ -102,8 +127,7 @@ def dumps(graph, *, format="yaml", simplified=True):
     if format == "json":
         string = json.dumps(data)
     elif format == "yaml":
-        doc = strictyaml.as_document(data, schema=deme_graph_schema)
-        string = doc.as_yaml()
+        string = _dumps_yaml_fromdict(data)
     else:
         raise ValueError(f"unknown format: {format}")
 

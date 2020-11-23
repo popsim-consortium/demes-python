@@ -388,10 +388,7 @@ class TestLoadAndDump:
     @hyp.given(tests.graphs())
     def test_dump_load(self, g):
         with tempfile.TemporaryDirectory() as tmpdir:
-            for format in [
-                # "yaml",  # The YAML loader has numerous problems
-                "json",
-            ]:
+            for format in ["yaml", "json"]:
                 for simplified in [True, False]:
                     tmpfile = pathlib.Path(tmpdir) / "temp.txt"
                     demes.dump(g, tmpfile, format=format, simplified=simplified)
