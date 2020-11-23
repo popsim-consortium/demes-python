@@ -2,7 +2,7 @@ description: A single-population bottleneck model. Also tests a finite start_tim
 generation_time: 1
 time_units: generations
 demes:
-  our_population:
+  - id: our_population
     description: Bottleneck population using epochs
     start_time: 10000
     epochs:

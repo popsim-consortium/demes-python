@@ -480,8 +480,6 @@ class Deme:
     :ivar epochs: A list of epochs, which define the population size(s) of
         the deme. The deme must be created with all epochs listed.
     :vartype epochs: list of :class:`.Epoch`
-    :ivar float selfing_rate: An optional selfing rate for this deme.
-    :ivar float cloning_rate: An optional cloning rate for this deme.
     """
 
     id: ID = attr.ib()
@@ -489,12 +487,6 @@ class Deme:
     ancestors: List[ID] = attr.ib()
     proportions: List[Proportion] = attr.ib()
     epochs: List[Epoch] = attr.ib()
-    selfing_rate: Optional[Proportion] = attr.ib(
-        default=None, validator=optional([unit_interval])
-    )
-    cloning_rate: Optional[Proportion] = attr.ib(
-        default=None, validator=optional([unit_interval])
-    )
 
     def __attrs_post_init__(self):
         if self.ancestors is not None:
@@ -516,12 +508,6 @@ class Deme:
             if i > 0:
                 if self.epochs[i - 1].end_time != epoch.start_time:
                     raise ValueError("Epoch start and end times must align")
-        # if selfing or cloning rates are not given, set them to deme's default rate
-        for epoch in self.epochs:
-            if epoch.selfing_rate is None:
-                epoch.selfing_rate = self.selfing_rate
-            if epoch.cloning_rate is None:
-                epoch.cloning_rate = self.cloning_rate
 
     def isclose(
         self,
@@ -590,8 +576,9 @@ class Graph:
         units in generations.  If ``generation_time`` is ``None``, the units
         are assumed to be in generations already.
         See also: :meth:`.in_generations`.
-    :ivar str doi: If the graph describes a published demography, the DOI
-        should be be given here. May be ``None``.
+    :ivar doi: If the graph describes a published demography, the DOI(s)
+        should be be given here as a list.
+    :vartype doi: list of str
     :ivar demes: A list of demes in the demography.
         Use :meth:`.deme` to add a deme.
     :vartype demes: list of :class:`.Deme`
@@ -608,15 +595,15 @@ class Graph:
     generation_time: Optional[Time] = attr.ib(
         default=None, validator=optional([positive, finite])
     )
-    doi: Optional[str] = attr.ib(default=None)
+    doi: List[str] = attr.ib(factory=list)
     demes: List[Deme] = attr.ib(factory=list, init=False)
     migrations: List[Migration] = attr.ib(factory=list, init=False)
     pulses: List[Pulse] = attr.ib(factory=list, init=False)
-    selfing_rate: Proportion = attr.ib(default=None)
-    cloning_rate: Proportion = attr.ib(default=None)
 
     def __attrs_post_init__(self):
         self._deme_map: Mapping[ID, Deme] = dict()
+        if not isinstance(self.doi, list):
+            raise ValueError("doi must be a list of strings")
 
     def __getitem__(self, deme_id):
         """
@@ -692,11 +679,11 @@ class Graph:
         description=None,
         ancestors=None,
         proportions=None,
+        epochs=None,
         start_time=None,
         end_time=None,
         initial_size=None,
         final_size=None,
-        epochs=None,
         selfing_rate=None,
         cloning_rate=None,
     ):
@@ -746,10 +733,6 @@ class Graph:
             initial_size = epochs[0].initial_size
         if initial_size is None:
             raise ValueError(f"must set initial_size for {id}")
-        if selfing_rate is None:
-            selfing_rate = self.selfing_rate
-        if cloning_rate is None:
-            cloning_rate = self.cloning_rate
         # set the start time to inf or to the ancestor's end time, if not given
         if ancestors is not None:
             if not isinstance(ancestors, (list, tuple)):
@@ -787,24 +770,17 @@ class Graph:
                 size_function = "constant"
             else:
                 size_function = "exponential"
-            epoch = Epoch(
-                start_time=start_time,
-                end_time=end_time,
-                initial_size=initial_size,
-                final_size=final_size,
-                size_function=size_function,
-                selfing_rate=selfing_rate,
-                cloning_rate=cloning_rate,
-            )
-            deme = Deme(
-                id=id,
-                description=description,
-                ancestors=ancestors,
-                proportions=proportions,
-                epochs=[epoch],
-                selfing_rate=selfing_rate,
-                cloning_rate=cloning_rate,
-            )
+            epochs = [
+                Epoch(
+                    start_time=start_time,
+                    end_time=end_time,
+                    initial_size=initial_size,
+                    final_size=final_size,
+                    size_function=size_function,
+                    selfing_rate=selfing_rate,
+                    cloning_rate=cloning_rate,
+                )
+            ]
         else:
             if end_time is None:
                 end_time = epochs[-1].end_time
@@ -854,15 +830,19 @@ class Graph:
                         epochs[i].size_function = "constant"
                     else:
                         epochs[i].size_function = "exponential"
-            deme = Deme(
-                id=id,
-                description=description,
-                ancestors=ancestors,
-                proportions=proportions,
-                epochs=epochs,
-                selfing_rate=selfing_rate,
-                cloning_rate=cloning_rate,
-            )
+                # set per-epoch selfing and cloning rates
+                if epochs[i].selfing_rate is None:
+                    epochs[i].selfing_rate = selfing_rate
+                if epochs[i].cloning_rate is None:
+                    epochs[i].cloning_rate = cloning_rate
+
+        deme = Deme(
+            id=id,
+            description=description,
+            ancestors=ancestors,
+            proportions=proportions,
+            epochs=epochs,
+        )
         self._deme_map[deme.id] = deme
         self.demes.append(deme)
 
@@ -1103,33 +1083,40 @@ class Graph:
         return graph
 
     @classmethod
-    def fromdict(cls, d):
+    def fromdict(cls, data):
         """
         Return a graph from a dict representation. The inverse of asdict().
         """
+
+        # propagate selfing and cloning rates down to deme level
+        selfing_rate = data.get("selfing_rate")
+        cloning_rate = data.get("cloning_rate")
+        for deme in data.get("demes", []):
+            if selfing_rate is not None and "selfing_rate" not in deme:
+                deme["selfing_rate"] = selfing_rate
+            if cloning_rate is not None and "cloning_rate" not in deme:
+                deme["cloning_rate"] = selfing_rate
+
         g = cls(
-            description=d.get("description"),
-            time_units=d.get("time_units"),
-            generation_time=d.get("generation_time"),
-            doi=d.get("doi"),
-            selfing_rate=d.get("selfing_rate"),
-            cloning_rate=d.get("cloning_rate"),
+            description=data.get("description"),
+            time_units=data.get("time_units"),
+            generation_time=data.get("generation_time"),
+            doi=data.get("doi", []),
         )
-        for deme_id, deme_dict in d.get("demes", dict()).items():
-            if "epochs" in deme_dict:
-                deme_dict["epochs"] = [
-                    Epoch(**epoch_dict) for epoch_dict in deme_dict["epochs"]
-                ]
-            g.deme(deme_id, **deme_dict)
-        for migration_type, migration_dict in d.get("migrations", dict()).items():
+
+        for deme in data.get("demes", []):
+            if "epochs" in deme:
+                deme["epochs"] = [Epoch(**epoch) for epoch in deme["epochs"]]
+            g.deme(**deme)
+        for migration_type, migration_list in data.get("migrations", dict()).items():
             if migration_type == "symmetric":
-                for m in migration_dict:
+                for m in migration_list:
                     g.symmetric_migration(**m)
             if migration_type == "asymmetric":
-                for m in migration_dict:
+                for m in migration_list:
                     g.migration(**m)
-        for pulse_dict in d.get("pulses", []):
-            g.pulse(**pulse_dict)
+        for pulse in data.get("pulses", []):
+            g.pulse(**pulse)
         return g
 
     def asdict(self):
@@ -1140,19 +1127,15 @@ class Graph:
         def filt(_attrib, val):
             return val is not None and not (hasattr(val, "__len__") and len(val) == 0)
 
-        d = attr.asdict(self, filter=filt)
+        data = attr.asdict(self, filter=filt)
         # translate to spec data model
-        demes_dict = dict()
-        for deme in d["demes"]:
-            id = deme.pop("id")
-            demes_dict[id] = deme
+        for deme in data["demes"]:
             deme["start_time"] = deme["epochs"][0]["start_time"]
             deme["end_time"] = deme["epochs"][-1]["end_time"]
-        d["demes"] = demes_dict
-        migrations = d.pop("migrations", None)
+        migrations = data.pop("migrations", None)
         if migrations is not None:
-            d["migrations"] = {"asymmetric": migrations}
-        return d
+            data["migrations"] = {"asymmetric": migrations}
+        return data
 
     def asdict_compact(self):
         """
@@ -1165,18 +1148,13 @@ class Graph:
         )
         if self.generation_time is not None:
             d.update(generation_time=self.generation_time)
-        if self.doi is not None:
+        if len(self.doi) > 0:
             d.update(doi=self.doi)
 
-        if self.selfing_rate is not None:
-            d.update(selfing_rate=self.selfing_rate)
-        if self.cloning_rate is not None:
-            d.update(cloning_rate=self.cloning_rate)
-
         assert len(self.demes) > 0
-        d.update(demes=dict())
+        d.update(demes=list())
         for deme in self.demes:
-            deme_dict = dict()
+            deme_dict = dict(id=deme.id)
             # add ancestors to deme if not None
             if deme.ancestors is not None:
                 deme_dict.update(ancestors=deme.ancestors)
@@ -1188,19 +1166,6 @@ class Graph:
                 # corner case of no ancestors but finite start time
                 if math.isfinite(deme.start_time):
                     deme_dict.update(start_time=deme.start_time)
-            # add selfing and cloning rates, if not None
-            if deme.selfing_rate is not None:
-                if self.selfing_rate is None or (
-                    self.selfing_rate is not None
-                    and deme.selfing_rate != self.selfing_rate
-                ):
-                    deme_dict.update(selfing_rate=deme.selfing_rate)
-            if deme.cloning_rate is not None:
-                if self.cloning_rate is None or (
-                    self.cloning_rate is not None
-                    and deme.cloning_rate != self.cloning_rate
-                ):
-                    deme_dict.update(cloning_rate=deme.cloning_rate)
 
             assert len(deme.epochs) > 0
             e_list = []
@@ -1214,23 +1179,9 @@ class Graph:
                 if epoch.size_function not in ["constant", "exponential"]:
                     e.update(size_function=epoch.size_function)
                 if epoch.selfing_rate is not None:
-                    if deme.selfing_rate is not None:
-                        if epoch.selfing_rate != deme.selfing_rate:
-                            e.update(selfing_rate=epoch.selfing_rate)
-                    elif self.selfing_rate is not None:
-                        if epoch.selfing_rate != self.selfing_rate:
-                            e.update(selfing_rate=epoch.selfing_rate)
-                    else:
-                        e.update(selfing_rate=epoch.selfing_rate)
+                    e.update(selfing_rate=epoch.selfing_rate)
                 if epoch.cloning_rate is not None:
-                    if deme.cloning_rate is not None:
-                        if epoch.cloning_rate != deme.cloning_rate:
-                            e.update(cloning_rate=epoch.cloning_rate)
-                    elif self.cloning_rate is not None:
-                        if epoch.cloning_rate != self.cloning_rate:
-                            e.update(cloning_rate=epoch.cloning_rate)
-                    else:
-                        e.update(cloning_rate=epoch.cloning_rate)
+                    e.update(cloning_rate=epoch.cloning_rate)
                 e_list.append(e)
             if len(e_list) > 1:
                 # if more than one epoch, list all epochs
@@ -1243,9 +1194,13 @@ class Graph:
                         deme_dict.update(final_size=e_list[0]["final_size"])
                 if e_list[0]["end_time"] > 0:
                     deme_dict.update(end_time=e_list[0]["end_time"])
+                if "selfing_rate" in e_list[0]:
+                    deme_dict.update(selfing_rate=e_list[0]["selfing_rate"])
+                if "cloning_rate" in e_list[0]:
+                    deme_dict.update(cloning_rate=e_list[0]["cloning_rate"])
             if deme.description is not None:
                 deme_dict.update(description=deme.description)
-            d["demes"][deme.id] = deme_dict
+            d["demes"].append(deme_dict)
 
         if len(self.migrations) > 0:
             m_dict = collections.defaultdict(list)

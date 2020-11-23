@@ -1,4 +1,4 @@
-description: |-
+description: |
   A ten population model of out-of-Africa, including two pulses of
   Denisovan admixture into Papuans, and several pulses of Neandertal
   admixture into non-Africans.
@@ -6,11 +6,11 @@ description: |-
   This model is an extension of one from Malaspinas et al. (2016), thus
   some parameters are inherited from there.
 time_units: generations
-doi: |-
-  Jacobs et al., 2019: https://doi.org/10.1016/j.cell.2019.02.035
-  Malaspinas et al., 2016: https://doi.org/10.1038/nature18299
+doi:
+  - https://doi.org/10.1016/j.cell.2019.02.035
+  - https://doi.org/10.1038/nature18299
 demes:
-  YRI:
+  - id: YRI
     epochs:
     - end_time: 20225.0
       initial_size: 32671.0
@@ -18,7 +18,7 @@ demes:
       initial_size: 41563.0
     - end_time: 0
       initial_size: 48433.0
-  DenA:
+  - id: DenA
     ancestors: YRI
     start_time: 20225.0
     epochs:
@@ -30,7 +30,7 @@ demes:
       initial_size: 100.0
     - end_time: 0
       initial_size: 5083.0
-  NeaA:
+  - id: NeaA
     ancestors: DenA
     start_time: 15090.0
     epochs:
@@ -38,19 +38,19 @@ demes:
       initial_size: 13249.0
     - end_time: 0
       initial_size: 826.0
-  Den2:
+  - id: Den2
     ancestors: DenA
     start_time: 12500.0
     initial_size: 13249.0
-  Den1:
+  - id: Den1
     ancestors: DenA
     start_time: 9750.0
     initial_size: 13249.0
-  Nea1:
+  - id: Nea1
     ancestors: NeaA
     start_time: 3375.0
     initial_size: 13249.0
-  Ghost:
+  - id: Ghost
     ancestors: YRI
     start_time: 2218.0
     epochs:
@@ -58,7 +58,7 @@ demes:
       initial_size: 1394.0
     - end_time: 0
       initial_size: 8516.0
-  Papuan:
+  - id: Papuan
     ancestors: Ghost
     start_time: 1784.0
     epochs:
@@ -66,7 +66,7 @@ demes:
       initial_size: 243.0
     - end_time: 0
       initial_size: 8834.0
-  CHB:
+  - id: CHB
     ancestors: Ghost
     start_time: 1758.0
     epochs:
@@ -76,7 +76,7 @@ demes:
       initial_size: 12971.0
     - end_time: 0
       initial_size: 9025.0
-  CEU:
+  - id: CEU
     ancestors: CHB
     start_time: 1293.0
     initial_size: 6962.0

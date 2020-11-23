@@ -22,7 +22,10 @@ def jacobs_papuans():
 
     g = demes.Graph(
         description="Jacobs et al. (2019) archaic admixture into Papuans",
-        doi="10.1016/j.cell.2019.02.035",
+        doi=[
+            "https://doi.org/10.1016/j.cell.2019.02.035",
+            "https://doi.org/10.1038/nature18299",
+        ],
         time_units="generations",
     )
     g.deme("ancestral_hominin", end_time=20225, initial_size=32671)
@@ -258,20 +261,23 @@ class TestLoadAndDump:
                 "description": "foo",
                 "time_units": "years",
                 "generation_time": 123,
-                "demes": {
-                    "A": {
+                "demes": [
+                    {
+                        "id": "A",
                         "initial_size": 100
                     },
-                    "B": {
+                    {
+                        "id": "B",
                         "initial_size": 100
                     },
-                    "C": {
+                    {
+                        "id": "C",
                         "ancestors": [ "A", "B" ],
                         "proportions": [ 0.1, 0.9 ],
                         "start_time": 500,
                         "initial_size": 100
                     }
-                }
+                ]
             }
             """
         )
@@ -291,11 +297,11 @@ class TestLoadAndDump:
             time_units: years
             generation_time: 123
             demes:
-                A:
+                -   id: A
                     initial_size: 100
-                B:
+                -   id: B
                     initial_size: 100
-                C:
+                -   id: C
                     initial_size: 100
                     start_time: 500
                     ancestors: A, B

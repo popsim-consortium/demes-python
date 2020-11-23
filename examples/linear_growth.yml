@@ -3,7 +3,7 @@ description: A single-population model with varying size change functions in dif
 generation_time: 1
 time_units: generations
 demes:
-  my_pop:
+  - id: my_pop
     description: Multi-epoch population
     epochs:
     - initial_size: 1e4

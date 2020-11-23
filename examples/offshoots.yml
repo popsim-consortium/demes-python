@@ -3,15 +3,15 @@ description: An example demography with one main population that is unchanged, t
 time_units: generations
 generation_time: 1
 demes:
-  ancestral:
+  - id: ancestral
     description: Main population
     initial_size: 1000
-  offshoot1:
+  - id: offshoot1
     description: More recent offshoot population
     ancestors: ancestral
     start_time: 500
     initial_size: 100
-  offshoot2:
+  - id: offshoot2
     description: More ancient offshoot population
     ancestors: ancestral
     start_time: 1000
