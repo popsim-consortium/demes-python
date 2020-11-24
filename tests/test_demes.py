@@ -1137,9 +1137,12 @@ class TestGraph(unittest.TestCase):
                 doi="10.1000/123456",
             )
 
-    @hyp.given(graphs())
+    @hyp.given(graphs(max_demes=5, max_interactions=5))
     def test_in_generations(self, dg1):
-        hyp.assume(dg1.generation_time is not None)
+        if dg1.generation_time is None:
+            dg1.time_units = "years"
+            dg1.generation_time = 10
+
         dg1_copy = copy.deepcopy(dg1)
         dg2 = dg1.in_generations()
         # in_generations() shouldn't modify the original
