@@ -2,9 +2,12 @@ import unittest
 import copy
 import pathlib
 import json
+import math
 
 import jsonschema
 import pytest
+import hypothesis as hyp
+import hypothesis.strategies as st
 
 from demes import (
     Epoch,
@@ -16,9 +19,222 @@ from demes import (
     Branch,
     Merge,
     Admix,
-    load,
 )
 import demes
+
+
+@st.composite
+def epochs_lists(draw, start_time=math.inf, max_epochs=10):
+    """
+    A hypothesis strategy for creating lists of Epochs for a deme.
+
+    .. code-block::
+
+        @hypothesis.given(epoch_lists())
+        test_something(self, epoch_list):
+            # epoch_list has type ``list of Epoch``
+            pass
+
+    :param start_time: the start time of the deme.
+    :param max_epochs: the maximum number of epochs in the list.
+    """
+    times = draw(
+        st.sets(
+            st.floats(min_value=0, max_value=start_time),
+            min_size=2,
+            max_size=max_epochs,
+        )
+    )
+    times = sorted(list(times), reverse=True)
+    if start_time != times[0]:
+        times.insert(0, start_time)
+    epochs = []
+
+    for end_time in times[1:]:
+        initial_size = draw(
+            st.floats(min_value=0, exclude_min=True, allow_infinity=False)
+        )
+        if math.isinf(start_time):
+            final_size = initial_size
+        else:
+            final_size = draw(
+                st.floats(min_value=0, exclude_min=True, allow_infinity=False)
+            )
+        cloning_rate = draw(st.floats(min_value=0, max_value=1))
+        selfing_rate = draw(st.floats(min_value=0, max_value=1))
+
+        epochs.append(
+            Epoch(
+                start_time=start_time,
+                end_time=end_time,
+                initial_size=initial_size,
+                final_size=final_size,
+                cloning_rate=cloning_rate,
+                selfing_rate=selfing_rate,
+            )
+        )
+        start_time = end_time
+
+    return epochs
+
+
+@st.composite
+def graphs(draw, max_demes=10, max_interactions=10):
+    """
+    A hypothesis strategy for create a Graph.
+
+    .. code-block::
+
+        @hypothesis.given(graphs())
+        def test_something(self, g):
+            # g has type ``Graph``
+            pass
+
+    :param max_demes: The maximum number of demes in the graph.
+    :param max_interactions: The maximum number of migrations plus pulses
+        in the graph.
+    """
+    generation_time = draw(st.none() | st.floats(min_value=1e-9, max_value=1e6))
+    if generation_time is None:
+        time_units = "generations"
+    else:
+        time_units = draw(st.text(max_size=100))
+    g = Graph(
+        description=draw(st.text(max_size=100)),
+        generation_time=generation_time,
+        time_units=time_units,
+        doi=draw(st.lists(st.text(min_size=1), max_size=3)),
+    )
+    deme_ids = draw(st.sets(st.text(min_size=1), min_size=1, max_size=max_demes))
+
+    for id in deme_ids:
+        ancestors = []
+        proportions = []
+        start_time = math.inf
+        if len(g.demes) > 0:
+            # draw indices into demes list to use as ancestors
+            anc_idx = draw(
+                st.lists(
+                    st.integers(min_value=0, max_value=len(g.demes) - 1),
+                    unique=True,
+                    max_size=len(g.demes),
+                )
+            )
+            if len(anc_idx) > 0:
+                time_hi = min(g.demes[j].start_time for j in anc_idx)
+                time_lo = max(g.demes[j].end_time for j in anc_idx)
+                if time_lo < time_hi and time_lo < 1e308:
+                    # The proposed ancestors exist at the same time.
+                    # Draw a start time and the ancestry proportions.
+                    start_time = draw(
+                        st.floats(
+                            min_value=time_lo,
+                            max_value=time_hi,
+                            exclude_max=True,
+                        )
+                    )
+                    ancestors = [g.demes[j].id for j in anc_idx]
+                    if len(ancestors) == 1:
+                        proportions = [1.0]
+                    else:
+                        proportions = draw(
+                            st.lists(
+                                st.integers(min_value=1, max_value=1000),
+                                min_size=len(ancestors),
+                                max_size=len(ancestors),
+                            )
+                        )
+                        psum = sum(proportions)
+                        proportions = [p / psum for p in proportions]
+        g.deme(
+            id=id,
+            description=draw(st.none() | st.text(max_size=100)),
+            ancestors=ancestors,
+            proportions=proportions,
+            epochs=draw(epochs_lists(start_time=start_time)),
+            start_time=start_time,
+        )
+
+    n_interactions = draw(st.integers(min_value=0, max_value=max_interactions))
+    for j in range(len(g.demes) - 1):
+        for k in range(j + 1, len(g.demes)):
+            dj = g.demes[j].id
+            dk = g.demes[k].id
+            time_lo = max(g[dj].end_time, g[dk].end_time)
+            time_hi = min(g[dj].start_time, g[dk].start_time)
+            if time_hi <= time_lo or time_lo > 1e308:
+                # Demes j and k don't exist at the same time.
+                # (or time_lo is too close to infinity for floats)
+                continue
+            # Draw asymmetric migrations.
+            n = draw(st.integers(min_value=0, max_value=n_interactions))
+            n_interactions -= n
+            for _ in range(n):
+                source, dest = dj, dk
+                if draw(st.booleans()):
+                    source, dest = dk, dj
+                times = draw(
+                    st.lists(
+                        st.floats(min_value=time_lo, max_value=time_hi),
+                        unique=True,
+                        min_size=2,
+                        max_size=2,
+                    )
+                )
+                g.migration(
+                    source=source,
+                    dest=dest,
+                    start_time=max(times),
+                    end_time=min(times),
+                    rate=draw(st.floats(min_value=0, max_value=1, exclude_max=True)),
+                )
+            if n_interactions <= 0:
+                break
+            # Draw pulses.
+            n = draw(st.integers(min_value=0, max_value=n_interactions))
+            n_interactions -= n
+            for _ in range(n):
+                source, dest = dj, dk
+                if draw(st.booleans()):
+                    source, dest = dk, dj
+                time = draw(
+                    st.floats(
+                        min_value=time_lo,
+                        max_value=time_hi,
+                        exclude_min=True,
+                        exclude_max=True,
+                    )
+                )
+                g.pulse(
+                    source=source,
+                    dest=dest,
+                    time=time,
+                    proportion=draw(
+                        st.floats(
+                            min_value=0, max_value=1, exclude_min=True, exclude_max=True
+                        )
+                    ),
+                )
+            if n_interactions <= 0:
+                break
+        if n_interactions <= 0:
+            break
+
+    return g
+
+
+class TestHypothesisStrategies:
+    # Test that the hypothesis strategies can be used.
+
+    @hyp.given(epochs_lists())
+    def test_epoch_construction(self, e):
+        # e is a list of Epoch
+        pass
+
+    @hyp.given(graphs())
+    def test_graph_construction(self, g):
+        # g is a Graph
+        g.validate()
 
 
 class TestEpoch(unittest.TestCase):
@@ -570,6 +786,24 @@ class TestDeme(unittest.TestCase):
         with self.assertRaises(ValueError):
             Deme(id="a", description="b", ancestors=["c"], proportions=[1], epochs=[])
 
+    def test_bad_id(self):
+        with self.assertRaises(TypeError):
+            Deme(
+                id=None,
+                description="b",
+                ancestors=[],
+                proportions=[],
+                epochs=[Epoch(start_time=math.inf, end_time=0, initial_size=1)],
+            )
+        with self.assertRaises(ValueError):
+            Deme(
+                id="",
+                description="b",
+                ancestors=[],
+                proportions=[],
+                epochs=[Epoch(start_time=math.inf, end_time=0, initial_size=1)],
+            )
+
     def test_bad_ancestors(self):
         with self.assertRaises(TypeError):
             Deme(
@@ -587,7 +821,7 @@ class TestDeme(unittest.TestCase):
                 proportions=[0.2, 0.8],
                 epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
             )
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             Deme(
                 id="a",
                 description="b",
@@ -621,6 +855,40 @@ class TestDeme(unittest.TestCase):
                 epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
             )
 
+    def test_bad_proportions(self):
+        with self.assertRaises(TypeError):
+            Deme(
+                id="a",
+                description="test",
+                ancestors=[],
+                proportions=None,
+                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+            )
+        with self.assertRaises(ValueError):
+            Deme(
+                id="a",
+                description="test",
+                ancestors=["x", "y"],
+                proportions=[0.6, 0.7],
+                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+            )
+        with self.assertRaises(ValueError):
+            Deme(
+                id="a",
+                description="test",
+                ancestors=["x", "y"],
+                proportions=[-0.5, 1.5],
+                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+            )
+        with self.assertRaises(ValueError):
+            Deme(
+                id="a",
+                description="test",
+                ancestors=["x", "y"],
+                proportions=[0, 1.0],
+                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+            )
+
     def test_epochs_out_of_order(self):
         for time in (5, -1, float("inf")):
             with self.assertRaises(ValueError):
@@ -649,6 +917,16 @@ class TestDeme(unittest.TestCase):
                     ],
                 )
 
+    def test_bad_epochs(self):
+        with self.assertRaises(TypeError):
+            Deme(
+                id="a",
+                description="b",
+                ancestors=[],
+                proportions=[],
+                epochs=None,
+            )
+
     def test_time_span(self):
         for start_time, end_time in zip((float("inf"), 100, 20), (0, 20, 0)):
             deme = Deme(
@@ -674,8 +952,8 @@ class TestDeme(unittest.TestCase):
         d1 = Deme(
             id="a",
             description="foo deme",
-            ancestors=None,
-            proportions=None,
+            ancestors=[],
+            proportions=[],
             epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
         )
         self.assertTrue(d1.isclose(d1))
@@ -684,8 +962,8 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="a",
                     description="foo deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
                 )
             )
@@ -696,59 +974,9 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="a",
                     description="bar deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
-                )
-            )
-        )
-
-        # selfing_rate is a property of the deme's epoch, so we shouldn't
-        # care if this is set for the deme or for the epochs directly.
-        d2 = Deme(
-            id="a",
-            description="foo deme",
-            ancestors=None,
-            proportions=None,
-            epochs=[Epoch(start_time=10, end_time=5, initial_size=1, selfing_rate=0.1)],
-        )
-        self.assertTrue(
-            d2.isclose(
-                Deme(
-                    id="a",
-                    description="foo deme",
-                    ancestors=None,
-                    proportions=None,
-                    epochs=[
-                        Epoch(
-                            start_time=10, end_time=5, initial_size=1, selfing_rate=0.1
-                        )
-                    ],
-                )
-            )
-        )
-
-        # cloning_rate is a property of the deme's epoch, so we shouldn't
-        # care if this is set for the deme or for the epochs directly.
-        d2 = Deme(
-            id="a",
-            description="foo deme",
-            ancestors=None,
-            proportions=None,
-            epochs=[Epoch(start_time=10, end_time=5, initial_size=1, cloning_rate=0.1)],
-        )
-        self.assertTrue(
-            d2.isclose(
-                Deme(
-                    id="a",
-                    description="foo deme",
-                    ancestors=None,
-                    proportions=None,
-                    epochs=[
-                        Epoch(
-                            start_time=10, end_time=5, initial_size=1, cloning_rate=0.1
-                        )
-                    ],
                 )
             )
         )
@@ -762,8 +990,8 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="b",
                     description="foo deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
                 )
             )
@@ -784,8 +1012,8 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="a",
                     description="foo deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[Epoch(start_time=9, end_time=5, initial_size=1)],
                 )
             )
@@ -795,8 +1023,8 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="a",
                     description="foo deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[Epoch(start_time=10, end_time=9, initial_size=1)],
                 )
             )
@@ -807,8 +1035,8 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="a",
                     description="foo deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[Epoch(start_time=10, end_time=5, initial_size=9)],
                 )
             )
@@ -818,8 +1046,8 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="a",
                     description="foo deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[
                         Epoch(
                             start_time=10, end_time=5, initial_size=1, selfing_rate=0.1
@@ -833,8 +1061,8 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="a",
                     description="foo deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[
                         Epoch(
                             start_time=10, end_time=5, initial_size=1, cloning_rate=0.1
@@ -909,9 +1137,9 @@ class TestGraph(unittest.TestCase):
                 doi="10.1000/123456",
             )
 
-    def check_in_generations(self, dg1):
-        assert dg1.generation_time is not None
-        assert dg1.generation_time > 1
+    @hyp.given(graphs())
+    def test_in_generations(self, dg1):
+        hyp.assume(dg1.generation_time is not None)
         dg1_copy = copy.deepcopy(dg1)
         dg2 = dg1.in_generations()
         # in_generations() shouldn't modify the original
@@ -953,19 +1181,6 @@ class TestGraph(unittest.TestCase):
         self.assertEqual(dg2.asdict(), dg3.asdict())
         dg3 = in_generations2(dg2)
         self.assertEqual(dg2.asdict(), dg3.asdict())
-
-    def test_in_generations(self):
-        examples_path = pathlib.Path(__file__).parent.parent / "examples"
-        i = 0
-        for yml in examples_path.glob("*.yml"):
-            dg = load(yml)
-            if dg.generation_time in (None, 1):
-                # fake it
-                dg.generation_time = 6
-                dg.time_units = "years"
-            self.check_in_generations(dg)
-            i += 1
-        self.assertGreater(i, 0)
 
     def test_bad_migration_time(self):
         dg = demes.Graph(description="test bad migration", time_units="generations")
