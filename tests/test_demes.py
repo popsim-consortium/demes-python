@@ -1355,6 +1355,23 @@ class TestGraph(unittest.TestCase):
         with self.assertRaises(ValueError):
             g2.validate()
 
+    def test_newly_created_objects_return(self):
+        g = demes.Graph(description="test", time_units="generations")
+        d1 = g.deme("a", initial_size=1, end_time=0)
+        self.assertIsInstance(d1, Deme)
+        d2 = g.deme("b", initial_size=1, start_time=50)
+        self.assertIsInstance(d2, Deme)
+
+        mig = g.migration(source="a", dest="b", rate=1e-4)
+        self.assertIsInstance(mig, Migration)
+        migs = g.symmetric_migration(demes=["a", "b"], rate=1e-4)
+        self.assertIsInstance(migs, list)
+        for m in migs:
+            self.assertIsInstance(m, Migration)
+
+        pulse = g.pulse(source="a", dest="b", proportion=0.5, time=25)
+        self.assertIsInstance(pulse, Pulse)
+
 
 class TestGraphToDict(unittest.TestCase):
     def test_finite_start_time(self):
