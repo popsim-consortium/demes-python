@@ -1,5 +1,5 @@
 import typing
-from typing import List, Mapping, Union, Optional
+from typing import List, Union, Optional, Dict
 import itertools
 import math
 import copy
@@ -600,7 +600,7 @@ class Graph:
     pulses: List[Pulse] = attr.ib(factory=list, init=False)
 
     def __attrs_post_init__(self):
-        self._deme_map: Mapping[ID, Deme] = dict()
+        self._deme_map: Dict[ID, Deme] = dict()
         if not isinstance(self.doi, list):
             raise ValueError("doi must be a list of strings")
 
@@ -685,7 +685,7 @@ class Graph:
         final_size=None,
         selfing_rate=None,
         cloning_rate=None,
-    ):
+    ) -> Deme:
         """
         Add a deme to the graph, with lifetime ``(start_time, end_time]``.
 
@@ -725,6 +725,8 @@ class Graph:
             If not specified, a single epoch will be created for the deme that
             spans from ``start_time`` to ``end_time``, using the ``initial_size``,
             ``final_size``, ``selfing_rate`` and ``cloning_rate`` provided.
+        :return: Newly created deme.
+        :rtype: :class:`.Deme`
         """
         if id in self:
             raise ValueError(f"deme {id} already exists in this graph")
@@ -844,6 +846,7 @@ class Graph:
         )
         self._deme_map[deme.id] = deme
         self.demes.append(deme)
+        return deme
 
     def _check_time_intersection(self, deme1, deme2, time):
         deme1 = self[deme1]
@@ -861,7 +864,9 @@ class Graph:
                 )
         return time_lo, time_hi
 
-    def symmetric_migration(self, *, demes, rate, start_time=None, end_time=None):
+    def symmetric_migration(
+        self, *, demes, rate, start_time=None, end_time=None
+    ) -> List[Migration]:
         """
         Add continuous symmetric migrations between all pairs of demes in a list.
 
@@ -870,19 +875,27 @@ class Graph:
         :param rate: The rate of migration per generation.
         :param start_time: The time at which the migration rate is enabled.
         :param end_time: The time at which the migration rate is disabled.
+        :return: List of newly created migrations.
+        :rtype: list of :class:`.Migration`
         """
         if not isinstance(demes, list) or len(demes) < 2:
             raise ValueError("must specify a list of two or more deme IDs")
+        migrations = list()
         for source, dest in itertools.permutations(demes, 2):
-            self.migration(
-                source=source,
-                dest=dest,
-                rate=rate,
-                start_time=start_time,
-                end_time=end_time,
+            migrations.append(
+                self.migration(
+                    source=source,
+                    dest=dest,
+                    rate=rate,
+                    start_time=start_time,
+                    end_time=end_time,
+                )
             )
+        return migrations
 
-    def migration(self, *, source, dest, rate, start_time=None, end_time=None):
+    def migration(
+        self, *, source, dest, rate, start_time=None, end_time=None
+    ) -> Migration:
         """
         Add continuous migration from one deme to another.
         Source and destination demes follow the forwards-in-time convention,
@@ -898,6 +911,8 @@ class Graph:
         :param end_time: The time at which the migration rate is disabled.
             If ``None``, the end time is defined by the latest time at which
             the demes coexist.
+        :return: Newly created migration.
+        :rtype: :class:`.Migration`
         """
         for deme_id in (source, dest):
             if deme_id not in self:
@@ -911,17 +926,18 @@ class Graph:
             end_time = time_lo
         else:
             self._check_time_intersection(source, dest, end_time)
-        self.migrations.append(
-            Migration(
-                source=source,
-                dest=dest,
-                start_time=start_time,
-                end_time=end_time,
-                rate=rate,
-            )
+        migration = Migration(
+            source=source,
+            dest=dest,
+            start_time=start_time,
+            end_time=end_time,
+            rate=rate,
         )
 
-    def pulse(self, *, source, dest, proportion, time):
+        self.migrations.append(migration)
+        return migration
+
+    def pulse(self, *, source, dest, proportion, time) -> Pulse:
         """
         Add a pulse of migration at a fixed time.
         Source and destination demes follow the forwards-in-time convention.
@@ -932,6 +948,8 @@ class Graph:
             proportion of individuals in the destination deme made up of individuals
             from the source deme.
         :param time: The time at which migrations occur.
+        :return: Newly created pulse.
+        :rtype: :class:`.Pulse`
         """
         for deme_id in (source, dest):
             if deme_id not in self:
@@ -960,9 +978,14 @@ class Graph:
                 "the desired ancestry proportions."
             )
 
-        self.pulses.append(
-            Pulse(source=source, dest=dest, time=time, proportion=proportion)
+        pulse = Pulse(
+            source=source,
+            dest=dest,
+            time=time,
+            proportion=proportion,
         )
+        self.pulses.append(pulse)
+        return pulse
 
     @property
     def successors(self):
