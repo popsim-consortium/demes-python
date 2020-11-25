@@ -161,6 +161,66 @@ class Epoch:
         """
         return self.start_time - self.end_time
 
+    def assert_close(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        """
+        Returns true if the epoch and ``other`` epoch implement essentially
+        the same epoch and raises AssertionError otherwise.
+        Compares values of the following attributes:
+        ``start_time``, ``end_time``, ``initial_size``, ``final_size``,
+        ``size_function``, ``selfing_rate``, ``cloning_rate``.
+
+        :param other: The epoch to compare against.
+        :type other: :class:`.Epoch`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+
+        :return: True if the two epochs are equivalent, raises AssertionError\
+                 otherwise.
+        :rtype: bool
+        """
+        assert (
+            self.__class__ is other.__class__
+        ), f"Failed as other epoch is not instance of {self.__class__} type."
+        assert isclose(
+            self.start_time, other.start_time, rel_tol=rel_tol, abs_tol=abs_tol
+        ), f"Failed for start_time {self.start_time} != {other.start_time} (other)."
+        assert isclose(
+            self.end_time, other.end_time, rel_tol=rel_tol, abs_tol=abs_tol
+        ), f"Failed for end_time {self.end_time} != {other.end_time} (other)."
+        assert isclose(
+            self.initial_size, other.initial_size, rel_tol=rel_tol, abs_tol=abs_tol
+        ), (
+            f"Failed for initial_size "
+            f"{self.initial_size} != {other.initial_size} (other)."
+        )
+        assert isclose(
+            self.final_size, other.final_size, rel_tol=rel_tol, abs_tol=abs_tol
+        ), f"Failed for final_size {self.final_size} != {other.final_size} (other)."
+        assert self.size_function == other.size_function
+        assert isclose(
+            self.selfing_rate, other.selfing_rate, rel_tol=rel_tol, abs_tol=abs_tol
+        ), (
+            f"Failed for selfing_rate "
+            f"{self.selfing_rate} != {other.selfing_rate} (other)."
+        )
+        assert isclose(
+            self.cloning_rate, other.cloning_rate, rel_tol=rel_tol, abs_tol=abs_tol
+        ), (
+            f"Failed for cloning_rate "
+            f"{self.cloning_rate} != {other.cloning_rate} (other)."
+        )
+        return True
+
     def isclose(
         self,
         other,
@@ -168,26 +228,28 @@ class Epoch:
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
     ) -> bool:
-        return (
-            self.__class__ is other.__class__
-            and isclose(
-                self.start_time, other.start_time, rel_tol=rel_tol, abs_tol=abs_tol
-            )
-            and isclose(self.end_time, other.end_time, rel_tol=rel_tol, abs_tol=abs_tol)
-            and isclose(
-                self.initial_size, other.initial_size, rel_tol=rel_tol, abs_tol=abs_tol
-            )
-            and isclose(
-                self.final_size, other.final_size, rel_tol=rel_tol, abs_tol=abs_tol
-            )
-            and self.size_function == other.size_function
-            and isclose(
-                self.selfing_rate, other.selfing_rate, rel_tol=rel_tol, abs_tol=abs_tol
-            )
-            and isclose(
-                self.cloning_rate, other.cloning_rate, rel_tol=rel_tol, abs_tol=abs_tol
-            )
-        )
+        """
+        Returns true if the epoch and ``other`` epoch implement essentially
+        the same epoch. For more information see :meth:`assert_close`.
+
+        :param other: The epoch to compare against.
+        :type other: :class:`.Epoch`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+
+
+        :return: True if the two epochs are equivalent, False otherwise.
+        :rtype: bool
+        """
+        try:
+            self.assert_close(other, rel_tol=rel_tol, abs_tol=abs_tol)
+            return True
+        except AssertionError:
+            return False
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -216,6 +278,48 @@ class Migration:
         if self.source == self.dest:
             raise ValueError("source and dest cannot be the same deme")
 
+    def assert_close(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        """
+        Returns true if the migration is equal to the ``other`` migration and
+        raises AssertionError otherwise.
+        Compares values of the following attributes:
+        ``source``, ``dest``, ``start_time``, ``end_time``, ``rate``.
+
+        :param other: The migration to compare against.
+        :type other: :class:`.Migration`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+
+        :return: True if the two migrations are equivalent, raises\
+                 AssertionError otherwise.
+        :rtype: bool
+        """
+        assert (
+            self.__class__ is other.__class__
+        ), f"Failed as other migration is not instance of {self.__class__} type."
+        assert self.source == other.source
+        assert self.dest == other.dest
+        assert isclose(
+            self.start_time, other.start_time, rel_tol=rel_tol, abs_tol=abs_tol
+        ), f"Failed for start_time {self.start_time} != {other.start_time} (other)."
+        assert isclose(
+            self.end_time, other.end_time, rel_tol=rel_tol, abs_tol=abs_tol
+        ), f"Failed for end_time {self.end_time} != {other.end_time} (other)."
+        assert isclose(
+            self.rate, other.rate, rel_tol=rel_tol, abs_tol=abs_tol
+        ), f"Failed for rate {self.rate} != {other.rate} (other)."
+        return True
+
     def isclose(
         self,
         other,
@@ -223,16 +327,28 @@ class Migration:
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
     ) -> bool:
-        return (
-            self.__class__ is other.__class__
-            and self.source == other.source
-            and self.dest == other.dest
-            and isclose(
-                self.start_time, other.start_time, rel_tol=rel_tol, abs_tol=abs_tol
-            )
-            and isclose(self.end_time, other.end_time, rel_tol=rel_tol, abs_tol=abs_tol)
-            and isclose(self.rate, other.rate, rel_tol=rel_tol, abs_tol=abs_tol)
-        )
+        """
+        Returns true if the migration is equal to the ``other`` migration.
+        For more information see :meth:`assert_close`.
+
+        :param other: The migration to compare against.
+        :type other: :class:`.Migration`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+
+        :return: True if the two epochs are equivalent, False otherwise.
+        :rtype: bool
+
+        """
+        try:
+            self.assert_close(other, rel_tol=rel_tol, abs_tol=abs_tol)
+            return True
+        except AssertionError:
+            return False
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -260,6 +376,45 @@ class Pulse:
         if self.source == self.dest:
             raise ValueError("source and dest cannot be the same deme")
 
+    def assert_close(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        """
+        Returns true if the pulse is equal to the ``other`` pulse and raises
+        AssertionError otherwise.
+        Compares values of the following attributes:
+        ``source``, ``dest``, ``time``, ``proportion``.
+
+        :param other: The pulse to compare against.
+        :type other: :class:`.Pulse`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+
+        :return: True if the two pulses are equivalent, raises AssertionError\
+                 otherwise.
+        :rtype: bool
+        """
+        assert (
+            self.__class__ is other.__class__
+        ), f"Failed as other pulse is not instance of {self.__class__} type."
+        assert self.source == other.source
+        assert self.dest == other.dest
+        assert isclose(
+            self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol
+        ), f"Failed for time {self.time} != {other.time} (other)."
+        assert isclose(
+            self.proportion, other.proportion, rel_tol=rel_tol, abs_tol=abs_tol
+        ), f"Failed for proportion {self.proportion} != {other.proportion} (other)."
+        return True
+
     def isclose(
         self,
         other,
@@ -267,15 +422,28 @@ class Pulse:
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
     ) -> bool:
-        return (
-            self.__class__ is other.__class__
-            and self.source == other.source
-            and self.dest == other.dest
-            and isclose(self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol)
-            and isclose(
-                self.proportion, other.proportion, rel_tol=rel_tol, abs_tol=abs_tol
-            )
-        )
+        """
+        Returns true if the pulse is equal to the ``other`` pulse.
+        For more information see :meth:`assert_close`.
+
+        :param other: The pulse to compare against.
+        :type other: :class:`.Pulse`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+
+        :return: True if the two pulses are equivalent, False otherwise.
+        :rtype: bool
+
+        """
+        try:
+            self.assert_close(other, rel_tol=rel_tol, abs_tol=abs_tol)
+            return True
+        except AssertionError:
+            return False
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -302,6 +470,43 @@ class Split:
             if child == self.parent:
                 raise ValueError("child and parent cannot be the same deme")
 
+    def assert_close(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+        raise_ex=False,
+    ) -> bool:
+        """
+        Returns true if the split is equal to the ``other`` split and raises
+        AssertionError otherwise.
+        Compares values of the following attributes:
+        ``parent``, ``children``, ``time``.
+
+        :param other: The split to compare against.
+        :type other: :class:`.Split`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+
+        :return: True if the two splits are equivalent, raises AssertionError\
+                 otherwise.
+        :rtype: bool
+        """
+        assert (
+            self.__class__ is other.__class__
+        ), f"Failed as other split is not instance of {self.__class__} type."
+        assert self.parent == other.parent
+        assert sorted(self.children) == sorted(other.children)
+        assert isclose(
+            self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol
+        ), f"Failed for time {self.time} != {other.time} (other)."
+        return True
+
     def isclose(
         self,
         other,
@@ -309,12 +514,32 @@ class Split:
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
     ) -> bool:
-        return (
-            self.__class__ is other.__class__
-            and self.parent == other.parent
-            and sorted(self.children) == sorted(other.children)
-            and isclose(self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol)
-        )
+        """
+        Returns true if the split is equal to the ``other`` split.
+        Compares values of the following attributes:
+        ``parent``, ``children``, ``time``.
+
+        :param other: The split to compare against.
+        :type other: :class:`.Split`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+        :param raise_ex: Determines if exception (ValueError) should be raised
+                         when splits are not close. The error will contain
+                         information about attributes that are not equal.
+        :type raise_ex: bool
+
+        :return: True if the two splits are equivalent, False otherwise.
+        :rtype: bool
+        """
+        try:
+            self.assert_close(other, rel_tol=rel_tol, abs_tol=abs_tol)
+            return True
+        except AssertionError:
+            return False
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -336,6 +561,46 @@ class Branch:
         if self.child == self.parent:
             raise ValueError("child and parent cannot be the same deme")
 
+    def assert_close(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        """
+        Returns true if the branch is equal to the ``other`` branch and raises
+        AssertionError otherwise.
+        Compares values of the following attributes:
+        ``parent``, ``child``, ``time``.
+
+        :param other: The branch to compare against.
+        :type other: :class:`.Branch`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+        :param raise_ex: Determines if exception (ValueError) should be raised
+                         when branches are not close. The error will contain
+                         information about attributes that are not equal.
+        :type raise_ex: bool
+
+        :return: True if the two branches are equivalent, raises\
+                 AssertionError otherwise.
+        :rtype: bool
+        """
+        assert (
+            self.__class__ is other.__class__
+        ), f"failed as other branch is not instance of {self.__class__} type."
+        assert self.parent == other.parent
+        assert sorted(self.child) == sorted(other.child)
+        assert isclose(
+            self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol
+        ), f"Failed for time {self.time} != {other.time} (other)."
+        return True
+
     def isclose(
         self,
         other,
@@ -343,12 +608,28 @@ class Branch:
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
     ) -> bool:
-        return (
-            self.__class__ is other.__class__
-            and self.parent == other.parent
-            and self.child == other.child
-            and isclose(self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol)
-        )
+        """
+        Returns true if the branch is equal to the ``other`` branch.
+        For more information see :meth:`assert_close`.
+
+        :param other: The branch to compare against.
+        :type other: :class:`.Branch`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+
+        :return: True if the two branches are equivalent, False otherwise.
+        :rtype: bool
+
+        """
+        try:
+            self.assert_close(other, rel_tol=rel_tol, abs_tol=abs_tol)
+            return True
+        except AssertionError:
+            return False
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -384,6 +665,53 @@ class Merge:
         if len(set(self.parents)) != len(self.parents):
             raise ValueError("cannot repeat parents in merge")
 
+    def assert_close(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        """
+        Returns true if the merge is equal to the ``other`` merge and raises
+        AssertionError otherwise.
+        Compares values of the following attributes:
+        ``parents``, ``proportions``, ``child``, ``time``.
+
+        :param other: The merge to compare against.
+        :type other: :class:`.Merge`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+
+        :return: True if the two merges are equivalent, raises AssertionError\
+                 otherwise.
+        :rtype: bool
+        """
+        assert (
+            self.__class__ is other.__class__
+        ), f"Failed as other merge is not instance of {self.__class__} type."
+        assert isclose_deme_proportions(
+            self.parents,
+            self.proportions,
+            other.parents,
+            other.proportions,
+            rel_tol=rel_tol,
+            abs_tol=abs_tol,
+        ), (
+            f"Parents or corresponding proportions are different: "
+            f"parents: {self.parents}, {other.parents} (other), "
+            f"proportions: {self.proportions}, {other.proportions} (other)."
+        )
+        assert sorted(self.child) == sorted(other.child)
+        assert isclose(
+            self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol
+        ), f"Failed for time {self.time} != {other.time} (other)."
+        return True
+
     def isclose(
         self,
         other,
@@ -391,19 +719,28 @@ class Merge:
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
     ) -> bool:
-        return (
-            self.__class__ is other.__class__
-            and isclose_deme_proportions(
-                self.parents,
-                self.proportions,
-                other.parents,
-                other.proportions,
-                rel_tol=rel_tol,
-                abs_tol=abs_tol,
-            )
-            and self.child == other.child
-            and isclose(self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol)
-        )
+        """
+        Returns true if the merge is equal to the ``other`` merge.
+        For more information see :meth:`assert_close`.
+
+        :param other: The merge to compare against.
+        :type other: :class:`.Merge`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+
+        :return: True if the two merges are equivalent, False otherwise.
+        :rtype: bool
+
+        """
+        try:
+            self.assert_close(other, rel_tol=rel_tol, abs_tol=abs_tol)
+            return True
+        except AssertionError:
+            return False
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -439,6 +776,61 @@ class Admix:
         if len(set(self.parents)) != len(self.parents):
             raise ValueError("cannot repeat parents in admixure")
 
+    def assert_close(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+        raise_ex=False,
+    ) -> bool:
+        """
+        Returns true if the admixture is equal to the ``other`` admixture and
+        raises AssertionError otherwise.
+        Compares values of the following attributes:
+        ``parents``, ``proportions``, ``child``, ``time``.
+
+        :param other: The admixture to compare against.
+        :type other: :class:`.Admix`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+        :param raise_ex: Determines if exception (ValueError) should be raised
+                         when admixtures are not close. The error will contain
+                         information about attributes that are not equal.
+        :type raise_ex: bool
+
+        :return: True if the two admixtures are equivalent, raises\
+                 AssertionError otherwise.
+        :rtype: bool
+        """
+        assert (
+            self.__class__ is other.__class__
+        ), f"Failed as other admixture is not instance of {self.__class__} type."
+        assert isclose_deme_proportions(
+            self.parents,
+            self.proportions,
+            other.parents,
+            other.proportions,
+            rel_tol=rel_tol,
+            abs_tol=abs_tol,
+        ), (
+            f"Parents or corresponding proportions are different: "
+            f"parents: {self.parents}, {other.parents} (other), "
+            f"proportions: {self.proportions}, {other.proportions} (other)."
+        )
+        assert sorted(self.child) == sorted(other.child)
+        assert isclose(
+            self.time,
+            other.time,
+            rel_tol=rel_tol,
+            abs_tol=abs_tol,
+        ), f"Failed for time {self.time} != {other.time} (other)."
+        return True
+
     def isclose(
         self,
         other,
@@ -446,19 +838,31 @@ class Admix:
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
     ) -> bool:
-        return (
-            self.__class__ is other.__class__
-            and isclose_deme_proportions(
-                self.parents,
-                self.proportions,
-                other.parents,
-                other.proportions,
-                rel_tol=rel_tol,
-                abs_tol=abs_tol,
-            )
-            and self.child == other.child
-            and isclose(self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol)
-        )
+        """
+        Returns true if the admixture is equal to the ``other`` admixture.
+        For more information see :meth:`assert_close`.
+
+        :param other: The admixture to compare against.
+        :type other: :class:`.Admix`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+        :param raise_ex: Determines if exception (ValueError) should be raised
+                         when admixtures are not close. The error will contain
+                         information about attributes that are not equal.
+        :type raise_ex: bool
+
+        :return: True if the two admixtures are equivalent, False otherwise.
+        :rtype: bool
+        """
+        try:
+            self.assert_close(other, rel_tol=rel_tol, abs_tol=abs_tol)
+            return True
+        except AssertionError:
+            return False
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -510,6 +914,55 @@ class Deme:
                 if self.epochs[i - 1].end_time != epoch.start_time:
                     raise ValueError("Epoch start and end times must align")
 
+    def assert_close(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        """
+        Returns true if the deme is equal to the ``other`` deme and raises
+        AssertionError otherwise.
+        Compares values of the following objects:
+        ``id``, ``ancestors``, ``proportions``, epochs.
+
+        :param other: The deme to compare against.
+        :type other: :class:`.Deme`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+
+        :return: True if the two demes are equivalent, raises AssertionError\
+                 otherwise.
+        :rtype: bool
+        """
+        assert (
+            self.__class__ is other.__class__
+        ), f"Failed as other deme is not instance of {self.__class__} type."
+        assert sorted(self.id) == sorted(other.id)
+        assert isclose_deme_proportions(
+            self.ancestors,
+            self.proportions,
+            other.ancestors,
+            other.proportions,
+            rel_tol=rel_tol,
+            abs_tol=abs_tol,
+        ), (
+            f"Ancestors or corresponding proportions are different: "
+            f"ancestors: {self.ancestors}, {other.ancestors} (other), "
+            f"proportions: {self.proportions}, {other.proportions} (other)."
+        )
+        for i, (e1, e2) in enumerate(zip(self.epochs, other.epochs)):
+            try:
+                e1.assert_close(e2, rel_tol=rel_tol, abs_tol=abs_tol)
+            except AssertionError as e:
+                raise AssertionError(f"Failed for epochs (number {i})") from e
+        return True
+
     def isclose(
         self,
         other,
@@ -517,22 +970,27 @@ class Deme:
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
     ) -> bool:
-        return (
-            self.__class__ is other.__class__
-            and self.id == other.id
-            and isclose_deme_proportions(
-                self.ancestors,
-                self.proportions,
-                other.ancestors,
-                other.proportions,
-                rel_tol=rel_tol,
-                abs_tol=abs_tol,
-            )
-            and all(
-                e1.isclose(e2, rel_tol=rel_tol, abs_tol=abs_tol)
-                for e1, e2 in zip(self.epochs, other.epochs)
-            )
-        )
+        """
+        Returns true if the deme is equal to the ``other`` deme.
+        For more information see :meth:`assert_close`.
+
+        :param other: The deme to compare against.
+        :type other: :class:`.Deme`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+
+        :return: True if the two demes are equivalent, False otherwise.
+        :rtype: bool
+        """
+        try:
+            self.assert_close(other, rel_tol=rel_tol, abs_tol=abs_tol)
+            return True
+        except AssertionError:
+            return False
 
     @property
     def start_time(self):
@@ -618,6 +1076,82 @@ class Graph:
         """
         return deme_id in self._deme_map
 
+    def assert_close(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ) -> bool:
+        """
+        Returns true if the graph and ``other`` implement essentially
+        the same demographic model and raises AssertionError otherwise.
+        Numerical values are compared using the
+        :func:`math.isclose` function, from which this method takes its name.
+        Furthermore, the following implementation details are ignored during
+        the comparison:
+
+            - The graphs' ``description`` and ``doi`` attributes.
+            - The order in which ``migrations`` were specified.
+            - The order in which admixture ``pulses`` were specified.
+            - The order in which ``demes`` were specified.
+            - The order in which a deme's ``ancestors`` were specified.
+            - The ``selfing_rate`` and ``cloning_rate`` attributes of the deme
+              graph, or of the demes (if any). Theses attributes are considered
+              conveniences, and are propagated to the relevant demes'
+              epochs. The ``selfing_rate`` and ``cloning_rate`` attributes of
+              each epoch *are* evaluated for equality between the two models.
+
+        :param other: The graph to compare against.
+        :type other: :class:`.Graph`
+        :param float rel_tol: The relative tolerance permitted for numerical
+            comparisons. See documentation for :func:`math.isclose`.
+        :param float abs_tol: The absolute tolerance permitted for numerical
+            comparisons. See documentation for :func:`math.isclose`.
+        :return: True if the two graphs implement the same model, raises\
+                 AssertionError otherwise.
+        :rtype: bool
+        """
+
+        def sorted_eq(aa, bb, *, rel_tol, abs_tol, name) -> bool:
+            # Order-agnostic equality check.
+            assert len(aa) == len(bb)
+            for (a, b) in zip(sorted(aa), sorted(bb)):
+                try:
+                    a.assert_close(b, rel_tol=rel_tol, abs_tol=abs_tol)
+                except AssertionError as e:
+                    if isinstance(a, Deme) and isinstance(b, Deme):
+                        raise AssertionError(
+                            f"Failed for {name} {a.id} and {b.id}"
+                        ) from e
+                    raise AssertionError(f"Failed for {name}") from e
+            return True
+
+        assert (
+            self.__class__ is other.__class__
+        ), f"Failed as other graph is not instance of {self.__class__} type."
+        assert self.time_units == other.time_units
+        assert self.generation_time == other.generation_time
+        return (
+            sorted_eq(
+                self.demes, other.demes, rel_tol=rel_tol, abs_tol=abs_tol, name="demes"
+            )
+            and sorted_eq(
+                self.migrations,
+                other.migrations,
+                rel_tol=rel_tol,
+                abs_tol=abs_tol,
+                name="migrations",
+            )
+            and sorted_eq(
+                self.pulses,
+                other.pulses,
+                rel_tol=rel_tol,
+                abs_tol=abs_tol,
+                name="pulses",
+            )
+        )
+
     def isclose(
         self,
         other,
@@ -652,26 +1186,11 @@ class Graph:
         :return: True if the two graphs implement the same model, False otherwise.
         :rtype: bool
         """
-
-        def sorted_eq(aa, bb, *, rel_tol, abs_tol) -> bool:
-            # Order-agnostic equality check.
-            if len(aa) != len(bb):
-                return False
-            for (a, b) in zip(sorted(aa), sorted(bb)):
-                if not a.isclose(b, rel_tol=rel_tol, abs_tol=abs_tol):
-                    return False
+        try:
+            self.assert_close(other, rel_tol=rel_tol, abs_tol=abs_tol)
             return True
-
-        return (
-            self.__class__ is other.__class__
-            and self.time_units == other.time_units
-            and self.generation_time == other.generation_time
-            and sorted_eq(self.demes, other.demes, rel_tol=rel_tol, abs_tol=abs_tol)
-            and sorted_eq(
-                self.migrations, other.migrations, rel_tol=rel_tol, abs_tol=abs_tol
-            )
-            and sorted_eq(self.pulses, other.pulses, rel_tol=rel_tol, abs_tol=abs_tol)
-        )
+        except AssertionError:
+            return False
 
     def deme(
         self,
