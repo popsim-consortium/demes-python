@@ -4,8 +4,10 @@ import tempfile
 import textwrap
 
 import pytest
+import hypothesis as hyp
 
 import demes
+import tests
 
 
 def jacobs_papuans():
@@ -356,3 +358,23 @@ class TestLoadAndDump:
 
     def test_examples_load_dump_load_json(self):
         self.check_examples_load_dump_load(format="json")
+
+    @hyp.settings(suppress_health_check=[hyp.HealthCheck.too_slow])
+    @hyp.given(tests.graphs())
+    def test_dump_load_json(self, g):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            json_file = pathlib.Path(tmpdir) / "temp.json"
+            demes.dump(g, json_file)
+            g_json = demes.load(json_file)
+        assert g.isclose(g_json)
+
+    # The YAML loader has numerous problems, and this is also painfully slow.
+    #
+    # @hyp.settings(suppress_health_check=[hyp.HealthCheck.too_slow])
+    # @hyp.given(tests.graphs())
+    # def test_dump_load_json(self, g):
+    #     with tempfile.TemporaryDirectory() as tmpdir:
+    #         yaml_file = pathlib.Path(tmpdir) / "temp.yml"
+    #         demes.dump(g, yaml_file)
+    #         g_yaml = demes.load(yaml_file)
+    #     assert g.isclose(g_yaml)

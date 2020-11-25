@@ -42,6 +42,12 @@ def unit_interval(self, attribute, value):
         raise ValueError(f"must have 0 <= {attribute.name} <= 1")
 
 
+def nonempty_str(self, attribute, value):
+    attr.validators.instance_of(str)(self, attribute, value)
+    if len(value) == 0:
+        raise ValueError(f"{attribute.name} must be a non-empty string")
+
+
 def isclose(
     a: Optional[Number],
     b: Optional[Number],
@@ -480,12 +486,15 @@ class Deme:
     epochs: List[Epoch] = attr.ib()
 
     @id.validator
-    def _check_id(self, _attribute, _value):
-        err = "deme ID must be a non-empty string"
-        if not isinstance(self.id, str):
-            raise TypeError(err)
-        if len(self.id) == 0:
-            raise ValueError(err)
+    def _check_id(self, attribute, value):
+        attr.validators.instance_of(str)(self, attribute, value)
+        if not self.id.isidentifier():
+            raise ValueError(
+                "Invalid deme ID `{self.id}`. IDs must be valid python identifiers. "
+                "We recommend choosing a deme ID that starts with a letter or "
+                "underscore, and is followed by one or more letters, numbers, "
+                "or underscores."
+            )
 
     @ancestors.validator
     def _check_ancestors(self, _attribute, _value):
@@ -607,8 +616,8 @@ class Graph:
     :vartype pulses: list of :class:`.Pulse`
     """
 
-    description: str = attr.ib()
-    time_units: str = attr.ib()
+    description: str = attr.ib(validator=nonempty_str)
+    time_units: str = attr.ib(validator=nonempty_str)
     generation_time: Optional[Time] = attr.ib(
         default=None, validator=optional([positive, finite])
     )
@@ -624,6 +633,11 @@ class Graph:
 
     def __attrs_post_init__(self):
         self._deme_map: Dict[ID, Deme] = dict()
+
+        if self.time_units != "generations" and self.generation_time is None:
+            raise ValueError(
+                'if time_units!="generations", generation_time must be specified'
+            )
 
     def __getitem__(self, deme_id):
         """
