@@ -1529,3 +1529,43 @@ class TestGraphToDict(unittest.TestCase):
         g = demes.Graph(description="a", time_units="generations")
         with self.assertRaises(TypeError):
             g.asdict_simplified(custom_attributes="inbreeding")
+
+    def test_multiple_symmetric_migrations(self):
+        g = demes.Graph(description="descr", time_units="generations")
+        g.deme("a", initial_size=100)
+        g.deme("b", initial_size=200)
+        g.deme("c", initial_size=300)
+        g.symmetric_migration(demes=["a", "b", "c"], rate=0.01)
+        d = g.asdict_simplified()
+        self.assertTrue(len(d["migrations"]["symmetric"]) == 1)
+        self.assertTrue("asymmetric" not in d["migrations"])
+
+        g.deme("d", initial_size=400)
+        g.symmetric_migration(demes=["a", "d"], rate=0.01)
+        d = g.asdict_simplified()
+        self.assertTrue(len(d["migrations"]["symmetric"]) == 2)
+        self.assertTrue(len(d["migrations"]["symmetric"][0]["demes"]) == 3)
+        self.assertTrue(len(d["migrations"]["symmetric"][1]["demes"]) == 2)
+        self.assertTrue("d" not in d["migrations"]["symmetric"][0]["demes"])
+        self.assertTrue("asymmetric" not in d["migrations"])
+
+    def test_mix_sym_asym_migrations(self):
+        g = demes.Graph(description="a", time_units="generations")
+        g.deme("a", initial_size=1, start_time=100)
+        g.deme("b", initial_size=1)
+        g.deme("c", initial_size=1)
+        g.deme("d", initial_size=1)
+        g.symmetric_migration(demes=["a", "b"], rate=0.01)
+        g.symmetric_migration(demes=["b", "c"], rate=0.01)
+        g.symmetric_migration(demes=["a", "c", "d"], rate=0.01)
+        g.migration(source="b", dest="d", rate=0.01)
+        d = g.asdict()
+        self.assertTrue(len(d["migrations"]["asymmetric"]) == 2 + 2 + 6 + 1)
+        d = g.asdict_simplified()
+        self.assertTrue(
+            {"source": "b", "dest": "d", "rate": 0.01} in d["migrations"]["asymmetric"]
+        )
+        self.assertTrue(len(d["migrations"]["symmetric"]) == 3)
+        self.assertTrue(len(d["migrations"]["symmetric"][0]["demes"]) == 3)
+        self.assertTrue(len(d["migrations"]["symmetric"][1]["demes"]) == 2)
+        self.assertTrue(len(d["migrations"]["symmetric"][2]["demes"]) == 2)

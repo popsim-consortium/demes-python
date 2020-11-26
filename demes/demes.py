@@ -1676,9 +1676,6 @@ class Graph:
         """
         Return a simplified dict representation of the graph.
 
-        This function removes redundancies in the graph. Specifically, we ...
-        continue docs
-
         :param custom_attributes: List of additional attributes to simplify, which
             are not ``selfing_rate`` or ``cloning_rate``.
         """
@@ -1731,10 +1728,28 @@ class Graph:
             Collapse symmetric migration rates, and remove redundant information
             about start and end times if they are implied by the time overlap
             interval of the demes involved.
+
+            To collapse symmetric migrations, we collect all source/dest migration
+            pairs for each set of migration attributes (rate, start_time, end_time),
+            and then iteratively check for all-way symmetric migration between all
+            demes that are involved in migrations for the given set of migration
+            attributes.
             """
+
+            def collapse_demes(pairs):
+                all_demes = []
+                for pair in pairs:
+                    if pair[0] not in all_demes:
+                        all_demes.append(pair[0])
+                    if pair[1] not in all_demes:
+                        all_demes.append(pair[1])
+                return all_demes
+
             symmetric = []
             asymmetric = data["migrations"]["asymmetric"].copy()
             # first remove start/end times if equal time intersections
+            rate_sets = {}
+            # keys of rate_types are (rate, start_time, end_time)
             for migration in data["migrations"]["asymmetric"]:
                 source = migration["source"]
                 dest = migration["dest"]
@@ -1743,20 +1758,60 @@ class Graph:
                     del migration["end_time"]
                 if migration["start_time"] == time_hi:
                     del migration["start_time"]
-            # then check for the same event in the opposite direction
-            for migration in data["migrations"]["asymmetric"]:
-                source = migration["source"]
-                dest = migration["dest"]
-                opposite = copy.deepcopy(migration)
-                opposite["dest"] = source
-                opposite["source"] = dest
-                if opposite in asymmetric:
-                    asymmetric.remove(migration)
-                    asymmetric.remove(opposite)
-                    sym = dict(demes=[dest, source], **opposite)
-                    del sym["source"]
-                    del sym["dest"]
-                    symmetric.append(sym)
+                k = tuple(
+                    migration.get(key) for key in ("rate", "start_time", "end_time")
+                )
+                rate_sets.setdefault(k, [])
+                rate_sets[k].append((source, dest))
+
+            for k, pairs in rate_sets.items():
+                if len(pairs) == 1:
+                    continue
+                # list of all demes that are source or dest in this rate set
+                all_demes = collapse_demes(pairs)
+
+                # we check all possible sets of n-way symmetric migration
+                i = len(all_demes)
+                while len(all_demes) >= 2 and i >= 2:
+                    # loop through each possible set for a given set size i
+                    compress_demes = False
+                    for deme_set in itertools.combinations(all_demes, i):
+                        # check if all (source, dest) pairs exist in pairs of migration
+                        all_present = True
+                        for deme_pair in itertools.permutations(deme_set, 2):
+                            if deme_pair not in pairs:
+                                all_present = False
+                                break
+                        # if they do all exist
+                        if all_present:
+                            compress_demes = True
+                            # remove from asymmetric list
+                            for deme_pair in itertools.permutations(deme_set, 2):
+                                mig = {
+                                    "source": deme_pair[0],
+                                    "dest": deme_pair[1],
+                                    "rate": k[0],
+                                }
+                                if k[1] is not None:
+                                    mig["start_time"] = k[1]
+                                if k[2] is not None:
+                                    mig["end_time"] = k[2]
+                                asymmetric.remove(mig)
+                                pairs.remove(deme_pair)
+                            # add to symmetric list
+                            sym_mig = dict(demes=[d for d in deme_set], rate=k[0])
+                            if k[1] is not None:
+                                sym_mig["start_time"] = k[1]
+                            if k[2] is not None:
+                                sym_mig["end_time"] = k[2]
+                            symmetric.append(sym_mig)
+                    # if we found a set of symmetric migrations, compress all_demes
+                    if compress_demes:
+                        all_demes = collapse_demes(pairs)
+                        i = min(i, len(all_demes))
+                    # otherwise, check one set size smaller
+                    else:
+                        i -= 1
 
             if len(symmetric) > 0:
                 data["migrations"]["symmetric"] = symmetric
