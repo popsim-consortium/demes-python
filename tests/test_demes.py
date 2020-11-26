@@ -1372,6 +1372,36 @@ class TestGraph(unittest.TestCase):
         pulse = g.pulse(source="a", dest="b", proportion=0.5, time=25)
         self.assertIsInstance(pulse, Pulse)
 
+    def test_deme_end_time(self):
+        g = demes.Graph(description="test", time_units="generations")
+        g.deme(
+            "a",
+            end_time=10,
+            epochs=[Epoch(end_time=100, initial_size=10), Epoch(initial_size=20)],
+        )
+        with self.assertRaises(ValueError):
+            g.deme("b", epochs=[Epoch(initial_size=100)])
+
+    def test_ambiguous_epoch_times(self):
+        g = demes.Graph(description="test", time_units="generations")
+        with self.assertRaises(ValueError):
+            g.deme(
+                "a",
+                epochs=[
+                    Epoch(start_time=100, initial_size=10),
+                    Epoch(end_time=0, initial_size=100),
+                ],
+            )
+
+    def test_epoch_end_time_from_start_time(self):
+        g = demes.Graph(description="test", time_units="generations")
+        g.deme(
+            "a",
+            end_time=10,
+            epochs=[Epoch(initial_size=10), Epoch(start_time=10, initial_size=20)],
+        )
+        self.assertTrue(g["a"].epochs[0].end_time == 10)
+
 
 class TestGraphToDict(unittest.TestCase):
     def test_finite_start_time(self):
@@ -1391,6 +1421,21 @@ class TestGraphToDict(unittest.TestCase):
         dg.deme("a", initial_size=100, cloning_rate=0.1)
         d = dg.asdict()
         self.assertTrue(d["demes"][0]["epochs"][0]["cloning_rate"] == 0.1)
+        d = dg.asdict_simplified()
+        self.assertTrue(d["demes"][0]["cloning_rate"] == 0.1)
+        dg.deme("b", initial_size=200)
+        d = dg.asdict_simplified()
+        self.assertTrue("cloning_rate" not in d["demes"][1])
+        dg.deme(
+            "c",
+            epochs=[
+                Epoch(initial_size=1, end_time=100, cloning_rate=0.3),
+                Epoch(initial_size=2, end_time=0),
+            ],
+        )
+        d = dg.asdict_simplified()
+        self.assertTrue(d["demes"][2]["epochs"][0]["cloning_rate"] == 0.3)
+        self.assertTrue("cloning_rate" not in d["demes"][2]["epochs"][1])
 
     def test_fill_nonstandard_size_function(self):
         dg = demes.Graph(description="a", time_units="generations")
@@ -1479,3 +1524,8 @@ class TestGraphToDict(unittest.TestCase):
             data = demes.load(example).asdict()
             jsonschema.validate(data, schema)
         assert n > 0
+
+    def test_bad_custom_attributes(self):
+        g = demes.Graph(description="a", time_units="generations")
+        with self.assertRaises(TypeError):
+            g.asdict_simplified(custom_attributes="inbreeding")

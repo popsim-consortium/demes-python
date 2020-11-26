@@ -8,8 +8,9 @@ demes:
     description: All epochs wrapped into the same population, so that epoch intervals
       do not overlap, and they tile the entire existence of the population (all time,
       in this case).
-    initial_size: 1431
     epochs:
+    - end_time: 34133.31
+      initial_size: 1431
     - start_time: 34133.31
       end_time: 8533.33
       final_size: 14312
