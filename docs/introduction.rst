@@ -7,8 +7,8 @@ Introduction
 .. note::
    ``Demes`` is a work-in-progress, as is its documentation. If you find an error
    in the documentation or a bug in the software, or would like to help, please
-   head to `Github <https://github.com/grahamgower/demes>`_ to open an issue or
-   start a pull request.
+   head to `Github <https://github.com/popsim-consortium/demes-python>`_ to open
+   an issue or start a pull request.
 
 Welcome to the documentation for ``Demes``, a package for defining, parsing, and
 sharing demographic models for population genetic simulations.

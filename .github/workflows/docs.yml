@@ -34,7 +34,7 @@ jobs:
       - name: Checkout docs site
         uses: actions/checkout@v2
         with:
-          repository: grahamgower/demes-docs
+          repository: popsim-consortium/demes-docs
           token: ${{ secrets.POPSIMBOT_DEMES_DOCS_TOKEN }}
           path: demes-docs
 
@@ -67,6 +67,6 @@ jobs:
         uses: mshick/add-pr-comment@v1
         with:
           message: |
-            📖 Docs for this PR can be previewed [here](https://grahamgower.github.io/demes-docs/${{github.event.pull_request.number}}/)
+            📖 Docs for this PR can be previewed [here](https://popsim-consortium.github.io/demes-docs/${{github.event.pull_request.number}}/)
           allow-repeats: false
           repo-token: ${{ secrets.POPSIMBOT_DEMES_DOCS_TOKEN }}

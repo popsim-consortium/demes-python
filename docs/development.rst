@@ -4,7 +4,7 @@
 Development
 ===========
 
-.. _git_repo: https://github.com/grahamgower/demes
+.. _git_repo: https://github.com/popsim-consortium/demes-python
 
 We welcome all contributors! Contributions to ``demes`` typically take the form
 of "pull requests" against our `git repository <git_repo_>`_.
@@ -24,7 +24,7 @@ follows.
  .. code-block:: sh
 
     # Clone the repository.
-    git clone https://github.com/grahamgower/demes.git
+    git clone https://github.com/popsim-consortium/demes-python.git
     cd demes
     # Install the developer dependencies.
     python -m pip install -r requirements.txt

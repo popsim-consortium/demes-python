@@ -1475,7 +1475,7 @@ class Graph:
         # where reversing the order of the pulse definitions changes the
         # interpretation of the model. Such models are valid, but the behaviour
         # may not be what the user expects.
-        # See https://github.com/grahamgower/demes/issues/46
+        # See https://github.com/popsim-consortium/demes-python/issues/46
         sources = set()
         dests = set()
         for pulse in self.pulses:
