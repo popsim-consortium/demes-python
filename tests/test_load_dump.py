@@ -4,8 +4,10 @@ import tempfile
 import textwrap
 
 import pytest
+import hypothesis as hyp
 
 import demes
+import tests
 
 
 def jacobs_papuans():
@@ -381,3 +383,17 @@ class TestLoadAndDump:
     def test_examples_load_dump_load_json(self):
         for simplified in [True, False]:
             self.check_examples_load_dump_load(format="json", simplified=simplified)
+
+    @hyp.settings(suppress_health_check=[hyp.HealthCheck.too_slow])
+    @hyp.given(tests.graphs())
+    def test_dump_load(self, g):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for format in [
+                # "yaml",  # The YAML loader has numerous problems
+                "json",
+            ]:
+                for simplified in [True, False]:
+                    tmpfile = pathlib.Path(tmpdir) / "temp.txt"
+                    demes.dump(g, tmpfile, format=format, simplified=simplified)
+                    g2 = demes.load(tmpfile, format=format)
+                    g.assert_close(g2)
