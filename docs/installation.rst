@@ -21,7 +21,7 @@ Installation instructions for developers:
 .. code-block:: sh
 
    ## Clone the repository
-   git clone https://github.com/grahamgower/demes.git
+   git clone https://github.com/popsim-consortium/demes-python.git
    cd demes
    
    ## Install the developer dependencies
