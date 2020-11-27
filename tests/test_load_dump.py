@@ -384,7 +384,7 @@ class TestLoadAndDump:
         for simplified in [True, False]:
             self.check_examples_load_dump_load(format="json", simplified=simplified)
 
-    @hyp.settings(suppress_health_check=[hyp.HealthCheck.too_slow])
+    @hyp.settings(deadline=None, suppress_health_check=[hyp.HealthCheck.too_slow])
     @hyp.given(tests.graphs())
     def test_dump_load(self, g):
         with tempfile.TemporaryDirectory() as tmpdir:
