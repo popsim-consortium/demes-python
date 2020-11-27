@@ -42,6 +42,12 @@ def unit_interval(self, attribute, value):
         raise ValueError(f"must have 0 <= {attribute.name} <= 1")
 
 
+def nonempty_str(self, attribute, value):
+    attr.validators.instance_of(str)(self, attribute, value)
+    if len(value) == 0:
+        raise ValueError(f"{attribute.name} must be a non-empty string")
+
+
 def isclose(
     a: Optional[Number],
     b: Optional[Number],
@@ -64,10 +70,10 @@ def isclose(
 
 
 def isclose_deme_proportions(
-    a_ids: Optional[List[ID]],
-    a_proportions: Optional[List[Proportion]],
-    b_ids: Optional[List[ID]],
-    b_proportions: Optional[List[Proportion]],
+    a_ids: List[ID],
+    a_proportions: List[Proportion],
+    b_ids: List[ID],
+    b_proportions: List[Proportion],
     *,
     rel_tol=_ISCLOSE_REL_TOL,
     abs_tol=_ISCLOSE_ABS_TOL,
@@ -77,14 +83,6 @@ def isclose_deme_proportions(
     are semantically equivalent. The order of ids is ignored, and proportions
     are checked for numerical closeness.
     """
-    if None in (a_ids, b_ids):
-        return (a_ids, a_proportions) == (b_ids, b_proportions)
-
-    a_ids = typing.cast(List[ID], a_ids)
-    a_proportions = typing.cast(List[Proportion], a_proportions)
-    b_ids = typing.cast(List[ID], b_ids)
-    b_proportions = typing.cast(List[Number], b_proportions)
-
     if len(a_ids) != len(b_ids) or len(a_proportions) != len(b_proportions):
         return False
     a = sorted(zip(a_ids, a_proportions), key=operator.itemgetter(0))
@@ -893,18 +891,41 @@ class Deme:
     proportions: List[Proportion] = attr.ib()
     epochs: List[Epoch] = attr.ib()
 
-    def __attrs_post_init__(self):
-        if self.ancestors is not None:
-            if not isinstance(self.ancestors, (list, tuple)):
-                raise TypeError("ancestors must be a list of deme IDs")
-            if len(set(self.ancestors)) != len(self.ancestors):
-                raise ValueError(f"duplicate ancestors in {self.ancestors}")
-            if len(self.ancestors) > 1 and self.proportions is None:
-                raise ValueError("proportions must be set if more than one ancestor")
-            if len(self.ancestors) != len(self.proportions):
-                raise ValueError("ancestors and proportions must have same length")
-            if self.id in self.ancestors:
-                raise ValueError(f"{self.id} cannot be its own ancestor")
+    @id.validator
+    def _check_id(self, attribute, value):
+        attr.validators.instance_of(str)(self, attribute, value)
+        if not self.id.isidentifier():
+            raise ValueError(
+                "Invalid deme ID `{self.id}`. IDs must be valid python identifiers. "
+                "We recommend choosing a deme ID that starts with a letter or "
+                "underscore, and is followed by one or more letters, numbers, "
+                "or underscores."
+            )
+
+    @ancestors.validator
+    def _check_ancestors(self, _attribute, _value):
+        if not isinstance(self.ancestors, list):
+            raise TypeError("ancestors must be a list of deme IDs")
+        if len(set(self.ancestors)) != len(self.ancestors):
+            raise ValueError(f"duplicate ancestors in {self.ancestors}")
+        if self.id in self.ancestors:
+            raise ValueError(f"{self.id} cannot be its own ancestor")
+
+    @proportions.validator
+    def _check_proportions(self, attribute, _value):
+        err = "proportions must be a list of numbers summing to 1.0"
+        if not isinstance(self.proportions, list):
+            raise TypeError(err)
+        if len(self.proportions) > 0 and not math.isclose(sum(self.proportions), 1.0):
+            raise ValueError(err)
+        for proportion in self.proportions:
+            unit_interval(self, attribute, proportion)
+            positive(self, attribute, proportion)
+
+    @epochs.validator
+    def _check_epochs(self, _attribute, _value):
+        if not isinstance(self.epochs, list):
+            raise TypeError("epochs must be a list of Epoch classes")
         # every deme must have at least one epoch
         if len(self.epochs) == 0:
             raise ValueError("Demes must be defined with at least one epoch")
@@ -913,6 +934,12 @@ class Deme:
             if i > 0:
                 if self.epochs[i - 1].end_time != epoch.start_time:
                     raise ValueError("Epoch start and end times must align")
+
+    def __attrs_post_init__(self):
+        # We check the lengths of ancestors and proportions match
+        # after the validators have confirmed that these are indeed lists.
+        if len(self.ancestors) != len(self.proportions):
+            raise ValueError("ancestors and proportions must have same length")
 
     def assert_close(
         self,
@@ -1049,8 +1076,8 @@ class Graph:
     :vartype pulses: list of :class:`.Pulse`
     """
 
-    description: str = attr.ib()
-    time_units: str = attr.ib()
+    description: str = attr.ib(validator=nonempty_str)
+    time_units: str = attr.ib(validator=nonempty_str)
     generation_time: Optional[Time] = attr.ib(
         default=None, validator=optional([positive, finite])
     )
@@ -1059,10 +1086,18 @@ class Graph:
     migrations: List[Migration] = attr.ib(factory=list, init=False)
     pulses: List[Pulse] = attr.ib(factory=list, init=False)
 
+    @doi.validator
+    def _check_doi(self, _attribute, _value):
+        if not isinstance(self.doi, list):
+            raise TypeError("doi must be a list of strings")
+
     def __attrs_post_init__(self):
         self._deme_map: Dict[ID, Deme] = dict()
-        if not isinstance(self.doi, list):
-            raise ValueError("doi must be a list of strings")
+
+        if self.time_units != "generations" and self.generation_time is None:
+            raise ValueError(
+                'if time_units!="generations", generation_time must be specified'
+            )
 
     def __getitem__(self, deme_id):
         """
@@ -1255,20 +1290,25 @@ class Graph:
             initial_size = epochs[0].initial_size
         if initial_size is None:
             raise ValueError(f"must set initial_size for {id}")
-        if ancestors is not None:
-            if not isinstance(ancestors, (list, tuple)):
-                raise TypeError("ancestors must be a list of deme IDs")
-            for ancestor in ancestors:
-                if ancestor not in self:
-                    raise ValueError(f"ancestor deme {ancestor} not in graph")
-            if len(ancestors) == 1 and proportions is None:
+        if ancestors is None:
+            ancestors = []
+        if not isinstance(ancestors, list):
+            raise TypeError("ancestors must be a list of deme IDs")
+        for ancestor in ancestors:
+            if ancestor not in self:
+                raise ValueError(f"ancestor deme {ancestor} not in graph")
+        if proportions is None:
+            if len(ancestors) == 1:
                 proportions = [1.0]
+            else:
+                proportions = []
+
         # set the start time to first epoch's start time, to inf or to
         # the ancestor's end time, if not given
         if start_time is None:
             if epochs is not None and epochs[0].start_time is not None:
                 start_time = epochs[0].start_time
-            elif ancestors is not None:
+            elif len(ancestors) > 0:
                 if len(ancestors) > 1:
                     raise ValueError(
                         "with multiple ancestors, start_time must be specified"
@@ -1277,16 +1317,16 @@ class Graph:
             else:
                 start_time = float("inf")
         # check start time is valid wrt ancestor time intervals
-        if ancestors is not None:
-            for ancestor in ancestors:
-                anc = self[ancestor]
-                if not (anc.start_time >= start_time >= anc.end_time):
-                    raise ValueError(
-                        f"start_time={start_time} is outside the interval "
-                        f"of existence for ancestor {ancestor} "
-                        f"({anc.start_time}, {anc.end_time})"
-                    )
-        # build the deme
+        for ancestor in ancestors:
+            anc = self[ancestor]
+            if not (anc.start_time > start_time >= anc.end_time):
+                raise ValueError(
+                    f"start_time={start_time} is outside the interval "
+                    f"of existence for ancestor {ancestor} "
+                    f"({anc.start_time}, {anc.end_time})"
+                )
+
+        # build the deme's epochs
         if epochs is None:
             # if epochs are not given, we assign a single epoch over that deme
             if final_size is None:

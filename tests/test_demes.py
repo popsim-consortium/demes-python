@@ -570,6 +570,25 @@ class TestDeme(unittest.TestCase):
         with self.assertRaises(ValueError):
             Deme(id="a", description="b", ancestors=["c"], proportions=[1], epochs=[])
 
+    def test_bad_id(self):
+        with self.assertRaises(TypeError):
+            Deme(
+                id=None,
+                description="b",
+                ancestors=[],
+                proportions=[],
+                epochs=[Epoch(start_time=float("inf"), end_time=0, initial_size=1)],
+            )
+        for bad_id in ["", "501", "pop-1", "pop.2", "pop 3"]:
+            with self.assertRaises(ValueError):
+                Deme(
+                    id=bad_id,
+                    description="b",
+                    ancestors=[],
+                    proportions=[],
+                    epochs=[Epoch(start_time=float("inf"), end_time=0, initial_size=1)],
+                )
+
     def test_bad_ancestors(self):
         with self.assertRaises(TypeError):
             Deme(
@@ -587,7 +606,7 @@ class TestDeme(unittest.TestCase):
                 proportions=[0.2, 0.8],
                 epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
             )
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             Deme(
                 id="a",
                 description="b",
@@ -621,6 +640,40 @@ class TestDeme(unittest.TestCase):
                 epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
             )
 
+    def test_bad_proportions(self):
+        with self.assertRaises(TypeError):
+            Deme(
+                id="a",
+                description="test",
+                ancestors=[],
+                proportions=None,
+                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+            )
+        with self.assertRaises(ValueError):
+            Deme(
+                id="a",
+                description="test",
+                ancestors=["x", "y"],
+                proportions=[0.6, 0.7],
+                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+            )
+        with self.assertRaises(ValueError):
+            Deme(
+                id="a",
+                description="test",
+                ancestors=["x", "y"],
+                proportions=[-0.5, 1.5],
+                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+            )
+        with self.assertRaises(ValueError):
+            Deme(
+                id="a",
+                description="test",
+                ancestors=["x", "y"],
+                proportions=[0, 1.0],
+                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+            )
+
     def test_epochs_out_of_order(self):
         for time in (5, -1, float("inf")):
             with self.assertRaises(ValueError):
@@ -649,6 +702,16 @@ class TestDeme(unittest.TestCase):
                     ],
                 )
 
+    def test_bad_epochs(self):
+        with self.assertRaises(TypeError):
+            Deme(
+                id="a",
+                description="b",
+                ancestors=[],
+                proportions=[],
+                epochs=None,
+            )
+
     def test_time_span(self):
         for start_time, end_time in zip((float("inf"), 100, 20), (0, 20, 0)):
             deme = Deme(
@@ -674,8 +737,8 @@ class TestDeme(unittest.TestCase):
         d1 = Deme(
             id="a",
             description="foo deme",
-            ancestors=None,
-            proportions=None,
+            ancestors=[],
+            proportions=[],
             epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
         )
         self.assertTrue(d1.isclose(d1))
@@ -684,8 +747,8 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="a",
                     description="foo deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
                 )
             )
@@ -696,59 +759,9 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="a",
                     description="bar deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
-                )
-            )
-        )
-
-        # selfing_rate is a property of the deme's epoch, so we shouldn't
-        # care if this is set for the deme or for the epochs directly.
-        d2 = Deme(
-            id="a",
-            description="foo deme",
-            ancestors=None,
-            proportions=None,
-            epochs=[Epoch(start_time=10, end_time=5, initial_size=1, selfing_rate=0.1)],
-        )
-        self.assertTrue(
-            d2.isclose(
-                Deme(
-                    id="a",
-                    description="foo deme",
-                    ancestors=None,
-                    proportions=None,
-                    epochs=[
-                        Epoch(
-                            start_time=10, end_time=5, initial_size=1, selfing_rate=0.1
-                        )
-                    ],
-                )
-            )
-        )
-
-        # cloning_rate is a property of the deme's epoch, so we shouldn't
-        # care if this is set for the deme or for the epochs directly.
-        d2 = Deme(
-            id="a",
-            description="foo deme",
-            ancestors=None,
-            proportions=None,
-            epochs=[Epoch(start_time=10, end_time=5, initial_size=1, cloning_rate=0.1)],
-        )
-        self.assertTrue(
-            d2.isclose(
-                Deme(
-                    id="a",
-                    description="foo deme",
-                    ancestors=None,
-                    proportions=None,
-                    epochs=[
-                        Epoch(
-                            start_time=10, end_time=5, initial_size=1, cloning_rate=0.1
-                        )
-                    ],
                 )
             )
         )
@@ -762,8 +775,8 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="b",
                     description="foo deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[Epoch(start_time=10, end_time=5, initial_size=1)],
                 )
             )
@@ -784,8 +797,8 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="a",
                     description="foo deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[Epoch(start_time=9, end_time=5, initial_size=1)],
                 )
             )
@@ -795,8 +808,8 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="a",
                     description="foo deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[Epoch(start_time=10, end_time=9, initial_size=1)],
                 )
             )
@@ -807,8 +820,8 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="a",
                     description="foo deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[Epoch(start_time=10, end_time=5, initial_size=9)],
                 )
             )
@@ -818,8 +831,8 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="a",
                     description="foo deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[
                         Epoch(
                             start_time=10, end_time=5, initial_size=1, selfing_rate=0.1
@@ -833,8 +846,8 @@ class TestDeme(unittest.TestCase):
                 Deme(
                     id="a",
                     description="foo deme",
-                    ancestors=None,
-                    proportions=None,
+                    ancestors=[],
+                    proportions=[],
                     epochs=[
                         Epoch(
                             start_time=10, end_time=5, initial_size=1, cloning_rate=0.1
@@ -851,13 +864,25 @@ class TestDeme(unittest.TestCase):
 
 class TestGraph(unittest.TestCase):
     def test_bad_generation_time(self):
-        for generation_time in (-100, -1e-9, 0, float("inf")):
+        for generation_time in (-100, -1e-9, 0, float("inf"), None):
             with self.assertRaises(ValueError):
                 Graph(
                     description="test",
                     time_units="years",
                     generation_time=generation_time,
                 )
+
+    def test_bad_description(self):
+        with self.assertRaises(TypeError):
+            Graph(
+                description=None,
+                time_units="generations",
+            )
+        with self.assertRaises(ValueError):
+            Graph(
+                description="",
+                time_units="generations",
+            )
 
     def test_doi(self):
         # We currently accept arbitrary strings in DOIs.
@@ -902,7 +927,7 @@ class TestGraph(unittest.TestCase):
 
     def test_bad_doi(self):
         # passing a string instead of a list will be the most common user error
-        with self.assertRaises(ValueError):
+        with self.assertRaises(TypeError):
             Graph(
                 description="test",
                 time_units="generations",
