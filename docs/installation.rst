@@ -7,7 +7,7 @@ Installation
 Requirements
 ------------
 
-``Demes`` uses `srictyaml <https://github.com/crdoconnor/strictyaml>`_ to 
+``Demes`` uses `ruamel.yaml <https://pypi.org/project/ruamel.yaml/>`_ to
 read YAML-defined demographic models.
 
 Installation
