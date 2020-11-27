@@ -28,6 +28,11 @@ jobs:
           sudo apt install libgsl-dev  # for msprime
           pip install -r requirements.txt
 
+      - name: Build package
+        run: |
+          # Generate the version string which appears in the docs.
+          python setup.py build
+
       - name: Build Docs
         run: make -C docs
 
