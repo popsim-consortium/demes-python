@@ -2,6 +2,7 @@ import unittest
 import copy
 import pathlib
 import json
+import tempfile
 
 import jsonschema
 import pytest
@@ -1228,7 +1229,10 @@ class TestGraph(unittest.TestCase):
         g2 = copy.deepcopy(g1)
         g1.deme("d1", initial_size=1000)
         self.assertTrue(g1.isclose(g1))
-        self.assertTrue(g1.isclose(demes.loads(demes.dumps(g1))))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpfile = pathlib.Path(tmpdir) / "file.yml"
+            demes.dump(g1, tmpfile)
+            self.assertTrue(g1.isclose(demes.load(tmpfile)))
 
         # Don't care about description for equality.
         g3 = Graph(

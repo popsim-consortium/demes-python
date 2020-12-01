@@ -43,7 +43,16 @@ def yaml_strings(draw, min_size=1, max_size=100):
                     "Cs",  # surrogate block
                 ),
                 blacklist_characters=("\ufffe", "\uffff"),
-                whitelist_characters=("\x09", "\x0a", "\x0d", "\x85"),
+                whitelist_characters=(
+                    "\x09",
+                    "\x0a",
+                    "\x0d",
+                    # The \x85 'NEL' character gets converted to whitespace by
+                    # the ruamel YAML emmitter, which is probably sane. But it
+                    # means our graphs don't compare equal before/after dump/load.
+                    # So we exclude this character from the whitelist.
+                    # "\x85",
+                ),
             ),
             min_size=min_size,
             max_size=max_size,

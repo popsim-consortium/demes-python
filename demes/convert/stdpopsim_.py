@@ -69,8 +69,8 @@ if __name__ == "__main__":
     dm2 = to_stdpopsim(g)
     # dm2.get_demography_debugger().print_history()
     g2 = from_stdpopsim(dm2)
-    # print(demes.dumps(g2))
+    # demes.dump(g2, sys.stdout)
 
     assert g.isclose(g2)
 
-    print(demes.dumps(g))
+    demes.dump(g, sys.stdout, simplified=True)

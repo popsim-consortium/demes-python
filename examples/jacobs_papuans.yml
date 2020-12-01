@@ -19,7 +19,7 @@ demes:
     - end_time: 0
       initial_size: 48433.0
   - id: DenA
-    ancestors: YRI
+    ancestors: [YRI]
     start_time: 20225.0
     epochs:
     - end_time: 15090.0
@@ -31,7 +31,7 @@ demes:
     - end_time: 0
       initial_size: 5083.0
   - id: NeaA
-    ancestors: DenA
+    ancestors: [DenA]
     start_time: 15090.0
     epochs:
     - end_time: 3375.0
@@ -39,19 +39,19 @@ demes:
     - end_time: 0
       initial_size: 826.0
   - id: Den2
-    ancestors: DenA
+    ancestors: [DenA]
     start_time: 12500.0
     initial_size: 13249.0
   - id: Den1
-    ancestors: DenA
+    ancestors: [DenA]
     start_time: 9750.0
     initial_size: 13249.0
   - id: Nea1
-    ancestors: NeaA
+    ancestors: [NeaA]
     start_time: 3375.0
     initial_size: 13249.0
   - id: Ghost
-    ancestors: YRI
+    ancestors: [YRI]
     start_time: 2218.0
     epochs:
     - end_time: 2119.0
@@ -59,7 +59,7 @@ demes:
     - end_time: 0
       initial_size: 8516.0
   - id: Papuan
-    ancestors: Ghost
+    ancestors: [Ghost]
     start_time: 1784.0
     epochs:
     - end_time: 1685.0
@@ -67,7 +67,7 @@ demes:
     - end_time: 0
       initial_size: 8834.0
   - id: CHB
-    ancestors: Ghost
+    ancestors: [Ghost]
     start_time: 1758.0
     epochs:
     - end_time: 1659.0
@@ -77,27 +77,27 @@ demes:
     - end_time: 0
       initial_size: 9025.0
   - id: CEU
-    ancestors: CHB
+    ancestors: [CHB]
     start_time: 1293.0
     initial_size: 6962.0
 migrations:
   symmetric:
-  - demes: YRI, Ghost
+  - demes: [YRI, Ghost]
     rate: 0.000179
     start_time: 1659.0
-  - demes: CHB, Papuan
+  - demes: [CHB, Papuan]
     rate: 0.000572
     start_time: 1659.0
     end_time: 1293.0
-  - demes: CHB, Papuan
+  - demes: [CHB, Papuan]
     rate: 5.72e-05
     start_time: 1293.0
-  - demes: CHB, Ghost
+  - demes: [CHB, Ghost]
     rate: 0.000442
     start_time: 1659.0
-  - demes: CEU, CHB
+  - demes: [CEU, CHB]
     rate: 3.14e-05
-  - demes: CEU, Ghost
+  - demes: [CEU, Ghost]
     rate: 0.000442
 pulses:
 - source: Nea1

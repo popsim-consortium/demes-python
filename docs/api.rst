@@ -81,9 +81,7 @@ API Reference
 -------------
 
 .. autofunction:: demes.load
-.. autofunction:: demes.loads
 .. autofunction:: demes.dump
-.. autofunction:: demes.dumps
 
 .. autoclass:: demes.Graph
     :members:

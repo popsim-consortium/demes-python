@@ -1,4 +1,5 @@
 import copy
+import io
 import pathlib
 import tempfile
 import textwrap
@@ -129,24 +130,16 @@ class TestLoadAndDump:
     def test_bad_format_param(self):
         examples_path = pathlib.Path(__file__).parent.parent / "examples"
         ex = next(examples_path.glob("*.yml"))
-        with open(ex) as f:
-            ex_string = f.read()
-
         with pytest.raises(ValueError):
             demes.load(ex, format="not a format")
-        with pytest.raises(ValueError):
-            demes.loads(ex_string, format="not a format")
-
-        g = demes.loads(ex_string)
+        g = demes.load(ex)
         for simplified in [True, False]:
-            with pytest.raises(ValueError):
-                demes.dumps(g, format="not a format", simplified=simplified)
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmpfile = pathlib.Path(tmpdir) / "never-created"
                 with pytest.raises(ValueError):
                     demes.dump(g, tmpfile, format="not a format", simplified=simplified)
 
-    def check_dumps_simple(self, *, format, simplified):
+    def check_dump_simple(self, *, format, simplified):
         g = demes.Graph(
             description="some very concise descr",
             time_units="years",
@@ -154,7 +147,9 @@ class TestLoadAndDump:
         )
         for id, N in zip("ABCD", [100, 200, 300, 400]):
             g.deme(id, initial_size=N)
-        string = demes.dumps(g, format=format, simplified=simplified)
+        stream = io.StringIO()
+        demes.dump(g, stream, format=format, simplified=simplified)
+        string = stream.getvalue()
         assert "description" in string
         assert g.description in string
         assert "time_units" in string
@@ -183,7 +178,9 @@ class TestLoadAndDump:
 
         g1 = copy.deepcopy(g)
         g1.deme("E", initial_size=100, selfing_rate=0.1)
-        string = demes.dumps(g1, format=format, simplified=simplified)
+        stream = io.StringIO()
+        demes.dump(g1, stream, format=format, simplified=simplified)
+        string = stream.getvalue()
         assert "selfing_rate" in string
         assert "0.1" in string
         if simplified:
@@ -191,15 +188,19 @@ class TestLoadAndDump:
 
         g1 = copy.deepcopy(g)
         g1.deme("E", initial_size=100, cloning_rate=0.1)
-        string = demes.dumps(g1, format=format, simplified=simplified)
+        stream = io.StringIO()
+        demes.dump(g1, stream, format=format, simplified=simplified)
+        string = stream.getvalue()
         if simplified:
             assert "selfing_rate" not in string
         assert "cloning_rate" in string
         assert "0.1" in string
 
-    def check_dumps_complex(self, *, format, simplified):
+    def check_dump_complex(self, *, format, simplified):
         g = jacobs_papuans()
-        string = demes.dumps(g, format=format, simplified=simplified)
+        stream = io.StringIO()
+        demes.dump(g, stream, format=format, simplified=simplified)
+        string = stream.getvalue()
         assert "description" in string
         assert g.description in string
         assert "time_units" in string
@@ -220,40 +221,50 @@ class TestLoadAndDump:
         else:
             assert "asymmetric" in string
 
-    def test_dumps_yaml(self):
+    def test_dump_yaml(self):
         for simplified in [True, False]:
-            self.check_dumps_simple(format="yaml", simplified=simplified)
-            self.check_dumps_complex(format="yaml", simplified=simplified)
+            self.check_dump_simple(format="yaml", simplified=simplified)
+            self.check_dump_complex(format="yaml", simplified=simplified)
 
-    def test_dumps_json(self):
+    def test_dump_json(self):
         for simplified in [True, False]:
-            self.check_dumps_simple(format="json", simplified=simplified)
-            self.check_dumps_complex(format="json", simplified=simplified)
+            self.check_dump_simple(format="json", simplified=simplified)
+            self.check_dump_complex(format="json", simplified=simplified)
 
-    def check_dump_against_dumps(self, *, format, simplified):
+    def check_dump_str_path_fileobj(self, *, format, simplified):
         g = jacobs_papuans()
-        dumps_str = demes.dumps(g, format=format, simplified=simplified)
+        stream = io.StringIO()
+        demes.dump(g, stream, format=format, simplified=simplified)
+        dump_str = stream.getvalue()
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpfile1 = pathlib.Path(tmpdir) / "temp1.yml"
             # tmpfile is os.PathLike
             demes.dump(g, tmpfile1, format=format, simplified=simplified)
             with open(tmpfile1) as f:
                 yaml_str1 = f.read()
-            assert yaml_str1 == dumps_str
+            assert yaml_str1 == dump_str
 
             tmpfile2 = pathlib.Path(tmpdir) / "temp2.yml"
             # tmpfile is str
             demes.dump(g, str(tmpfile2), format=format, simplified=simplified)
             with open(tmpfile2) as f:
                 yaml_str2 = f.read()
-            assert yaml_str2 == dumps_str
+            assert yaml_str2 == dump_str
 
-    def test_dump_against_dumps(self):
+            tmpfile3 = pathlib.Path(tmpdir) / "temp3.yml"
+            # tmpfile is opened, and we dump to file-like object
+            with open(tmpfile3, "w") as f:
+                demes.dump(g, f, format=format, simplified=simplified)
+            with open(tmpfile3) as f:
+                yaml_str3 = f.read()
+            assert yaml_str3 == dump_str
+
+    def test_dump_str_path_fileobj(self):
         for simplified in [True, False]:
-            self.check_dump_against_dumps(format="yaml", simplified=simplified)
-            self.check_dump_against_dumps(format="json", simplified=simplified)
+            self.check_dump_str_path_fileobj(format="yaml", simplified=simplified)
+            self.check_dump_str_path_fileobj(format="json", simplified=simplified)
 
-    def test_loads_json_simple(self):
+    def test_load_json_simple(self):
         string = textwrap.dedent(
             """\
             {
@@ -280,7 +291,8 @@ class TestLoadAndDump:
             }
             """
         )
-        g = demes.loads(string, format="json")
+        stream = io.StringIO(string)
+        g = demes.load(stream, format="json")
         assert g.description == "foo"
         assert g.time_units == "years"
         assert g.generation_time == 123
@@ -289,7 +301,7 @@ class TestLoadAndDump:
         assert g["C"].ancestors == ["A", "B"]
         assert g["C"].proportions == [0.1, 0.9]
 
-    def test_loads_yaml_simple(self):
+    def test_load_yaml_simple(self):
         string = textwrap.dedent(
             """\
             description: foo
@@ -303,11 +315,12 @@ class TestLoadAndDump:
                 -   id: C
                     initial_size: 100
                     start_time: 500
-                    ancestors: A, B
-                    proportions: 0.1, 0.9
+                    ancestors: [A, B]
+                    proportions: [0.1, 0.9]
             """
         )
-        g = demes.loads(string)
+        stream = io.StringIO(string)
+        g = demes.load(stream)
         assert g.description == "foo"
         assert g.time_units == "years"
         assert g.generation_time == 123
@@ -316,14 +329,12 @@ class TestLoadAndDump:
         assert g["C"].ancestors == ["A", "B"]
         assert g["C"].proportions == [0.1, 0.9]
 
-    def test_loads_examples(self):
+    def test_load_examples(self):
         examples_path = pathlib.Path(__file__).parent.parent / "examples"
         n = 0
         for yaml_file in examples_path.glob("*.yml"):
             n += 1
-            with open(yaml_file) as f:
-                yaml_str = f.read()
-            g = demes.loads(yaml_str)
+            g = demes.load(yaml_file)
             assert g.description is not None
             assert len(g.description) > 0
             assert g.time_units is not None
