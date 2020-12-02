@@ -2,19 +2,40 @@
 Functions to load and dump graphs in YAML and JSON formats.
 """
 import json
+import io
 
 import ruamel.yaml
 
 import demes
 
+# NOTE: The state of Python YAML libraries in 2020 leaves much to be desired.
+# The pyyaml library supports only YAML v1.1, which has some awkward corner
+# cases that have been fixed in YAML v1.2. A fork of pyaml, ruamel.yaml,
+# does support YAML v1.2, and introduces a new API for parsing/emitting
+# with additional features and desirable behaviour.
+# However, neither pyyaml nor ruamel gaurantee API stability, and neither
+# provide complete reference documentation for their APIs.
+# The YAML code in demes is limited to the following two functions,
+# which are hopefully simple enough to not suffer from API instability.
+
 
 def _loads_yaml_asdict(string):
-    with ruamel.yaml.YAML(typ="safe", pure=True) as yaml:
+    with ruamel.yaml.YAML(typ="safe") as yaml:
         return yaml.load(string)
 
 
 def _dumps_yaml_fromdict(data):
-    return ruamel.yaml.dump(data)
+    stream = io.StringIO()
+    with ruamel.yaml.YAML(typ="safe", output=stream) as yaml:
+        # Disable JSON-style inline arrays and dicts.
+        yaml.default_flow_style = False
+        # Don't emit obscure unicode, output "\Uxxxxxxxx" instead.
+        # Needed for string equality after round-tripping.
+        yaml.allow_unicode = False
+        # Keep dict insertion order, thank you very much!
+        yaml.sort_base_mapping_type_on_output = False
+        yaml.dump(data)
+    return stream.getvalue()
 
 
 def loads_asdict(string, *, format="yaml"):
