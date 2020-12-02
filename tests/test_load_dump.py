@@ -303,8 +303,8 @@ class TestLoadAndDump:
                 -   id: C
                     initial_size: 100
                     start_time: 500
-                    ancestors: A, B
-                    proportions: 0.1, 0.9
+                    ancestors: [A, B]
+                    proportions: [0.1, 0.9]
             """
         )
         g = demes.loads(string)

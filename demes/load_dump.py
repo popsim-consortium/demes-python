@@ -2,7 +2,6 @@
 Functions to load and dump graphs in YAML and JSON formats.
 """
 import json
-import copy
 
 import ruamel.yaml
 
@@ -11,30 +10,11 @@ import demes
 
 def _loads_yaml_asdict(string):
     with ruamel.yaml.YAML(typ="safe", pure=True) as yaml:
-        data = yaml.load(string)
-    # split comma separated fields
-    for deme in data.get("demes", []):
-        if "ancestors" in deme:
-            deme["ancestors"] = [anc.strip() for anc in deme["ancestors"].split(",")]
-        if "proportions" in deme:
-            deme["proportions"] = [float(p) for p in deme["proportions"].split(",")]
-    for mig in data.get("migrations", {}).get("symmetric", []):
-        mig["demes"] = [deme.strip() for deme in mig["demes"].split(",")]
-    return data
+        return yaml.load(string)
 
 
 def _dumps_yaml_fromdict(data):
-    data = copy.deepcopy(data)
-    # collapse comma separated fields
-    for deme in data.get("demes", []):
-        if "ancestors" in deme:
-            deme["ancestors"] = ", ".join(deme["ancestors"])
-        if "proportions" in deme:
-            deme["proportions"] = ", ".join([str(p) for p in deme["proportions"]])
-    for mig in data.get("migrations", {}).get("symmetric", []):
-        mig["demes"] = ", ".join(mig["demes"])
-    string = ruamel.yaml.dump(data)
-    return string
+    return ruamel.yaml.dump(data)
 
 
 def loads_asdict(string, *, format="yaml"):
