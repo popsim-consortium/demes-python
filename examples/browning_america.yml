@@ -10,42 +10,42 @@ demes:
     initial_size: 7310
   - id: AMH
     description: Anatomically modern humans
-    ancestors: ancestral
+    ancestors: [ancestral]
     end_time: 2040
     initial_size: 14474
   - id: OOA
     description: Bottleneck out-of-Africa population
-    ancestors: AMH
+    ancestors: [AMH]
     end_time: 920
     initial_size: 1861
   - id: AFR
     description: African population
-    ancestors: AMH
+    ancestors: [AMH]
     initial_size: 14474
   - id: EUR
     description: European population
-    ancestors: OOA
+    ancestors: [OOA]
     initial_size: 1000
     final_size: 34039
   - id: EAS
     description: East Asian population
-    ancestors: OOA
+    ancestors: [OOA]
     initial_size: 510
     final_size: 45852
   - id: ADMIX
     description: Admixed America
-    ancestors: AFR, EUR, EAS
-    proportions: 0.167, 0.333, 0.5
+    ancestors: [AFR, EUR, EAS]
+    proportions: [0.167, 0.333, 0.5]
     start_time: 12
     initial_size: 30000
     final_size: 54664
 migrations:
   symmetric:
-  - demes: AFR, OOA
+  - demes: [AFR, OOA]
     rate: 15e-5
-  - demes: AFR, EUR
+  - demes: [AFR, EUR]
     rate: 2.5e-5
-  - demes: AFR, EAS
+  - demes: [AFR, EAS]
     rate: 0.78e-5
-  - demes: EUR, EAS
+  - demes: [EUR, EAS]
     rate: 3.11e-5

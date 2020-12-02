@@ -15,35 +15,35 @@ demes:
     initial_size: 7300
   - id: AMH
     description: Anatomically modern humans
-    ancestors: ancestral
+    ancestors: [ancestral]
     end_time: 140e3
     initial_size: 12300
   - id: OOA
     description: Bottleneck out-of-Africa population
-    ancestors: AMH
+    ancestors: [AMH]
     end_time: 21.2e3
     initial_size: 2100
   - id: YRI
     description: Yoruba in Ibadan, Nigeria
-    ancestors: AMH
+    ancestors: [AMH]
     initial_size: 12300
   - id: CEU
     description: Utah Residents (CEPH) with Northern and Western European Ancestry
-    ancestors: OOA
+    ancestors: [OOA]
     initial_size: 1000
     final_size: 29725
   - id: CHB
     description: Han Chinese in Beijing, China
-    ancestors: OOA
+    ancestors: [OOA]
     initial_size: 510
     final_size: 54090
 migrations:
   symmetric:
-  - demes: YRI, OOA
+  - demes: [YRI, OOA]
     rate: 25e-5
-  - demes: YRI, CEU
+  - demes: [YRI, CEU]
     rate: 3e-5
-  - demes: YRI, CHB
+  - demes: [YRI, CHB]
     rate: 1.9e-5
-  - demes: CEU, CHB
+  - demes: [CEU, CHB]
     rate: 9.6e-5

@@ -10,7 +10,7 @@ demes:
     cloning_rate: 0.1
   - id: pop1
     description: Population with epochs and changing cloning rates
-    ancestors: root
+    ancestors: [root]
     cloning_rate: 0.2
     epochs:
     - initial_size: 1e4
@@ -22,7 +22,7 @@ demes:
       cloning_rate: 0.5
   - id: pop2
     description: Population with epochs and changing cloning rates
-    ancestors: root
+    ancestors: [root]
     epochs:
     - initial_size: 1e4
       end_time: 500
