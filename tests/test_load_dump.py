@@ -146,6 +146,28 @@ class TestLoadAndDump:
                 with pytest.raises(ValueError):
                     demes.dump(g, tmpfile, format="not a format", simplified=simplified)
 
+    def test_bad_filename_param(self):
+        g = demes.Graph(description="test", time_units="generations")
+        g.deme("A", initial_size=1000)
+
+        class F:
+            pass
+
+        f_w = F()
+        f_w.write = True
+        f_r = F()
+        f_r.read = None
+        for bad_file in [None, -1, object(), f_w, f_r]:
+            # There are a variety of exceptions that could be raised here,
+            # including AttributeError, ValueError, TypeError, OSError,
+            # and probably others. The exact exception is the user's concern,
+            # and we just want to check that some obviously wrong files aren't
+            # silently accepted.
+            with pytest.raises(Exception):
+                demes.dump(g, bad_file)
+            with pytest.raises(Exception):
+                demes.load(bad_file)
+
     def check_dumps_simple(self, *, format, simplified):
         g = demes.Graph(
             description="some very concise descr",
@@ -370,9 +392,16 @@ class TestLoadAndDump:
             g1 = demes.load(yaml_file, format="yaml")
             with tempfile.TemporaryDirectory() as tmpdir:
                 tmpfile = pathlib.Path(tmpdir) / "temp.yml"
+                # dump and load files
                 demes.dump(g1, tmpfile, format=format, simplified=simplified)
                 g2 = demes.load(tmpfile, format=format)
+                # dump and load via file streams
+                with open(tmpfile, "w") as f:
+                    demes.dump(g1, f, format=format, simplified=simplified)
+                with open(tmpfile) as f:
+                    g3 = demes.load(f, format=format)
             assert g1.isclose(g2)
+            assert g1.isclose(g3)
             n += 1
         assert n > 1
 
