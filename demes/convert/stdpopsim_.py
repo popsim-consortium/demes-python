@@ -1,5 +1,3 @@
-import textwrap
-
 import stdpopsim
 
 import demes
@@ -50,7 +48,9 @@ def from_stdpopsim(demographic_model: stdpopsim.DemographicModel) -> demes.Graph
         pop_names=[pc.id for pc in demographic_model.populations],
     )
 
-    g.description = textwrap.dedent(demographic_model.long_description).strip()
+    g.description = " ".join(
+        s.strip() for s in demographic_model.long_description.splitlines() if s.strip()
+    )
     g.doi = [cite.doi for cite in demographic_model.citations]
     return g
 
@@ -72,5 +72,8 @@ if __name__ == "__main__":
     # print(demes.dumps(g2))
 
     assert g.isclose(g2)
+
+    g3 = demes.loads(demes.dumps(g))
+    assert g.isclose(g3)
 
     print(demes.dumps(g))
