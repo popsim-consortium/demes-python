@@ -186,6 +186,7 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
         )
 
     n_interactions = draw(st.integers(min_value=0, max_value=max_interactions))
+    n_tries = 100
     for j in range(len(g.demes) - 1):
         for k in range(j + 1, len(g.demes)):
             dj = g.demes[j].id
@@ -198,8 +199,11 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
                 continue
             # Draw asymmetric migrations.
             n = draw(st.integers(min_value=0, max_value=n_interactions))
-            n_interactions -= n
-            for _ in range(n):
+            successes = 0
+            migration_intervals = {(dj, dk): [], (dk, dj): []}
+            try_i = 0
+            while successes < n and try_i < n_tries:
+                try_i += 1
                 source, dest = dj, dk
                 if draw(st.booleans()):
                     source, dest = dk, dj
@@ -211,13 +215,28 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
                         max_size=2,
                     )
                 )
-                g.migration(
-                    source=source,
-                    dest=dest,
-                    start_time=max(times),
-                    end_time=min(times),
-                    rate=draw(st.floats(min_value=0, max_value=1, exclude_max=True)),
-                )
+                no_overlap = True
+                for existing_interval in migration_intervals[(dj, dk)]:
+                    # check that our drawn interval doesn't overlap with existing mig
+                    if not (
+                        min(times) >= existing_interval[0]
+                        or max(times) <= existing_interval[1]
+                    ):
+                        no_overlap = False
+                        break
+                if no_overlap:
+                    migration_intervals[(dj, dk)].append([max(times), min(times)])
+                    successes += 1
+                    g.migration(
+                        source=source,
+                        dest=dest,
+                        start_time=max(times),
+                        end_time=min(times),
+                        rate=draw(
+                            st.floats(min_value=0, max_value=1, exclude_max=True)
+                        ),
+                    )
+            n_interactions -= successes
             if n_interactions <= 0:
                 break
             # Draw pulses.
