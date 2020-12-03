@@ -2,6 +2,7 @@ import typing
 from typing import List, Union, Optional, Dict
 import itertools
 import math
+import numbers
 import copy
 import operator
 import warnings
@@ -1702,7 +1703,21 @@ class Graph:
         def filt(_attrib, val):
             return val is not None and not (hasattr(val, "__len__") and len(val) == 0)
 
-        data = attr.asdict(self, filter=filt)
+        def coerce_numbers(inst, attribute, value):
+            # Explicitly convert numeric types to int or float, so that they
+            # don't cause problems for the YAML and JSON serialisers.
+            # E.g. numpy int32/int64 are part of Python's numeric tower as
+            # subclasses of numbers.Integral, similarly numpy's float32/float64
+            # are subclasses of numbers.Real. There are yet other numeric types,
+            # such as the standard library's decimal.Decimal, which are not part
+            # of the numeric tower, but provide a __float__() method.
+            if isinstance(value, numbers.Integral):
+                value = int(value)
+            elif isinstance(value, numbers.Real) or hasattr(value, "__float__"):
+                value = float(value)
+            return value
+
+        data = attr.asdict(self, filter=filt, value_serializer=coerce_numbers)
         # translate to spec data model
         for deme in data["demes"]:
             deme["start_time"] = deme["epochs"][0]["start_time"]
