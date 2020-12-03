@@ -23,6 +23,12 @@ import demes
 
 class TestEpoch(unittest.TestCase):
     def test_bad_time(self):
+        for time in ("0", "inf", {}, [], float("NaN")):
+            with self.assertRaises(TypeError):
+                Epoch(start_time=time, end_time=0, initial_size=1)
+            with self.assertRaises(TypeError):
+                Epoch(start_time=100, end_time=time, initial_size=1)
+
         for start_time in (-10000, -1, -1e-9):
             with self.assertRaises(ValueError):
                 Epoch(start_time=start_time, end_time=0, initial_size=1)
@@ -37,6 +43,12 @@ class TestEpoch(unittest.TestCase):
             Epoch(start_time=1, end_time=2, initial_size=1)
 
     def test_bad_size(self):
+        for size in ("0", "100", {}, [], float("NaN")):
+            with self.assertRaises(TypeError):
+                Epoch(start_time=1, end_time=0, initial_size=size)
+            with self.assertRaises(TypeError):
+                Epoch(start_time=1, end_time=0, initial_size=1, final_size=size)
+
         for size in (-10000, -1, -1e-9, 0, float("inf")):
             with self.assertRaises(ValueError):
                 Epoch(start_time=1, end_time=0, initial_size=size)
@@ -57,6 +69,17 @@ class TestEpoch(unittest.TestCase):
         Epoch(end_time=0, initial_size=1, final_size=100)
         Epoch(end_time=0, initial_size=100, final_size=1)
         Epoch(start_time=20, end_time=10, initial_size=1, final_size=100)
+        for rate in (0, 1, 0.5, 1e-5):
+            Epoch(end_time=0, initial_size=1, selfing_rate=rate)
+            Epoch(end_time=0, initial_size=1, cloning_rate=rate)
+            Epoch(end_time=0, initial_size=1, selfing_rate=rate, cloning_rate=rate)
+        Epoch(end_time=0, initial_size=1, size_function="constant")
+        Epoch(end_time=0, final_size=1, size_function="constant")
+        Epoch(end_time=0, initial_size=1, final_size=1, size_function="constant")
+        for fn in ("linear", "exponential", "N(t) = 6 * log(t)"):
+            Epoch(end_time=0, initial_size=1, final_size=10, size_function=fn)
+            Epoch(end_time=0, initial_size=1, size_function=fn)
+            Epoch(end_time=0, final_size=10, size_function=fn)
 
     def test_time_span(self):
         e = Epoch(start_time=float("inf"), end_time=0, initial_size=1)
@@ -99,11 +122,42 @@ class TestEpoch(unittest.TestCase):
         self.assertFalse(e1.isclose(123))
         self.assertFalse(e1.isclose("foo"))
 
-    # APR (7/28): Add tests for selfing rate, cloning rate, and size function.
+    def test_bad_selfing_rate(self):
+        for rate in ("0", "1e-4", "inf", [], {}, float("NaN")):
+            with self.assertRaises(TypeError):
+                Epoch(start_time=100, end_time=0, initial_size=1, selfing_rate=rate)
+
+        for rate in (-10000, 10000, -1, -1e-9, 1.2, float("inf")):
+            with self.assertRaises(ValueError):
+                Epoch(start_time=100, end_time=0, initial_size=1, selfing_rate=rate)
+
+    def test_bad_cloning_rate(self):
+        for rate in ("0", "1e-4", "inf", [], {}, float("NaN")):
+            with self.assertRaises(TypeError):
+                Epoch(start_time=100, end_time=0, initial_size=1, cloning_rate=rate)
+
+        for rate in (-10000, 10000, -1, -1e-9, 1.2, float("inf")):
+            with self.assertRaises(ValueError):
+                Epoch(start_time=100, end_time=0, initial_size=1, cloning_rate=rate)
+
+    def test_bad_size_function(self):
+        for fn in (0, 1e5, [], {}, float("NaN")):
+            with self.assertRaises(TypeError):
+                Epoch(end_time=0, initial_size=1, final_size=10, size_function=fn)
+
+        for fn in ("", "constant"):
+            with self.assertRaises(ValueError):
+                Epoch(end_time=0, initial_size=1, final_size=10, size_function=fn)
 
 
 class TestMigration(unittest.TestCase):
     def test_bad_time(self):
+        for time in ("inf", "100", {}, [], float("NaN")):
+            with self.assertRaises(TypeError):
+                Migration(source="a", dest="b", start_time=time, end_time=0, rate=0.1)
+            with self.assertRaises(TypeError):
+                Migration(source="a", dest="b", start_time=100, end_time=time, rate=0.1)
+
         for time in (-10000, -1, -1e-9):
             with self.assertRaises(ValueError):
                 Migration(source="a", dest="b", start_time=time, end_time=0, rate=0.1)
@@ -112,13 +166,26 @@ class TestMigration(unittest.TestCase):
                 Migration(source="a", dest="b", start_time=100, end_time=time, rate=0.1)
 
     def test_bad_rate(self):
+        for rate in ("inf", "100", {}, [], float("NaN")):
+            with self.assertRaises(TypeError):
+                Migration(source="a", dest="b", start_time=10, end_time=0, rate=rate)
+
         for rate in (-10000, -1, -1e-9, float("inf")):
             with self.assertRaises(ValueError):
                 Migration(source="a", dest="b", start_time=10, end_time=0, rate=rate)
 
     def test_bad_demes(self):
-        with self.assertRaises(ValueError):
-            Migration(source="a", dest="a", start_time=10, end_time=0, rate=0.1)
+        for id in (None, 0, float("inf"), 1e3, {}, []):
+            with self.assertRaises(TypeError):
+                Migration(source=id, dest="a", start_time=10, end_time=0, rate=0.1)
+            with self.assertRaises(TypeError):
+                Migration(source="a", dest=id, start_time=10, end_time=0, rate=0.1)
+
+        for id in ("a", "", "pop 1"):
+            with self.assertRaises(ValueError):
+                Migration(source=id, dest="a", start_time=10, end_time=0, rate=0.1)
+            with self.assertRaises(ValueError):
+                Migration(source="a", dest=id, start_time=10, end_time=0, rate=0.1)
 
     def test_valid_migration(self):
         Migration(source="a", dest="b", start_time=float("inf"), end_time=0, rate=1e-9)
@@ -182,18 +249,35 @@ class TestMigration(unittest.TestCase):
 
 class TestPulse(unittest.TestCase):
     def test_bad_time(self):
+        for time in ("inf", "100", {}, [], float("NaN")):
+            with self.assertRaises(TypeError):
+                Pulse(source="a", dest="b", time=time, proportion=0.1)
+
         for time in (-10000, -1, -1e-9, float("inf")):
             with self.assertRaises(ValueError):
                 Pulse(source="a", dest="b", time=time, proportion=0.1)
 
     def test_bad_proportion(self):
+        for proportion in ("inf", "100", {}, [], float("NaN")):
+            with self.assertRaises(TypeError):
+                Pulse(source="a", dest="b", time=1, proportion=proportion)
+
         for proportion in (-10000, -1, -1e-9, 1.2, 100, float("inf")):
             with self.assertRaises(ValueError):
                 Pulse(source="a", dest="b", time=1, proportion=proportion)
 
     def test_bad_demes(self):
-        with self.assertRaises(ValueError):
-            Pulse(source="a", dest="a", time=1, proportion=0.1)
+        for id in (None, 0, float("inf"), 1e3, {}, []):
+            with self.assertRaises(TypeError):
+                Pulse(source=id, dest="a", time=1, proportion=0.1)
+            with self.assertRaises(TypeError):
+                Pulse(source="a", dest=id, time=1, proportion=0.1)
+
+        for id in ("a", "", "pop 1"):
+            with self.assertRaises(ValueError):
+                Pulse(source=id, dest="a", time=1, proportion=0.1)
+            with self.assertRaises(ValueError):
+                Pulse(source="a", dest=id, time=1, proportion=0.1)
 
     def test_valid_pulse(self):
         Pulse(source="a", dest="b", time=1, proportion=1e-9)
@@ -229,19 +313,42 @@ class TestPulse(unittest.TestCase):
 
 class TestSplit(unittest.TestCase):
     def test_bad_time(self):
+        for time in ("inf", "100", {}, [], float("NaN")):
+            with self.assertRaises(TypeError):
+                Split(parent="a", children=["b", "c"], time=time)
+
         for time in [-1e-12, -1, float("inf")]:
             with self.assertRaises(ValueError):
                 Split(parent="a", children=["b", "c"], time=time)
 
-    def test_children(self):
-        with self.assertRaises(ValueError):
-            Split(parent="a", children="b", time=1)
-        with self.assertRaises(ValueError):
-            Split(parent="a", children=["a", "b"], time=1)
+    def test_bad_children(self):
+        for children in (None, "b", {"b": 1}, set("b"), ("b",)):
+            with self.assertRaises(TypeError):
+                Split(parent="a", children=children, time=1)
+        for id in (None, 0, float("inf"), 1e3, {}, []):
+            with self.assertRaises(TypeError):
+                Split(parent="a", children=[id], time=1)
+
+        for children in (["a", "b"], ["b", "b"], []):
+            with self.assertRaises(ValueError):
+                Split(parent="a", children=children, time=1)
+        for id in ("a", "", "pop 1"):
+            with self.assertRaises(ValueError):
+                Split(parent="a", children=[id], time=1)
+
+    def test_bad_parent(self):
+        for id in (None, 0, float("inf"), 1e3, {}, []):
+            with self.assertRaises(TypeError):
+                Split(parent=id, children=["b"], time=1)
+
+        for id in ("a", "", "pop 1"):
+            with self.assertRaises(ValueError):
+                Split(parent=id, children=["a"], time=1)
 
     def test_valid_split(self):
         Split(parent="a", children=["b", "c"], time=10)
         Split(parent="a", children=["b", "c", "d"], time=10)
+        # TODO: a split at time=0 should probably be an error
         Split(parent="a", children=["b", "c"], time=0)
 
     def test_isclose(self):
@@ -267,16 +374,35 @@ class TestSplit(unittest.TestCase):
 
 class TestBranch(unittest.TestCase):
     def test_bad_time(self):
+        for time in ("inf", "100", {}, [], float("NaN")):
+            with self.assertRaises(TypeError):
+                Branch(parent="a", child="b", time=time)
+
         for time in [-1e-12, -1, float("inf")]:
             with self.assertRaises(ValueError):
                 Branch(parent="a", child="b", time=time)
 
-    def test_branch_demes(self):
-        with self.assertRaises(ValueError):
-            Branch(parent="a", child="a", time=1)
+    def test_bad_child(self):
+        for id in (None, 0, float("inf"), 1e3, {}, []):
+            with self.assertRaises(TypeError):
+                Branch(parent="a", child=id, time=1)
+
+        for id in ("a", "", "pop 1"):
+            with self.assertRaises(ValueError):
+                Branch(parent="a", child=id, time=1)
+
+    def test_bad_parent(self):
+        for id in (None, 0, float("inf"), 1e3, {}, []):
+            with self.assertRaises(TypeError):
+                Branch(parent=id, child="b", time=1)
+
+        for id in ("a", "", "pop 1"):
+            with self.assertRaises(ValueError):
+                Branch(parent=id, child="a", time=1)
 
     def test_valid_branch(self):
         Branch(parent="a", child="b", time=10)
+        # TODO: a branch at time=0 should probably be an error
         Branch(parent="a", child="b", time=0)
 
     def test_isclose(self):
@@ -294,25 +420,68 @@ class TestBranch(unittest.TestCase):
 
 class TestMerge(unittest.TestCase):
     def test_bad_time(self):
+        for time in ("inf", "100", {}, [], float("NaN")):
+            with self.assertRaises(TypeError):
+                Merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=time)
+
         for time in [-1e-12, -1, float("inf")]:
             with self.assertRaises(ValueError):
                 Merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=time)
 
-    def test_bad_parents_proportions(self):
-        with self.assertRaises(ValueError):
-            Merge(parents="a", proportions=[1], child="b", time=1)
-        with self.assertRaises(ValueError):
-            Merge(parents=["a"], proportions=1.0, child="b", time=10)
+    def test_bad_child(self):
+        for id in (None, 0, float("inf"), 1e3, {}, []):
+            with self.assertRaises(TypeError):
+                Merge(parents=["a", "b"], proportions=[0.5, 0.5], child=id, time=1)
+
+        for id in ("a", "b", "", "pop 1"):
+            with self.assertRaises(ValueError):
+                Merge(parents=["a", "b"], proportions=[0.5, 0.5], child=id, time=1)
+
+    def test_bad_parents(self):
+        for parents in (None, "b", {"b": 1}, set("b"), ("b", "b")):
+            with self.assertRaises(TypeError):
+                Merge(parents=parents, proportions=[0.5, 0.5], child="c", time=1)
+        for id in (None, 0, float("inf"), 1e3, {}, []):
+            with self.assertRaises(TypeError):
+                Merge(parents=["a", id], proportions=[0.5, 0.5], child="c", time=1)
+            with self.assertRaises(TypeError):
+                Merge(parents=[id, "a"], proportions=[0.5, 0.5], child="c", time=1)
+
+        for id in ("a", "c", "", "pop 1"):
+            with self.assertRaises(ValueError):
+                Merge(parents=["a", id], proportions=[0.5, 0.5], child="c", time=1)
+            with self.assertRaises(ValueError):
+                Merge(parents=[id, "a"], proportions=[0.5, 0.5], child="c", time=1)
         with self.assertRaises(ValueError):
             Merge(parents=["a"], proportions=[1], child="b", time=1)
-        with self.assertRaises(ValueError):
-            Merge(parents=["a", "b"], proportions=[0.5, 0.5], child="a", time=1)
-        with self.assertRaises(ValueError):
-            Merge(parents=["a", "a"], proportions=[0.5, 0.5], child="b", time=1)
 
-    def test_invalid_proportions(self):
+    def test_bad_proportions(self):
+        for proportion in ("inf", "100", {}, [], float("NaN")):
+            with self.assertRaises(TypeError):
+                Merge(parents=["a", "b"], child="c", time=1, proportions=[proportion])
+
+        for proportion in (-10000, -1, -1e-9, 1.2, 100, float("inf")):
+            with self.assertRaises(ValueError):
+                Merge(
+                    parents=["a", "b"], child="c", time=1, proportions=[proportion, 0.5]
+                )
+            with self.assertRaises(ValueError):
+                Merge(
+                    parents=["a", "b"], child="c", time=1, proportions=[0.5, proportion]
+                )
+
+        with self.assertRaises(ValueError):
+            Merge(parents=["a", "b"], proportions=[1], child="b", time=1)
+        with self.assertRaises(ValueError):
+            Merge(parents=["a", "b", "c"], proportions=[0.5, 0.5], child="b", time=1)
+        with self.assertRaises(ValueError):
+            Merge(
+                parents=["a", "b"], proportions=[1 / 3, 1 / 3, 1 / 3], child="b", time=1
+            )
         with self.assertRaises(ValueError):
             Merge(parents=["a", "b"], proportions=[0.1, 1], child="c", time=1)
+        with self.assertRaises(ValueError):
+            Merge(parents=["a", "b"], proportions=[-0.1, 1.1], child="c", time=1)
         with self.assertRaises(ValueError):
             Merge(parents=["a", "b"], proportions=[0.5], child="c", time=1)
         with self.assertRaises(ValueError):
@@ -328,8 +497,13 @@ class TestMerge(unittest.TestCase):
         Merge(
             parents=["a", "b", "c"], proportions=[0.5, 0.25, 0.25], child="d", time=10
         )
-        Merge(parents=["a", "b", "c"], proportions=[0.5, 0.5, 0.0], child="d", time=10)
-        Merge(parents=["a", "b"], proportions=[1, 0], child="c", time=10)
+        Merge(
+            parents=["a", "b", "c"],
+            proportions=[0.5, 0.5 - 1e-9, 1e-9],
+            child="d",
+            time=10,
+        )
+        Merge(parents=["a", "b"], proportions=[1 - 1e-9, 1e-9], child="c", time=10)
 
     def test_isclose(self):
         eps = 1e-50
@@ -404,7 +578,7 @@ class TestMerge(unittest.TestCase):
             m1.isclose(
                 Merge(
                     parents=["a", "b", "x"],
-                    proportions=[0.1, 0.9, 0],
+                    proportions=[0.1, 0.9 - 1e-9, 1e-9],
                     child="c",
                     time=1,
                 )
@@ -414,25 +588,68 @@ class TestMerge(unittest.TestCase):
 
 class TestAdmix(unittest.TestCase):
     def test_bad_time(self):
+        for time in ("inf", "100", {}, [], float("NaN")):
+            with self.assertRaises(TypeError):
+                Admix(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=time)
+
         for time in [-1e-12, -1, float("inf")]:
             with self.assertRaises(ValueError):
                 Admix(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=time)
 
-    def test_bad_parents_proportions(self):
-        with self.assertRaises(ValueError):
-            Admix(parents="a", proportions=[1], child="b", time=1)
-        with self.assertRaises(ValueError):
-            Admix(parents=["a"], proportions=1.0, child="b", time=10)
+    def test_bad_child(self):
+        for id in (None, 0, float("inf"), 1e3, {}, []):
+            with self.assertRaises(TypeError):
+                Admix(parents=["a", "b"], proportions=[0.5, 0.5], child=id, time=1)
+
+        for id in ("a", "b", "", "pop 1"):
+            with self.assertRaises(ValueError):
+                Admix(parents=["a", "b"], proportions=[0.5, 0.5], child=id, time=1)
+
+    def test_bad_parents(self):
+        for parents in (None, "b", {"b": 1}, set("b"), ("b", "b")):
+            with self.assertRaises(TypeError):
+                Admix(parents=parents, proportions=[0.5, 0.5], child="c", time=1)
+        for id in (None, 0, float("inf"), 1e3, {}, []):
+            with self.assertRaises(TypeError):
+                Admix(parents=["a", id], proportions=[0.5, 0.5], child="c", time=1)
+            with self.assertRaises(TypeError):
+                Admix(parents=[id, "a"], proportions=[0.5, 0.5], child="c", time=1)
+
+        for id in ("a", "c", "", "pop 1"):
+            with self.assertRaises(ValueError):
+                Admix(parents=["a", id], proportions=[0.5, 0.5], child="c", time=1)
+            with self.assertRaises(ValueError):
+                Admix(parents=[id, "a"], proportions=[0.5, 0.5], child="c", time=1)
         with self.assertRaises(ValueError):
             Admix(parents=["a"], proportions=[1], child="b", time=1)
-        with self.assertRaises(ValueError):
-            Admix(parents=["a", "b"], proportions=[0.5, 0.5], child="a", time=1)
-        with self.assertRaises(ValueError):
-            Admix(parents=["a", "a"], proportions=[0.5, 0.5], child="b", time=1)
 
-    def test_invalid_proportions(self):
+    def test_bad_proportions(self):
+        for proportion in ("inf", "100", {}, [], float("NaN")):
+            with self.assertRaises(TypeError):
+                Admix(parents=["a", "b"], child="c", time=1, proportions=[proportion])
+
+        for proportion in (-10000, -1, -1e-9, 1.2, 100, float("inf")):
+            with self.assertRaises(ValueError):
+                Admix(
+                    parents=["a", "b"], child="c", time=1, proportions=[proportion, 0.5]
+                )
+            with self.assertRaises(ValueError):
+                Admix(
+                    parents=["a", "b"], child="c", time=1, proportions=[0.5, proportion]
+                )
+
+        with self.assertRaises(ValueError):
+            Admix(parents=["a", "b"], proportions=[1], child="b", time=1)
+        with self.assertRaises(ValueError):
+            Admix(parents=["a", "b", "c"], proportions=[0.5, 0.5], child="b", time=1)
+        with self.assertRaises(ValueError):
+            Admix(
+                parents=["a", "b"], proportions=[1 / 3, 1 / 3, 1 / 3], child="b", time=1
+            )
         with self.assertRaises(ValueError):
             Admix(parents=["a", "b"], proportions=[0.1, 1], child="c", time=1)
+        with self.assertRaises(ValueError):
+            Admix(parents=["a", "b"], proportions=[-0.1, 1.1], child="c", time=1)
         with self.assertRaises(ValueError):
             Admix(parents=["a", "b"], proportions=[0.5], child="c", time=1)
         with self.assertRaises(ValueError):
@@ -448,8 +665,13 @@ class TestAdmix(unittest.TestCase):
         Admix(
             parents=["a", "b", "c"], proportions=[0.5, 0.25, 0.25], child="d", time=10
         )
-        Admix(parents=["a", "b", "c"], proportions=[0.5, 0.5, 0.0], child="d", time=10)
-        Admix(parents=["a", "b"], proportions=[1, 0], child="c", time=10)
+        Admix(
+            parents=["a", "b", "c"],
+            proportions=[0.5, 0.5 - 1e-9, 1e-9],
+            child="d",
+            time=10,
+        )
+        Admix(parents=["a", "b"], proportions=[1 - 1e-9, 1e-9], child="c", time=10)
 
     def test_isclose(self):
         eps = 1e-50
@@ -530,7 +752,7 @@ class TestAdmix(unittest.TestCase):
             a1.isclose(
                 Admix(
                     parents=["a", "b", "x"],
-                    proportions=[0.1, 0.9, 0],
+                    proportions=[0.1, 0.9 - 1e-9, 1e-9],
                     child="c",
                     time=1,
                 )
@@ -566,62 +788,83 @@ class TestDeme(unittest.TestCase):
         self.assertEqual(deme.start_time, 100)
         self.assertEqual(deme.end_time, 1)
 
-    def test_no_epochs(self):
-        with self.assertRaises(ValueError):
-            Deme(id="a", description="b", ancestors=["c"], proportions=[1], epochs=[])
+        deme = Deme(
+            id="a",
+            description=None,
+            ancestors=["c"],
+            proportions=[1],
+            epochs=[Epoch(start_time=float("inf"), end_time=0, initial_size=1)],
+        )
+        self.assertEqual(deme.description, None)
 
     def test_bad_id(self):
-        with self.assertRaises(TypeError):
-            Deme(
-                id=None,
-                description="b",
-                ancestors=[],
-                proportions=[],
-                epochs=[Epoch(start_time=float("inf"), end_time=0, initial_size=1)],
-            )
-        for bad_id in ["", "501", "pop-1", "pop.2", "pop 3"]:
+        for id in (None, 0, float("inf"), 1e3, {}, []):
+            with self.assertRaises(TypeError):
+                Deme(
+                    id=id,
+                    description="b",
+                    ancestors=[],
+                    proportions=[],
+                    epochs=[Epoch(start_time=float("inf"), end_time=0, initial_size=1)],
+                )
+        for id in ["", "501", "pop-1", "pop.2", "pop 3"]:
             with self.assertRaises(ValueError):
                 Deme(
-                    id=bad_id,
+                    id=id,
                     description="b",
                     ancestors=[],
                     proportions=[],
                     epochs=[Epoch(start_time=float("inf"), end_time=0, initial_size=1)],
                 )
 
-    def test_bad_ancestors(self):
-        with self.assertRaises(TypeError):
-            Deme(
-                id="a",
-                description="b",
-                ancestors="c",
-                proportions=[1],
-                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
-            )
-        with self.assertRaises(TypeError):
-            Deme(
-                id="a",
-                description="b",
-                ancestors={"c", "d"},
-                proportions=[0.2, 0.8],
-                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
-            )
-        with self.assertRaises(TypeError):
-            Deme(
-                id="a",
-                description="b",
-                ancestors=["c", "d"],
-                proportions=None,
-                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
-            )
+    def test_bad_description(self):
+        for description in (0, float("inf"), 1e3, {}, []):
+            with self.assertRaises(TypeError):
+                Deme(
+                    id="a",
+                    description=description,
+                    ancestors=[],
+                    proportions=[],
+                    epochs=[Epoch(start_time=float("inf"), end_time=0, initial_size=1)],
+                )
         with self.assertRaises(ValueError):
             Deme(
                 id="a",
-                description="b",
-                ancestors=["c", "d"],
-                proportions=[0.5, 0.2, 0.3],
-                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+                description="",
+                ancestors=[],
+                proportions=[],
+                epochs=[Epoch(start_time=float("inf"), end_time=0, initial_size=1)],
             )
+
+    def test_bad_ancestors(self):
+        for ancestors in (None, "c", {}):
+            with self.assertRaises(TypeError):
+                Deme(
+                    id="a",
+                    description="b",
+                    ancestors=ancestors,
+                    proportions=[1],
+                    epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+                )
+        for id in (None, 0, float("inf"), 1e3, {}, []):
+            with self.assertRaises(TypeError):
+                Deme(
+                    id="a",
+                    description="b",
+                    ancestors=[id],
+                    proportions=[1],
+                    epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+                )
+        for id in ["", "501", "pop-1", "pop.2", "pop 3"]:
+            with self.assertRaises(ValueError):
+                Deme(
+                    id="a",
+                    description="b",
+                    ancestors=[id],
+                    proportions=[1],
+                    epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+                )
+
         with self.assertRaises(ValueError):
             Deme(
                 id="a",
@@ -641,38 +884,57 @@ class TestDeme(unittest.TestCase):
             )
 
     def test_bad_proportions(self):
-        with self.assertRaises(TypeError):
-            Deme(
-                id="a",
-                description="test",
-                ancestors=[],
-                proportions=None,
-                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
-            )
-        with self.assertRaises(ValueError):
-            Deme(
-                id="a",
-                description="test",
-                ancestors=["x", "y"],
-                proportions=[0.6, 0.7],
-                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
-            )
-        with self.assertRaises(ValueError):
-            Deme(
-                id="a",
-                description="test",
-                ancestors=["x", "y"],
-                proportions=[-0.5, 1.5],
-                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
-            )
-        with self.assertRaises(ValueError):
-            Deme(
-                id="a",
-                description="test",
-                ancestors=["x", "y"],
-                proportions=[0, 1.0],
-                epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
-            )
+        for proportions in (None, {}, 1e5, "proportions", float("NaN")):
+            with self.assertRaises(TypeError):
+                Deme(
+                    id="a",
+                    description="test",
+                    ancestors=[],
+                    proportions=proportions,
+                    epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+                )
+        for proportion in (None, "inf", "100", {}, [], float("NaN")):
+            with self.assertRaises(TypeError):
+                Deme(
+                    id="a",
+                    description="test",
+                    ancestors=["b"],
+                    proportions=[proportion],
+                    epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+                )
+
+        for proportions in (
+            [0.6, 0.7],
+            [-0.5, 1.5],
+            [0, 1.0],
+            [0.5, 0.2, 0.3],
+        ):
+            with self.assertRaises(ValueError):
+                Deme(
+                    id="a",
+                    description="test",
+                    ancestors=["x", "y"],
+                    proportions=proportions,
+                    epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+                )
+
+        for proportion in (-10000, -1, -1e-9, 1.2, 100, float("inf")):
+            with self.assertRaises(ValueError):
+                Deme(
+                    id="a",
+                    description="test",
+                    ancestors=["b", "c"],
+                    proportions=[0.5, proportion],
+                    epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+                )
+            with self.assertRaises(ValueError):
+                Deme(
+                    id="a",
+                    description="test",
+                    ancestors=["b", "c"],
+                    proportions=[proportion, 0.5],
+                    epochs=[Epoch(start_time=10, end_time=0, initial_size=1)],
+                )
 
     def test_epochs_out_of_order(self):
         for time in (5, -1, float("inf")):
@@ -703,14 +965,17 @@ class TestDeme(unittest.TestCase):
                 )
 
     def test_bad_epochs(self):
-        with self.assertRaises(TypeError):
-            Deme(
-                id="a",
-                description="b",
-                ancestors=[],
-                proportions=[],
-                epochs=None,
-            )
+        for epochs in (None, {}, "Epoch"):
+            with self.assertRaises(TypeError):
+                Deme(
+                    id="a",
+                    description="b",
+                    ancestors=["c"],
+                    proportions=[1],
+                    epochs=epochs,
+                )
+        with self.assertRaises(ValueError):
+            Deme(id="a", description="b", ancestors=["c"], proportions=[1], epochs=[])
 
     def test_time_span(self):
         for start_time, end_time in zip((float("inf"), 100, 20), (0, 20, 0)):
@@ -858,12 +1123,18 @@ class TestDeme(unittest.TestCase):
         )
 
     # APR (7/28): Add tests for selfing rate, cloning rate, and size function.
-    # Add tests for testing ancestors and proportions.
     # Also add tests for any implied values.
 
 
 class TestGraph(unittest.TestCase):
     def test_bad_generation_time(self):
+        for generation_time in ([], {}, "42", "inf", float("NaN")):
+            with self.assertRaises(TypeError):
+                Graph(
+                    description="test",
+                    time_units="years",
+                    generation_time=generation_time,
+                )
         for generation_time in (-100, -1e-9, 0, float("inf"), None):
             with self.assertRaises(ValueError):
                 Graph(
@@ -873,11 +1144,12 @@ class TestGraph(unittest.TestCase):
                 )
 
     def test_bad_description(self):
-        with self.assertRaises(TypeError):
-            Graph(
-                description=None,
-                time_units="generations",
-            )
+        for description in (None, [], {}, 0, 1e5, float("inf")):
+            with self.assertRaises(TypeError):
+                Graph(
+                    description=description,
+                    time_units="generations",
+                )
         with self.assertRaises(ValueError):
             Graph(
                 description="",
@@ -926,12 +1198,26 @@ class TestGraph(unittest.TestCase):
         )
 
     def test_bad_doi(self):
-        # passing a string instead of a list will be the most common user error
-        with self.assertRaises(TypeError):
+        for doi_list in ({}, "10.1000/123456", float("inf"), 1e5, 0):
+            with self.assertRaises(TypeError):
+                Graph(
+                    description="test",
+                    time_units="generations",
+                    doi=doi_list,
+                )
+        for doi in (None, {}, [], float("inf"), 1e5, 0):
+            with self.assertRaises(TypeError):
+                Graph(
+                    description="test",
+                    time_units="generations",
+                    doi=[doi],
+                )
+
+        with self.assertRaises(ValueError):
             Graph(
                 description="test",
                 time_units="generations",
-                doi="10.1000/123456",
+                doi=[""],
             )
 
     def check_in_generations(self, dg1):
