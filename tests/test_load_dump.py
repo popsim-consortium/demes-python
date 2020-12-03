@@ -417,6 +417,30 @@ class TestLoadAndDump:
         for simplified in [True, False]:
             self.check_examples_load_dump_load(format="json", simplified=simplified)
 
+    def check_yaml_output_is_pretty(self, g, yamlfile, simplified):
+        with open(yamlfile) as f:
+            string = f.read()
+        # Check for non-human-readable output in the yaml file.
+        assert "!!python" not in string
+        assert "!!binary" not in string
+        assert "!!map" not in string
+        assert "!!omap" not in string
+
+        # Check the keys in the yaml are in the same order as our attrs class
+        # attributes. I.e. the same order we get from attr.asdict().
+        def deep_key_order(a, b):
+            assert list(a.keys()) == list(b.keys())
+            for k, a_k in a.items():
+                if isinstance(a_k, dict):
+                    deep_key_order(a_k, b[k])
+
+        data = demes.loads_asdict(string)
+        if simplified:
+            ref_data = g.asdict_simplified()
+        else:
+            ref_data = g.asdict()
+        deep_key_order(ref_data, data)
+
     def check_dump_load_roundtrip(self, g):
         with tempfile.TemporaryDirectory() as tmpdir:
             for format in ["yaml", "json"]:
@@ -425,6 +449,9 @@ class TestLoadAndDump:
                     demes.dump(g, tmpfile, format=format, simplified=simplified)
                     g2 = demes.load(tmpfile, format=format)
                     g.assert_close(g2)
+
+                    if format == "yaml":
+                        self.check_yaml_output_is_pretty(g, tmpfile, simplified)
 
     @hyp.settings(deadline=None, suppress_health_check=[hyp.HealthCheck.too_slow])
     @hyp.given(tests.graphs())
