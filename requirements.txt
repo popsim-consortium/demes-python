@@ -6,6 +6,7 @@ jsonschema==3.2.0
 jupyter-sphinx==0.3.2
 msprime==0.7.4
 mypy==0.790
+numpy==1.19.4
 pytest==6.1.2
 pytest-cov==2.10.1
 ruamel.yaml==0.16.12

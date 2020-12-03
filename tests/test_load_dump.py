@@ -1,10 +1,14 @@
 import copy
+import decimal
+import enum
+import fractions
 import pathlib
 import tempfile
 import textwrap
 
 import pytest
 import hypothesis as hyp
+import numpy as np
 
 import demes
 import tests
@@ -413,9 +417,7 @@ class TestLoadAndDump:
         for simplified in [True, False]:
             self.check_examples_load_dump_load(format="json", simplified=simplified)
 
-    @hyp.settings(deadline=None, suppress_health_check=[hyp.HealthCheck.too_slow])
-    @hyp.given(tests.graphs())
-    def test_dump_load(self, g):
+    def check_dump_load_roundtrip(self, g):
         with tempfile.TemporaryDirectory() as tmpdir:
             for format in ["yaml", "json"]:
                 for simplified in [True, False]:
@@ -423,3 +425,87 @@ class TestLoadAndDump:
                     demes.dump(g, tmpfile, format=format, simplified=simplified)
                     g2 = demes.load(tmpfile, format=format)
                     g.assert_close(g2)
+
+    @hyp.settings(deadline=None, suppress_health_check=[hyp.HealthCheck.too_slow])
+    @hyp.given(tests.graphs())
+    def test_dump_load(self, g):
+        self.check_dump_load_roundtrip(g)
+
+    def test_int_subclass(self):
+        # Check that subclasses of int are round-trippable.
+        class Ne(enum.IntEnum):
+            INITIAL = 1000
+            BOTTLENECK = 500
+            NOMINAL = 10000
+            HUGE = 100000
+
+        g = demes.Graph(description="test", time_units="generations")
+        g.deme(
+            "A",
+            initial_size=Ne.INITIAL,
+            epochs=[
+                demes.Epoch(start_time=500, end_time=400, initial_size=Ne.BOTTLENECK),
+                demes.Epoch(start_time=400, end_time=300, initial_size=Ne.NOMINAL),
+                demes.Epoch(start_time=300, end_time=200, initial_size=Ne.HUGE),
+            ],
+        )
+        self.check_dump_load_roundtrip(g)
+
+        N = np.array([Ne.INITIAL, Ne.BOTTLENECK, Ne.NOMINAL, Ne.HUGE], dtype=np.int32)
+        T = np.array([500, 400, 300, 200], dtype=np.int64)
+        g.deme(
+            "B",
+            initial_size=N[0],
+            epochs=[
+                demes.Epoch(start_time=T[0], end_time=T[1], initial_size=N[1]),
+                demes.Epoch(start_time=T[1], end_time=T[2], initial_size=N[2]),
+                demes.Epoch(start_time=T[2], end_time=T[3], initial_size=N[3]),
+            ],
+        )
+        self.check_dump_load_roundtrip(g)
+
+    def test_float_subclass(self):
+        # Check that subclasses of float are round-trippable.
+        generation_time = np.array([1], dtype=np.float64)
+        N = np.array([1000, 500, 10000, 100000], dtype=np.float64)
+        T = np.array([500, 400, 300, 200], dtype=np.float32)
+        g = demes.Graph(
+            description="test", time_units="years", generation_time=generation_time[0]
+        )
+        g.deme(
+            "A",
+            initial_size=N[0],
+            epochs=[
+                demes.Epoch(start_time=T[0], end_time=T[1], initial_size=N[1]),
+                demes.Epoch(start_time=T[1], end_time=T[2], initial_size=N[2]),
+                demes.Epoch(start_time=T[2], end_time=T[3], initial_size=N[3]),
+            ],
+        )
+        self.check_dump_load_roundtrip(g)
+
+        g.deme("B", initial_size=N[0])
+        g.deme(
+            "C",
+            initial_size=N[0],
+            ancestors=["A", "B"],
+            start_time=T[1],
+            proportions=[fractions.Fraction(1, 3), fractions.Fraction(2, 3)],
+        )
+        self.check_dump_load_roundtrip(g)
+
+        g.pulse(
+            source="A",
+            dest="B",
+            time=T[1],
+            proportion=decimal.Decimal("0.0022"),
+        )
+        self.check_dump_load_roundtrip(g)
+
+        g.migration(
+            source="A",
+            dest="B",
+            start_time=T[1],
+            end_time=T[2],
+            rate=decimal.Decimal("0.000012345"),
+        )
+        self.check_dump_load_roundtrip(g)

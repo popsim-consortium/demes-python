@@ -312,12 +312,7 @@ def from_msprime(
                         dest=name[k],
                         start_time=ddb_epoch.end_time,
                         end_time=ddb_epoch.start_time,
-                        # Explicitly convert to float, so we don't leak a
-                        # singleton numpy float type. This can be a problem
-                        # for annoying serialisers that want to look at the
-                        # type instead of happily outputting a number.
-                        # I'm looking at you, ruamel.yaml!
-                        rate=float(msp_mm[j, k]),
+                        rate=msp_mm[j, k],
                     )
                     migrations[(j, k)].append(m)
                 else:

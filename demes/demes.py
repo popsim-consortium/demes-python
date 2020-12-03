@@ -2,12 +2,12 @@ import typing
 from typing import List, Union, Optional, Dict
 import itertools
 import math
+import numbers
 import copy
 import operator
 import warnings
 
 import attr
-from attr.validators import optional
 
 Number = Union[int, float]
 ID = str
@@ -20,6 +20,13 @@ _ISCLOSE_REL_TOL = 1e-9
 _ISCLOSE_ABS_TOL = 1e-12
 
 # Validator functions.
+
+
+def int_or_float(self, attribute, value):
+    if (
+        not isinstance(value, numbers.Real) and not hasattr(value, "__float__")
+    ) or value != value:  # type-agnostic test for NaN
+        raise TypeError(f"{attribute.name} must be a number")
 
 
 def positive(self, attribute, value):
@@ -42,10 +49,22 @@ def unit_interval(self, attribute, value):
         raise ValueError(f"must have 0 <= {attribute.name} <= 1")
 
 
-def nonempty_str(self, attribute, value):
-    attr.validators.instance_of(str)(self, attribute, value)
+def nonzero_len(self, attribute, value):
     if len(value) == 0:
-        raise ValueError(f"{attribute.name} must be a non-empty string")
+        if isinstance(value, str):
+            raise ValueError(f"{attribute.name} must be a non-empty string")
+        else:
+            raise ValueError(f"{attribute.name} must have non-zero length")
+
+
+def valid_deme_id(self, attribute, value):
+    if not value.isidentifier():
+        raise ValueError(
+            "Invalid deme ID `{self.id}`. IDs must be valid python identifiers. "
+            "We recommend choosing a deme ID that starts with a letter or "
+            "underscore, and is followed by one or more letters, numbers, "
+            "or underscores."
+        )
 
 
 def isclose(
@@ -117,22 +136,35 @@ class Epoch:
     :ivar cloning_rate: An optional cloning rate for this epoch.
     """
 
-    start_time: Optional[Time] = attr.ib(default=None, validator=optional(non_negative))
+    start_time: Optional[Time] = attr.ib(
+        default=None,
+        validator=attr.validators.optional([int_or_float, non_negative]),
+    )
     end_time: Optional[Time] = attr.ib(
-        default=None, validator=optional([non_negative, finite])
+        default=None,
+        validator=attr.validators.optional([int_or_float, non_negative, finite]),
     )
     initial_size: Optional[Size] = attr.ib(
-        default=None, validator=optional([positive, finite])
+        default=None,
+        validator=attr.validators.optional([int_or_float, positive, finite]),
     )
     final_size: Optional[Size] = attr.ib(
-        default=None, validator=optional([positive, finite])
+        default=None,
+        validator=attr.validators.optional([int_or_float, positive, finite]),
     )
-    size_function: Optional[str] = attr.ib(default=None)
+    size_function: Optional[str] = attr.ib(
+        default=None,
+        validator=attr.validators.optional(
+            [attr.validators.instance_of(str), nonzero_len]
+        ),
+    )
     selfing_rate: Optional[Proportion] = attr.ib(
-        default=None, validator=optional(unit_interval)
+        default=None,
+        validator=attr.validators.optional([int_or_float, unit_interval]),
     )
     cloning_rate: Optional[Proportion] = attr.ib(
-        default=None, validator=optional(unit_interval)
+        default=None,
+        validator=attr.validators.optional([int_or_float, unit_interval]),
     )
 
     def __attrs_post_init__(self):
@@ -151,6 +183,15 @@ class Epoch:
         ):
             if math.isinf(self.start_time) and self.initial_size != self.final_size:
                 raise ValueError("if start time is inf, must be a constant size epoch")
+        if (
+            self.size_function == "constant"
+            and self.initial_size is not None
+            and self.final_size is not None
+            and self.initial_size != self.final_size
+        ):
+            raise ValueError(
+                "initial_size != final_size, but size_function is constant"
+            )
 
     @property
     def time_span(self):
@@ -266,11 +307,11 @@ class Migration:
         the given time.
     """
 
-    source: ID = attr.ib()
-    dest: ID = attr.ib()
-    start_time: Time = attr.ib(validator=non_negative)
-    end_time: Time = attr.ib(validator=[non_negative, finite])
-    rate: Rate = attr.ib(validator=[non_negative, finite])
+    source: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    dest: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    start_time: Time = attr.ib(validator=[int_or_float, non_negative])
+    end_time: Time = attr.ib(validator=[int_or_float, non_negative, finite])
+    rate: Rate = attr.ib(validator=[int_or_float, non_negative, finite])
 
     def __attrs_post_init__(self):
         if self.source == self.dest:
@@ -365,10 +406,10 @@ class Pulse:
         the source deme.
     """
 
-    source: ID = attr.ib()
-    dest: ID = attr.ib()
-    time: Time = attr.ib(validator=[non_negative, finite])
-    proportion: Proportion = attr.ib(validator=unit_interval)
+    source: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    dest: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    time: Time = attr.ib(validator=[int_or_float, non_negative, finite])
+    proportion: Proportion = attr.ib(validator=[int_or_float, unit_interval])
 
     def __attrs_post_init__(self):
         if self.source == self.dest:
@@ -457,16 +498,25 @@ class Split:
     :ivar time: The split time.
     """
 
-    parent: ID = attr.ib()
-    children: List[ID] = attr.ib()
-    time: Time = attr.ib(validator=[non_negative, finite])
+    parent: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    children: List[ID] = attr.ib(
+        validator=attr.validators.and_(
+            attr.validators.deep_iterable(
+                member_validator=attr.validators.and_(
+                    attr.validators.instance_of(str), valid_deme_id
+                ),
+                iterable_validator=attr.validators.instance_of(list),
+            ),
+            nonzero_len,
+        )
+    )
+    time: Time = attr.ib(validator=[int_or_float, non_negative, finite])
 
     def __attrs_post_init__(self):
-        if not isinstance(self.children, list):
-            raise ValueError("children of split must be passed as a list")
-        for child in self.children:
-            if child == self.parent:
-                raise ValueError("child and parent cannot be the same deme")
+        if self.parent in self.children:
+            raise ValueError("child and parent cannot be the same deme")
+        if len(set(self.children)) != len(self.children):
+            raise ValueError("cannot repeat children in split")
 
     def assert_close(
         self,
@@ -551,9 +601,9 @@ class Branch:
     :ivar time: The branch time.
     """
 
-    parent: ID = attr.ib()
-    child: ID = attr.ib()
-    time: Time = attr.ib(validator=[non_negative, finite])
+    parent: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    child: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    time: Time = attr.ib(validator=[int_or_float, non_negative, finite])
 
     def __attrs_post_init__(self):
         if self.child == self.parent:
@@ -642,20 +692,34 @@ class Merge:
     :ivar time: The merge time.
     """
 
-    parents: List[ID] = attr.ib()
-    proportions: List[Proportion] = attr.ib()
-    child: ID = attr.ib()
-    time: Time = attr.ib(validator=[non_negative, finite])
+    parents: List[ID] = attr.ib(
+        validator=attr.validators.deep_iterable(
+            member_validator=attr.validators.and_(
+                attr.validators.instance_of(str), valid_deme_id
+            ),
+            iterable_validator=attr.validators.instance_of(list),
+        )
+    )
+    proportions: List[Proportion] = attr.ib(
+        validator=attr.validators.deep_iterable(
+            member_validator=int_or_float,
+            iterable_validator=attr.validators.instance_of(list),
+        )
+    )
+    child: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    time: Time = attr.ib(validator=[int_or_float, non_negative, finite])
+
+    @proportions.validator
+    def _check_proportions(self, attribute, _value):
+        if len(self.proportions) > 0 and not math.isclose(sum(self.proportions), 1.0):
+            raise ValueError("proportions must sum to 1.0")
+        for proportion in self.proportions:
+            unit_interval(self, attribute, proportion)
+            positive(self, attribute, proportion)
 
     def __attrs_post_init__(self):
-        if not isinstance(self.parents, list):
-            raise ValueError("parents must be passed as a list")
-        if not isinstance(self.proportions, list):
-            raise ValueError("proportions must be passed as a list")
         if len(self.parents) < 2:
             raise ValueError("merge must involve at least two ancestors")
-        if math.isclose(sum(self.proportions), 1) is False:
-            raise ValueError("proportions must sum to 1")
         if len(self.parents) != len(self.proportions):
             raise ValueError("parents and proportions must have same length")
         if self.child in self.parents:
@@ -753,20 +817,34 @@ class Admix:
     :ivar time: The admixture time.
     """
 
-    parents: List[ID] = attr.ib()
-    proportions: List[Proportion] = attr.ib()
-    child: ID = attr.ib()
-    time: Time = attr.ib(validator=[non_negative, finite])
+    parents: List[ID] = attr.ib(
+        validator=attr.validators.deep_iterable(
+            member_validator=attr.validators.and_(
+                attr.validators.instance_of(str), valid_deme_id
+            ),
+            iterable_validator=attr.validators.instance_of(list),
+        )
+    )
+    proportions: List[Proportion] = attr.ib(
+        validator=attr.validators.deep_iterable(
+            member_validator=int_or_float,
+            iterable_validator=attr.validators.instance_of(list),
+        )
+    )
+    child: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    time: Time = attr.ib(validator=[int_or_float, non_negative, finite])
+
+    @proportions.validator
+    def _check_proportions(self, attribute, _value):
+        if len(self.proportions) > 0 and not math.isclose(sum(self.proportions), 1.0):
+            raise ValueError("proportions must sum to 1.0")
+        for proportion in self.proportions:
+            unit_interval(self, attribute, proportion)
+            positive(self, attribute, proportion)
 
     def __attrs_post_init__(self):
-        if not isinstance(self.parents, list):
-            raise ValueError("parents must be passed as a list")
-        if not isinstance(self.proportions, list):
-            raise ValueError("proportions must be passed as a list")
         if len(self.parents) < 2:
             raise ValueError("admixture must involve at least two ancestors")
-        if math.isclose(sum(self.proportions), 1) is False:
-            raise ValueError("Proportions must sum to 1")
         if len(self.parents) != len(self.proportions):
             raise ValueError("parents and proportions must have same length")
         if self.child in self.parents:
@@ -885,27 +963,35 @@ class Deme:
     :vartype epochs: list of :class:`.Epoch`
     """
 
-    id: ID = attr.ib()
-    description: str = attr.ib()
-    ancestors: List[ID] = attr.ib()
-    proportions: List[Proportion] = attr.ib()
-    epochs: List[Epoch] = attr.ib()
-
-    @id.validator
-    def _check_id(self, attribute, value):
-        attr.validators.instance_of(str)(self, attribute, value)
-        if not self.id.isidentifier():
-            raise ValueError(
-                "Invalid deme ID `{self.id}`. IDs must be valid python identifiers. "
-                "We recommend choosing a deme ID that starts with a letter or "
-                "underscore, and is followed by one or more letters, numbers, "
-                "or underscores."
-            )
+    id: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    description: Optional[str] = attr.ib(
+        validator=attr.validators.optional(
+            [attr.validators.instance_of(str), nonzero_len]
+        )
+    )
+    ancestors: List[ID] = attr.ib(
+        validator=attr.validators.deep_iterable(
+            member_validator=attr.validators.and_(
+                attr.validators.instance_of(str), valid_deme_id
+            ),
+            iterable_validator=attr.validators.instance_of(list),
+        )
+    )
+    proportions: List[Proportion] = attr.ib(
+        validator=attr.validators.deep_iterable(
+            member_validator=int_or_float,
+            iterable_validator=attr.validators.instance_of(list),
+        )
+    )
+    epochs: List[Epoch] = attr.ib(
+        validator=attr.validators.deep_iterable(
+            member_validator=attr.validators.instance_of(Epoch),
+            iterable_validator=attr.validators.instance_of(list),
+        )
+    )
 
     @ancestors.validator
     def _check_ancestors(self, _attribute, _value):
-        if not isinstance(self.ancestors, list):
-            raise TypeError("ancestors must be a list of deme IDs")
         if len(set(self.ancestors)) != len(self.ancestors):
             raise ValueError(f"duplicate ancestors in {self.ancestors}")
         if self.id in self.ancestors:
@@ -913,19 +999,14 @@ class Deme:
 
     @proportions.validator
     def _check_proportions(self, attribute, _value):
-        err = "proportions must be a list of numbers summing to 1.0"
-        if not isinstance(self.proportions, list):
-            raise TypeError(err)
         if len(self.proportions) > 0 and not math.isclose(sum(self.proportions), 1.0):
-            raise ValueError(err)
+            raise ValueError("proportions must sum to 1.0")
         for proportion in self.proportions:
             unit_interval(self, attribute, proportion)
             positive(self, attribute, proportion)
 
     @epochs.validator
     def _check_epochs(self, _attribute, _value):
-        if not isinstance(self.epochs, list):
-            raise TypeError("epochs must be a list of Epoch classes")
         # every deme must have at least one epoch
         if len(self.epochs) == 0:
             raise ValueError("Demes must be defined with at least one epoch")
@@ -1076,20 +1157,26 @@ class Graph:
     :vartype pulses: list of :class:`.Pulse`
     """
 
-    description: str = attr.ib(validator=nonempty_str)
-    time_units: str = attr.ib(validator=nonempty_str)
-    generation_time: Optional[Time] = attr.ib(
-        default=None, validator=optional([positive, finite])
+    description: str = attr.ib(
+        validator=[attr.validators.instance_of(str), nonzero_len]
     )
-    doi: List[str] = attr.ib(factory=list)
+    time_units: str = attr.ib(validator=[attr.validators.instance_of(str), nonzero_len])
+    generation_time: Optional[Time] = attr.ib(
+        default=None,
+        validator=attr.validators.optional([int_or_float, positive, finite]),
+    )
+    doi: List[str] = attr.ib(
+        factory=list,
+        validator=attr.validators.deep_iterable(
+            member_validator=attr.validators.and_(
+                attr.validators.instance_of(str), nonzero_len
+            ),
+            iterable_validator=attr.validators.instance_of(list),
+        ),
+    )
     demes: List[Deme] = attr.ib(factory=list, init=False)
     migrations: List[Migration] = attr.ib(factory=list, init=False)
     pulses: List[Pulse] = attr.ib(factory=list, init=False)
-
-    @doi.validator
-    def _check_doi(self, _attribute, _value):
-        if not isinstance(self.doi, list):
-            raise TypeError("doi must be a list of strings")
 
     def __attrs_post_init__(self):
         self._deme_map: Dict[ID, Deme] = dict()
@@ -1702,7 +1789,21 @@ class Graph:
         def filt(_attrib, val):
             return val is not None and not (hasattr(val, "__len__") and len(val) == 0)
 
-        data = attr.asdict(self, filter=filt)
+        def coerce_numbers(inst, attribute, value):
+            # Explicitly convert numeric types to int or float, so that they
+            # don't cause problems for the YAML and JSON serialisers.
+            # E.g. numpy int32/int64 are part of Python's numeric tower as
+            # subclasses of numbers.Integral, similarly numpy's float32/float64
+            # are subclasses of numbers.Real. There are yet other numeric types,
+            # such as the standard library's decimal.Decimal, which are not part
+            # of the numeric tower, but provide a __float__() method.
+            if isinstance(value, numbers.Integral):
+                value = int(value)
+            elif isinstance(value, numbers.Real) or hasattr(value, "__float__"):
+                value = float(value)
+            return value
+
+        data = attr.asdict(self, filter=filt, value_serializer=coerce_numbers)
         # translate to spec data model
         for deme in data["demes"]:
             deme["start_time"] = deme["epochs"][0]["start_time"]
