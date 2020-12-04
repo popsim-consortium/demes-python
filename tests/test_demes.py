@@ -1752,7 +1752,7 @@ class TestGraphToDict(unittest.TestCase):
         d = dg.asdict()
         self.assertTrue(d["demes"][0]["epochs"][0]["cloning_rate"] == 0.1)
         d = dg.asdict_simplified()
-        self.assertTrue(d["demes"][0]["cloning_rate"] == 0.1)
+        self.assertTrue(d["demes"][0]["epochs"][0]["cloning_rate"] == 0.1)
         dg.deme("b", initial_size=200)
         d = dg.asdict_simplified()
         self.assertTrue("cloning_rate" not in d["demes"][1])
