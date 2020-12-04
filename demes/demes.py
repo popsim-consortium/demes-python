@@ -1864,19 +1864,9 @@ class Graph:
                     if epoch["initial_size"] == epoch["final_size"]:
                         del epoch["final_size"]
 
-            # we don't specify the deme's start and end time, since it's included in the
-            # epoch information. in the case that a single epoch is specified in a deme
-            # we carry that information up to the deme level
             for deme in data["demes"]:
                 del deme["start_time"]
                 del deme["end_time"]
-                if (
-                    len(deme["epochs"]) == 1
-                    and "size_function" not in deme["epochs"][0]
-                ):
-                    deme.update(**deme["epochs"][0])
-                    del deme["epochs"]
-
                 if "ancestors" in deme and len(deme["ancestors"]) == 1:
                     del deme["proportions"]
 
