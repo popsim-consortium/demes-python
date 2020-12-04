@@ -3,6 +3,7 @@ import math
 
 import numpy as np
 import moments
+from demes import Epoch
 
 
 # This script contains functions to compute the sample SFS from a demography defined
@@ -154,9 +155,7 @@ def augment_with_ancient_samples(g, sampled_demes, sample_times):
             sampled_demes[ii] = sd_frozen
             g.deme(
                 id=sd_frozen,
-                start_time=st,
-                end_time=0,
-                initial_size=1,
+                epochs=[Epoch(start_time=st, end_time=0, initial_size=1)],
                 ancestors=[sd],
             )
     return g, sampled_demes, frozen_demes

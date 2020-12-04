@@ -5,17 +5,20 @@ generation_time: 1
 demes:
   - id: ancestral
     description: Main population
-    initial_size: 1000
+    epochs:
+    - initial_size: 1000
   - id: offshoot1
     description: More recent offshoot population
     ancestors: [ancestral]
-    start_time: 500
-    initial_size: 100
+    epochs:
+    - start_time: 500
+      initial_size: 100
   - id: offshoot2
     description: More ancient offshoot population
     ancestors: [ancestral]
-    start_time: 1000
-    initial_size: 200
+    epochs:
+    - start_time: 1000
+      initial_size: 200
 migrations:
   asymmetric:
   - source: ancestral

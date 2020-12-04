@@ -961,6 +961,10 @@ class Deme:
     :ivar epochs: A list of epochs, which define the population size(s) of
         the deme. The deme must be created with all epochs listed.
     :vartype epochs: list of :class:`.Epoch`
+    :ivar defaults: A dictionary of default attributes, such as cloning and
+        selfing rates, that are inherited by epochs if those attributes are
+        not specified in the epoch.
+    :vartype defaults: dict
     """
 
     id: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
@@ -989,6 +993,7 @@ class Deme:
             iterable_validator=attr.validators.instance_of(list),
         )
     )
+    defaults: dict = attr.ib()
 
     @ancestors.validator
     def _check_ancestors(self, _attribute, _value):
@@ -1155,6 +1160,8 @@ class Graph:
     :ivar pulses: A list of migration pulses for the demography.
         Use :meth:`pulse` to add a pulse.
     :vartype pulses: list of :class:`.Pulse`
+    :ivar defaults: A dictionary of default attributes for demes and epochs.
+    :vartype defaults: dict
     """
 
     description: str = attr.ib(
@@ -1177,6 +1184,7 @@ class Graph:
     demes: List[Deme] = attr.ib(factory=list, init=False)
     migrations: List[Migration] = attr.ib(factory=list, init=False)
     pulses: List[Pulse] = attr.ib(factory=list, init=False)
+    defaults: dict = attr.ib(default={})
 
     def __attrs_post_init__(self):
         self._deme_map: Dict[ID, Deme] = dict()
@@ -1326,8 +1334,7 @@ class Graph:
         end_time=None,
         initial_size=None,
         final_size=None,
-        selfing_rate=None,
-        cloning_rate=None,
+        defaults={},
     ) -> Deme:
         """
         Add a deme to the graph, with lifetime ``(start_time, end_time]``.
@@ -1389,6 +1396,8 @@ class Graph:
                 proportions = [1.0]
             else:
                 proportions = []
+        if epochs is None:
+            raise ValueError("Demes must have at least one specified epoch")
 
         # set the start time to first epoch's start time, to inf or to
         # the ancestor's end time, if not given
@@ -1403,6 +1412,14 @@ class Graph:
                 start_time = self[ancestors[0]].end_time
             else:
                 start_time = float("inf")
+        # set the end time to the last epoch's end time or to zero if not given
+        if end_time is None:
+            if epochs[-1].end_time is not None:
+                end_time = epochs[-1].end_time
+            else:
+                end_time = 0
+        if epochs[-1].end_time is not None and epochs[-1].end_time != end_time:
+            raise ValueError("deme and final epoch end times do not align")
         # check start time is valid wrt ancestor time intervals
         for ancestor in ancestors:
             anc = self[ancestor]
@@ -1412,71 +1429,54 @@ class Graph:
                     f"of existence for ancestor {ancestor} "
                     f"({anc.start_time}, {anc.end_time})"
                 )
-
-        # build the deme's epochs
-        if epochs is None:
-            # if epochs are not given, we assign a single epoch over that deme
-            if final_size is None:
-                final_size = initial_size
-            if end_time is None:
-                end_time = 0
-            if initial_size == final_size:
-                size_function = "constant"
-            else:
-                size_function = "exponential"
-            epochs = [
-                Epoch(
-                    start_time=start_time,
-                    end_time=end_time,
-                    initial_size=initial_size,
-                    final_size=final_size,
-                    size_function=size_function,
-                    selfing_rate=selfing_rate,
-                    cloning_rate=cloning_rate,
-                )
-            ]
+        # set default cloning and selfing rates
+        if "selfing_rate" in defaults:
+            selfing_rate = defaults["selfing_rate"]
+        elif "selfing_rate" in self.defaults:
+            selfing_rate = self.defaults["selfing_rate"]
         else:
-            # the last epoch needs to have an end time
-            if epochs[-1].end_time is None:
-                if end_time is not None:
-                    epochs[-1].end_time = end_time
+            selfing_rate = None
+        if "cloning_rate" in defaults:
+            cloning_rate = defaults["cloning_rate"]
+        elif "cloning_rate" in self.defaults:
+            cloning_rate = self.defaults["cloning_rate"]
+        else:
+            cloning_rate = None
+
+        # the last epoch's end time is set to deme's end time
+        if epochs[-1].end_time is None:
+            epochs[-1].end_time = end_time
+        # the first epoch's start time is set to deme's start time
+        if epochs[0].start_time is None:
+            epochs[0].start_time = start_time
+        elif epochs[0].start_time != start_time:
+            raise ValueError("deme and first epoch start times do not align")
+
+        # fill in all attributes of epochs
+        for i in range(len(epochs)):
+            # set the start and end times based on surrounding demes
+            if epochs[i].start_time is None:
+                epochs[i].start_time = epochs[i - 1].end_time
+            if epochs[i].end_time is None:
+                if epochs[i + 1].start_time is None:
+                    raise ValueError("ambiguity about epochs' start/end times")
+                epochs[i].end_time = epochs[i + 1].start_time
+            # for each subsequent epoch, fill in start size, final size,
+            # and size function as necessary based on last epoch
+            if epochs[i].initial_size is None:
+                epochs[i].initial_size = epochs[i - 1].final_size
+            if epochs[i].final_size is None:
+                epochs[i].final_size = epochs[i].initial_size
+            if epochs[i].size_function is None:
+                if epochs[i].initial_size == epochs[i].final_size:
+                    epochs[i].size_function = "constant"
                 else:
-                    raise ValueError("last epoch's end_time must be specified")
-            if end_time is None:
-                end_time = epochs[-1].end_time
-            if end_time != epochs[-1].end_time:
-                raise ValueError("deme and final epoch end times do not align")
-            # deal with first epoch and deme start times
-            if epochs[0].start_time is None:
-                # first epoch starts at deme start time
-                epochs[0].start_time = start_time
-            elif epochs[0].start_time != start_time:
-                raise ValueError("deme and first epoch start times do not align")
-            # fill in all attributes of epochs
-            for i in range(len(epochs)):
-                # set the start and end times based on surrounding demes
-                if epochs[i].start_time is None:
-                    epochs[i].start_time = epochs[i - 1].end_time
-                if epochs[i].end_time is None:
-                    if epochs[i + 1].start_time is None:
-                        raise ValueError("ambiguity about epochs' start/end times")
-                    epochs[i].end_time = epochs[i + 1].start_time
-                # for each subsequent epoch, fill in start size, final size,
-                # and size function as necessary based on last epoch
-                if epochs[i].initial_size is None:
-                    epochs[i].initial_size = epochs[i - 1].final_size
-                if epochs[i].final_size is None:
-                    epochs[i].final_size = epochs[i].initial_size
-                if epochs[i].size_function is None:
-                    if epochs[i].initial_size == epochs[i].final_size:
-                        epochs[i].size_function = "constant"
-                    else:
-                        epochs[i].size_function = "exponential"
-                # set per-epoch selfing and cloning rates
-                if epochs[i].selfing_rate is None:
-                    epochs[i].selfing_rate = selfing_rate
-                if epochs[i].cloning_rate is None:
-                    epochs[i].cloning_rate = cloning_rate
+                    epochs[i].size_function = "exponential"
+            # set per-epoch selfing and cloning rates
+            if epochs[i].selfing_rate is None:
+                epochs[i].selfing_rate = selfing_rate
+            if epochs[i].cloning_rate is None:
+                epochs[i].cloning_rate = cloning_rate
 
         deme = Deme(
             id=id,
@@ -1484,6 +1484,7 @@ class Graph:
             ancestors=ancestors,
             proportions=proportions,
             epochs=epochs,
+            defaults=defaults,
         )
         self._deme_map[deme.id] = deme
         self.demes.append(deme)
@@ -1765,21 +1766,12 @@ class Graph:
         """
         Return a graph from a dict representation. The inverse of asdict().
         """
-
-        # propagate selfing and cloning rates down to deme level
-        selfing_rate = data.get("selfing_rate")
-        cloning_rate = data.get("cloning_rate")
-        for deme in data.get("demes", []):
-            if selfing_rate is not None and "selfing_rate" not in deme:
-                deme["selfing_rate"] = selfing_rate
-            if cloning_rate is not None and "cloning_rate" not in deme:
-                deme["cloning_rate"] = cloning_rate
-
         g = cls(
             description=data.get("description"),
             time_units=data.get("time_units"),
             generation_time=data.get("generation_time"),
             doi=data.get("doi", []),
+            defaults=data.get("defaults", {}),
         )
 
         for deme in data.get("demes", []):

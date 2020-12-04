@@ -1,32 +1,36 @@
 description: An example demography to play around with selfing attributes.
 generation_time: 1
 time_units: generations
-selfing_rate: 0.05
+defaults:
+- selfing_rate: 0.05
 demes:
-  - id: root
-    description: Root population
+- id: root
+  description: Root population
+  defaults:
+  - selfing_rate: 0.1
+  epochs:
+  - initial_size: 1e3
     end_time: 1000
-    initial_size: 1e3
-    selfing_rate: 0.1
-  - id: pop1
-    description: Population with epochs and changing selfing rates
-    ancestors: [root]
-    selfing_rate: 0.2
-    epochs:
-    - initial_size: 1e4
-      end_time: 500
-    - initial_size: 1e2
-      end_time: 100
-    - initial_size: 1e4
-      end_time: 0
-      selfing_rate: 0.5
-  - id: pop2
-    description: Population with epochs and changing selfing rates
-    ancestors: [root]
-    epochs:
-    - initial_size: 1e4
-      end_time: 500
-      selfing_rate: 0.9
-    - initial_size: 1e2
-      end_time: 0
-      selfing_rate: 1.0
+- id: pop1
+  description: Population with epochs and changing selfing rates
+  ancestors: [root]
+  defaults:
+  - selfing_rate: 0.2
+  epochs:
+  - initial_size: 1e4
+    end_time: 500
+  - initial_size: 1e2
+    end_time: 100
+  - initial_size: 1e4
+    end_time: 0
+    selfing_rate: 0.5
+- id: pop2
+  description: Population with epochs and changing selfing rates
+  ancestors: [root]
+  epochs:
+  - initial_size: 1e4
+    end_time: 500
+    selfing_rate: 0.9
+  - initial_size: 1e2
+    end_time: 0
+    selfing_rate: 1.0
