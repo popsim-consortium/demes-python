@@ -210,7 +210,7 @@ def from_msprime(
     # don't have complete information about each deme's life-span or population
     # size(s). So we insert dummy epochs into the temporary graph, and build
     # up the correct `Epoch`s, `Migration`s, and `Pulse`s outside of the graph.
-    gtmp = {"demes": {}}
+    gtmp: Mapping[str, dict] = {"demes": {}}
 
     # List of demes.Epoch, keyed by deme id.
     epochs: Mapping[str, List[demes.Epoch]] = collections.defaultdict(list)
