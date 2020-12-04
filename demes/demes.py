@@ -1567,6 +1567,22 @@ class Graph:
             end_time = time_lo
         else:
             self._check_time_intersection(source, dest, end_time)
+        for existing_migration in self.migrations:
+            if source == existing_migration.source and dest == existing_migration.dest:
+                if (
+                    start_time >= existing_migration.start_time > end_time
+                    or start_time > existing_migration.end_time >= end_time
+                    or existing_migration.start_time
+                    >= start_time
+                    > existing_migration.end_time
+                    or existing_migration.start_time
+                    > end_time
+                    >= existing_migration.end_time
+                ):
+                    raise ValueError(
+                        "new migration overlaps exisiting migration "
+                        f"from {source} to {dest}"
+                    )
         migration = Migration(
             source=source,
             dest=dest,

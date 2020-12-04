@@ -1287,6 +1287,25 @@ class TestGraph(unittest.TestCase):
                 source="deme1", dest="deme2", rate=0.01, start_time=1000, end_time=0
             )
 
+    def test_overlapping_migrations(self):
+        dg = demes.Graph(description="test", time_units="generations")
+        dg.deme("A", initial_size=1)
+        dg.deme("B", initial_size=1)
+        dg.migration(source="A", dest="B", rate=0.01)
+        with self.assertRaises(ValueError):
+            dg.migration(source="A", dest="B", start_time=10, rate=0.02)
+        with self.assertRaises(ValueError):
+            dg.symmetric_migration(demes=["A", "B"], rate=0.02)
+        with self.assertRaises(ValueError):
+            dg.symmetric_migration(demes=["A", "B"], rate=0.02, end_time=100)
+        dg.migration(source="B", dest="A", rate=0.03, start_time=100, end_time=10)
+        with self.assertRaises(ValueError):
+            dg.migration(source="B", dest="A", rate=0.04, start_time=50)
+        dg.migration(source="B", dest="A", rate=0.03, start_time=5)
+        with self.assertRaises(ValueError):
+            dg.migration(source="B", dest="A", rate=0.05, start_time=10)
+        dg.migration(source="B", dest="A", rate=0.01, start_time=10, end_time=5)
+
     def test_bad_pulse_time(self):
         dg = demes.Graph(description="test bad pulse time", time_units="generations")
         dg.deme("deme1", end_time=0, initial_size=1000)
@@ -1673,9 +1692,9 @@ class TestGraph(unittest.TestCase):
         d2 = g.deme("b", initial_size=1, start_time=50)
         self.assertIsInstance(d2, Deme)
 
-        mig = g.migration(source="a", dest="b", rate=1e-4)
+        mig = g.migration(source="a", dest="b", rate=1e-4, end_time=25)
         self.assertIsInstance(mig, Migration)
-        migs = g.symmetric_migration(demes=["a", "b"], rate=1e-4)
+        migs = g.symmetric_migration(demes=["a", "b"], rate=1e-4, start_time=25)
         self.assertIsInstance(migs, list)
         for m in migs:
             self.assertIsInstance(m, Migration)
