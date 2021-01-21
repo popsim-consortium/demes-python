@@ -1407,7 +1407,8 @@ class Graph:
             elif len(ancestors) > 0:
                 if len(ancestors) > 1:
                     raise ValueError(
-                        f"with multiple ancestors, start_time must be specified for deme {id}"
+                        "with multiple ancestors, start_time must be specified "
+                        f"for deme {id}"
                     )
                 start_time = self[ancestors[0]].end_time
             else:
@@ -1451,7 +1452,8 @@ class Graph:
                 raise ValueError("all epochs must specify the end time")
             if i > 0 and epochs[i].start_time != epochs[i - 1].end_time:
                 raise ValueError(
-                    "epoch start and end times do not align for deme {id}, epochs {i - 1} and {i}"
+                    "epoch start and end times do not align for deme {id}, "
+                    f"epochs {i - 1} and {i}"
                 )
             # for each subsequent epoch, fill in start size, final size,
             # and size function as necessary based on last epoch
