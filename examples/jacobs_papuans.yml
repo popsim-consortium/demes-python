@@ -43,16 +43,19 @@ demes:
     epochs:
     - start_time: 12500.0
       initial_size: 13249.0
+      end_time: 0
   - id: Den1
     ancestors: [DenA]
     epochs:
     - start_time: 9750.0
       initial_size: 13249.0
+      end_time: 0
   - id: Nea1
     ancestors: [NeaA]
     epochs:
     - start_time: 3375.0
       initial_size: 13249.0
+      end_time: 0
   - id: Ghost
     ancestors: [YRI]
     start_time: 2218.0
@@ -84,6 +87,7 @@ demes:
     epochs:
     - start_time: 1293.0
       initial_size: 6962.0
+      end_time: 0
 migrations:
   symmetric:
   - demes: [YRI, Ghost]

@@ -26,18 +26,21 @@ demes:
     ancestors: [AMH]
     epochs:
     - initial_size: 14474
+      end_time: 0
   - id: EUR
     description: European population
     ancestors: [OOA]
     epochs:
     - initial_size: 1000
       final_size: 34039
+      end_time: 0
   - id: EAS
     description: East Asian population
     ancestors: [OOA]
     epochs:
     - initial_size: 510
       final_size: 45852
+      end_time: 0
   - id: ADMIX
     description: Admixed America
     ancestors: [AFR, EUR, EAS]
@@ -46,6 +49,7 @@ demes:
     - start_time: 12
       initial_size: 30000
       final_size: 54664
+      end_time: 0
 migrations:
   symmetric:
   - demes: [AFR, OOA]

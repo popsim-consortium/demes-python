@@ -53,10 +53,16 @@ def jacobs_papuans():
         epochs=[Epoch(end_time=9750, initial_size=N_DeniAnc)],
     )
     # Altai Denisovan (sampling lineage)
-    g.deme("DenAltai", ancestors=["Den2"], epochs=[Epoch(initial_size=5083)])
+    g.deme(
+        "DenAltai", ancestors=["Den2"], epochs=[Epoch(initial_size=5083, end_time=0)]
+    )
     # Introgressing Denisovan lineages 1 and 2
-    g.deme("DenI1", ancestors=["Den2"], epochs=[Epoch(initial_size=N_archaic)])
-    g.deme("DenI2", ancestors=["Den1"], epochs=[Epoch(initial_size=N_archaic)])
+    g.deme(
+        "DenI1", ancestors=["Den2"], epochs=[Epoch(initial_size=N_archaic, end_time=0)]
+    )
+    g.deme(
+        "DenI2", ancestors=["Den1"], epochs=[Epoch(initial_size=N_archaic, end_time=0)]
+    )
 
     g.deme(
         "Nea",
@@ -64,7 +70,7 @@ def jacobs_papuans():
         epochs=[Epoch(end_time=3375, initial_size=N_archaic)],
     )
     # Altai Neanderthal (sampling lineage)
-    g.deme("NeaAltai", ancestors=["Nea"], epochs=[Epoch(initial_size=826)])
+    g.deme("NeaAltai", ancestors=["Nea"], epochs=[Epoch(initial_size=826, end_time=0)])
     # Introgressing Neanderthal lineage
     g.deme(
         "NeaI", ancestors=["Nea"], epochs=[Epoch(end_time=883, initial_size=N_archaic)]
@@ -75,7 +81,7 @@ def jacobs_papuans():
         ancestors=["ancestral_hominin"],
         epochs=[Epoch(end_time=2218, initial_size=41563)],
     )
-    g.deme("Africa", ancestors=["AMH"], epochs=[Epoch(initial_size=48433)])
+    g.deme("Africa", ancestors=["AMH"], epochs=[Epoch(initial_size=48433, end_time=0)])
     g.deme(
         "Ghost1",
         ancestors=["AMH"],
@@ -91,7 +97,9 @@ def jacobs_papuans():
         ancestors=["Ghost1"],
         epochs=[Epoch(end_time=1758, initial_size=N_ghost)],
     )
-    g.deme("Ghost3", ancestors=["Ghost2"], epochs=[Epoch(initial_size=N_ghost)])
+    g.deme(
+        "Ghost3", ancestors=["Ghost2"], epochs=[Epoch(initial_size=N_ghost, end_time=0)]
+    )
     g.deme(
         "Papua",
         ancestors=["Ghost1"],
@@ -110,8 +118,14 @@ def jacobs_papuans():
             demes.Epoch(end_time=1293, initial_size=12971),
         ],
     )
-    g.deme("WestEurasia", ancestors=["Eurasia"], epochs=[Epoch(initial_size=6962)])
-    g.deme("EastAsia", ancestors=["Eurasia"], epochs=[Epoch(initial_size=9025)])
+    g.deme(
+        "WestEurasia",
+        ancestors=["Eurasia"],
+        epochs=[Epoch(initial_size=6962, end_time=0)],
+    )
+    g.deme(
+        "EastAsia", ancestors=["Eurasia"], epochs=[Epoch(initial_size=9025, end_time=0)]
+    )
 
     g.symmetric_migration(
         demes=["Africa", "Ghost3"], rate=1.79e-4, start_time=T_Eu_bottleneck
@@ -174,7 +188,7 @@ class TestLoadAndDump:
 
     def test_bad_filename_param(self):
         g = demes.Graph(description="test", time_units="generations")
-        g.deme("A", epochs=[Epoch(initial_size=1000)])
+        g.deme("A", epochs=[Epoch(initial_size=1000, end_time=0)])
 
         class F:
             pass
@@ -201,7 +215,7 @@ class TestLoadAndDump:
             generation_time=42,
         )
         for id, N in zip("ABCD", [100, 200, 300, 400]):
-            g.deme(id, epochs=[Epoch(initial_size=N)])
+            g.deme(id, epochs=[Epoch(initial_size=N, end_time=0)])
         string = demes.dumps(g, format=format, simplified=simplified)
         assert "description" in string
         assert g.description in string
@@ -230,7 +244,7 @@ class TestLoadAndDump:
             assert "cloning_rate" not in string
 
         g1 = copy.deepcopy(g)
-        g1.deme("E", epochs=[Epoch(initial_size=100, selfing_rate=0.1)])
+        g1.deme("E", epochs=[Epoch(initial_size=100, selfing_rate=0.1, end_time=0)])
         string = demes.dumps(g1, format=format, simplified=simplified)
         assert "selfing_rate" in string
         assert "0.1" in string
@@ -238,7 +252,7 @@ class TestLoadAndDump:
             assert "cloning_rate" not in string
 
         g1 = copy.deepcopy(g)
-        g1.deme("E", epochs=[Epoch(initial_size=100, cloning_rate=0.1)])
+        g1.deme("E", epochs=[Epoch(initial_size=100, cloning_rate=0.1, end_time=0)])
         string = demes.dumps(g1, format=format, simplified=simplified)
         if simplified:
             assert "selfing_rate" not in string
@@ -313,7 +327,8 @@ class TestLoadAndDump:
                         "id": "A",
                         "epochs": [
                         {
-                            "initial_size": 100
+                            "initial_size": 100,
+                            "end_time": 0
                         }
                         ]
                     },
@@ -321,7 +336,8 @@ class TestLoadAndDump:
                         "id": "B",
                         "epochs": [
                         {
-                            "initial_size": 100
+                            "initial_size": 100,
+                            "end_time": 0
                         }
                         ]
                     },
@@ -332,7 +348,8 @@ class TestLoadAndDump:
                         "epochs": [
                         {
                             "start_time": 500,
-                            "initial_size": 100
+                            "initial_size": 100,
+                            "end_time": 0
                         }
                         ]
                     }
@@ -359,13 +376,16 @@ class TestLoadAndDump:
                 -   id: A
                     epochs:
                         -   initial_size: 100
+                            end_time: 0
                 -   id: B
                     epochs:
                         -   initial_size: 100
+                            end_time: 0
                 -   id: C
                     epochs:
                         -   initial_size: 100
                             start_time: 500
+                            end_time: 0
                     ancestors: [A, B]
                     proportions: [0.1, 0.9]
             """
@@ -401,7 +421,7 @@ class TestLoadAndDump:
             generation_time=42,
         )
         for id, N in zip("ABCD", [100, 200, 300, 400]):
-            g1.deme(id, epochs=[Epoch(initial_size=N)])
+            g1.deme(id, epochs=[Epoch(initial_size=N, end_time=0)])
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpfile = pathlib.Path(tmpdir) / "temp.txt"
             demes.dump(g1, tmpfile, format=format, simplified=simplified)
@@ -547,12 +567,12 @@ class TestLoadAndDump:
         )
         self.check_dump_load_roundtrip(g)
 
-        g.deme("B", epochs=[Epoch(initial_size=N[0])])
+        g.deme("B", epochs=[Epoch(initial_size=N[0], end_time=0)])
         g.deme(
             "C",
             ancestors=["A", "B"],
             proportions=[fractions.Fraction(1, 3), fractions.Fraction(2, 3)],
-            epochs=[Epoch(initial_size=N[0], start_time=T[1])],
+            epochs=[Epoch(initial_size=N[0], start_time=T[1], end_time=0)],
         )
         self.check_dump_load_roundtrip(g)
 

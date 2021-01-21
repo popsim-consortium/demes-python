@@ -1366,60 +1366,68 @@ class Graph:
             This must be provided.
         :param final_size: The final population size of the deme. If ``None``,
             the deme has a constant ``initial_size`` population size.
-        :param float selfing_rate: The default selfing rate for this deme.
-            May be ``None``.
-        :param float cloning_rate: The default cloning rate for this deme.
-            May be ``None``.
         :param epochs: Epochs that define population sizes, selfing rates, and
             cloning rates, for the deme over various time periods.
             If not specified, a single epoch will be created for the deme that
             spans from ``start_time`` to ``end_time``, using the ``initial_size``,
             ``final_size``, ``selfing_rate`` and ``cloning_rate`` provided.
+        :param defaults: Default attributes for epochs, including cloning_rate
+            and selfing_rate.
         :return: Newly created deme.
         :rtype: :class:`.Deme`
         """
+        # some basic deme property checks
         if id in self:
             raise ValueError(f"deme {id} already exists in this graph")
+        if epochs is None:
+            raise ValueError(f"deme {id} must have at least one specified epoch")
         if initial_size is None and epochs is not None:
             initial_size = epochs[0].initial_size
         if initial_size is None:
-            raise ValueError(f"must set initial_size for {id}")
+            raise ValueError(f"must set initial_size for deme {id}")
         if ancestors is None:
             ancestors = []
         if not isinstance(ancestors, list):
-            raise TypeError("ancestors must be a list of deme IDs")
+            raise TypeError(f"ancestors must be a list of deme IDs for deme {id}")
         for ancestor in ancestors:
             if ancestor not in self:
-                raise ValueError(f"ancestor deme {ancestor} not in graph")
+                raise ValueError(f"ancestor deme {ancestor} not in graph for deme {id}")
         if proportions is None:
             if len(ancestors) == 1:
                 proportions = [1.0]
             else:
                 proportions = []
-        if epochs is None:
-            raise ValueError("Demes must have at least one specified epoch")
 
-        # set the start time to first epoch's start time, to inf or to
-        # the ancestor's end time, if not given
+        # set the start time to first epoch's start time.
+        # if first epoch does not have a start time, set to inf or to
+        # the ancestor's end time
         if start_time is None:
-            if epochs is not None and epochs[0].start_time is not None:
+            if epochs[0].start_time is not None:
                 start_time = epochs[0].start_time
             elif len(ancestors) > 0:
                 if len(ancestors) > 1:
                     raise ValueError(
-                        "with multiple ancestors, start_time must be specified"
+                        f"with multiple ancestors, start_time must be specified for deme {id}"
                     )
                 start_time = self[ancestors[0]].end_time
             else:
                 start_time = float("inf")
-        # set the end time to the last epoch's end time or to zero if not given
+        # the first epoch's start time is set to deme's start time
+        if epochs[0].start_time is None:
+            epochs[0].start_time = start_time
+        elif epochs[0].start_time != start_time:
+            raise ValueError(
+                f"deme and first epoch start times do not align for deme {id}"
+            )
+
+        # set the end time to the last epoch's end time
         if end_time is None:
-            if epochs[-1].end_time is not None:
-                end_time = epochs[-1].end_time
-            else:
-                end_time = 0
+            end_time = epochs[-1].end_time
         if epochs[-1].end_time is not None and epochs[-1].end_time != end_time:
-            raise ValueError("deme and final epoch end times do not align")
+            raise ValueError(
+                f"deme and final epoch end times do not align for deme {id}"
+            )
+
         # check start time is valid wrt ancestor time intervals
         for ancestor in ancestors:
             anc = self[ancestor]
@@ -1429,6 +1437,7 @@ class Graph:
                     f"of existence for ancestor {ancestor} "
                     f"({anc.start_time}, {anc.end_time})"
                 )
+
         # set default cloning and selfing rates
         if "selfing_rate" in defaults:
             selfing_rate = defaults["selfing_rate"]
@@ -1443,24 +1452,17 @@ class Graph:
         else:
             cloning_rate = None
 
-        # the last epoch's end time is set to deme's end time
-        if epochs[-1].end_time is None:
-            epochs[-1].end_time = end_time
-        # the first epoch's start time is set to deme's start time
-        if epochs[0].start_time is None:
-            epochs[0].start_time = start_time
-        elif epochs[0].start_time != start_time:
-            raise ValueError("deme and first epoch start times do not align")
-
         # fill in all attributes of epochs
         for i in range(len(epochs)):
-            # set the start and end times based on surrounding demes
+            # set the start time based on the last epoch's end time
             if epochs[i].start_time is None:
                 epochs[i].start_time = epochs[i - 1].end_time
             if epochs[i].end_time is None:
-                if epochs[i + 1].start_time is None:
-                    raise ValueError("ambiguity about epochs' start/end times")
-                epochs[i].end_time = epochs[i + 1].start_time
+                raise ValueError("all epochs must specify the end time")
+            if i > 0 and epochs[i].start_time != epochs[i - 1].end_time:
+                raise ValueError(
+                    "epoch start and end times do not align for deme {id}, epochs {i - 1} and {i}"
+                )
             # for each subsequent epoch, fill in start size, final size,
             # and size function as necessary based on last epoch
             if epochs[i].initial_size is None:

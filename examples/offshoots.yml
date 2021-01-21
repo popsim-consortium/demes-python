@@ -7,18 +7,21 @@ demes:
     description: Main population
     epochs:
     - initial_size: 1000
+      end_time: 0
   - id: offshoot1
     description: More recent offshoot population
     ancestors: [ancestral]
     epochs:
     - start_time: 500
       initial_size: 100
+      end_time: 0
   - id: offshoot2
     description: More ancient offshoot population
     ancestors: [ancestral]
     epochs:
     - start_time: 1000
       initial_size: 200
+      end_time: 0
 migrations:
   asymmetric:
   - source: ancestral
