@@ -1439,18 +1439,8 @@ class Graph:
                 )
 
         # set default cloning and selfing rates
-        if "selfing_rate" in defaults:
-            selfing_rate = defaults["selfing_rate"]
-        elif "selfing_rate" in self.defaults:
-            selfing_rate = self.defaults["selfing_rate"]
-        else:
-            selfing_rate = None
-        if "cloning_rate" in defaults:
-            cloning_rate = defaults["cloning_rate"]
-        elif "cloning_rate" in self.defaults:
-            cloning_rate = self.defaults["cloning_rate"]
-        else:
-            cloning_rate = None
+        cloning_rate = defaults.get("cloning_rate", self.defaults.get("cloning_rate"))
+        selfing_rate = defaults.get("selfing_rate", self.defaults.get("cloning_rate"))
 
         # fill in all attributes of epochs
         for i in range(len(epochs)):

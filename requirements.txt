@@ -13,4 +13,4 @@ ruamel.yaml==0.16.12
 sphinx==3.4.3
 sphinx_rtd_theme==0.5.0
 stdpopsim==0.1.2
-git+https://bitbucket.org/simongravel/moments@moments-1.0.6#egg=moments
+git+https://bitbucket.org/simongravel/moments@moments-1.0.8#egg=moments
