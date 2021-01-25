@@ -4,18 +4,23 @@ time_units: generations
 demes:
   root:
     description: Parental deme
-    initial_size: 10000
-    end_time: 1200
+    epochs:
+    - initial_size: 10000
+      end_time: 1200
   deme1:
     description: First child deme
     ancestors: root
-    initial_size: 2000
-    final_size: 30000
+    epochs:
+    - initial_size: 2000
+      final_size: 30000
+      end_time: 0
   deme2:
     description: Second child deme
     ancestors: root
-    initial_size: 8000
-    final_size: 15000
+    epochs:
+    - initial_size: 8000
+      final_size: 15000
+      end_time: 0
 migrations:
   symmetric:
     - demes: deme1, deme2

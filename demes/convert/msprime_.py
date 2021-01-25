@@ -210,11 +210,9 @@ def from_msprime(
     # don't have complete information about each deme's life-span or population
     # size(s). So we insert dummy epochs into the temporary graph, and build
     # up the correct `Epoch`s, `Migration`s, and `Pulse`s outside of the graph.
-    gtmp = demes.Graph(
-        description="Temporary graph.",
-        time_units="generations",
-    )
-    # List of deme.Epoch, keyed by deme id.
+    gtmp: Mapping[str, dict] = {"demes": {}}
+
+    # List of demes.Epoch, keyed by deme id.
     epochs: Mapping[str, List[demes.Epoch]] = collections.defaultdict(list)
     # List of deme.Migration, keyed by (source, dest) indexes
     migrations: Mapping[
@@ -238,8 +236,12 @@ def from_msprime(
                 # for the next ddb_epoch iteration.
                 pop_name = name[de.population]
                 if de.initial_size is None or de.initial_size > 1e-15:
-                    if pop_name not in gtmp:
-                        gtmp.deme(pop_name, initial_size=1)
+                    if pop_name not in gtmp["demes"]:
+                        gtmp["demes"][pop_name] = {
+                            "ancestors": [],
+                            "proportions": [],
+                            "epochs": [demes.Epoch(initial_size=1)],
+                        }
                     pop_param_changes.add(pop_name)
 
         for child, anc_list in mass_migrations.items():
@@ -251,17 +253,23 @@ def from_msprime(
                 proportions.append(p * remainder)
 
             for parent in ancestors:
-                if parent not in gtmp:
-                    gtmp.deme(parent, initial_size=1)
+                if parent not in gtmp["demes"]:
+                    gtmp["demes"][parent] = {
+                        "ancestors": [],
+                        "proportions": [],
+                        "epochs": [demes.Epoch(initial_size=1)],
+                    }
 
             if math.isclose(sum(proportions), 1):
                 assert child not in gtmp
-                gtmp.deme(child, initial_size=1)
+                gtmp["demes"][child] = {}
                 # Set attributes after deme creation, to avoid internal
                 # checks about the ancestors' existence time intervals.
-                gtmp[child].epochs[-1].start_time = ddb_epoch.start_time
-                gtmp[child].ancestors = ancestors
-                gtmp[child].proportions = proportions
+                gtmp["demes"][child]["epochs"] = [
+                    demes.Epoch(start_time=ddb_epoch.start_time, initial_size=1)
+                ]
+                gtmp["demes"][child]["ancestors"] = ancestors
+                gtmp["demes"][child]["proportions"] = proportions
             else:
                 if child not in gtmp:
                     pass
@@ -279,12 +287,12 @@ def from_msprime(
 
         # properly set population sizes, and extend epochs as required
         for j, pop in enumerate(ddb_epoch.populations):
-            if name[j] not in gtmp:
+            if name[j] not in gtmp["demes"]:
                 continue
 
             deme_id = name[j]
             if deme_id not in epochs:
-                epochs[deme_id].append(gtmp[deme_id].epochs[0])
+                epochs[deme_id].append(gtmp["demes"][deme_id]["epochs"][0])
             last_epoch = epochs[deme_id][-1]
             last_epoch.end_time = ddb_epoch.start_time
             if last_epoch.start_time == ddb_epoch.end_time:
@@ -323,6 +331,16 @@ def from_msprime(
                             m.end_time = ddb_epoch.start_time
         prev_mm = msp_mm
 
+    for deme_id in epochs.keys():
+        epoch = epochs[deme_id][0]
+        if epoch.start_time is None or math.isinf(epoch.start_time):
+            epochs[deme_id][0] = demes.Epoch(
+                start_time=epoch.start_time,
+                end_time=epoch.end_time,
+                initial_size=epoch.final_size,
+                final_size=epoch.final_size,
+            )
+
     # Create a fresh demes graph, now that we have complete epoch information
     # for each deme. This also validates consistency between parameters.
     g = demes.Graph(
@@ -330,13 +348,11 @@ def from_msprime(
         time_units="generations",
     )
 
-    for deme in gtmp.demes:
+    for deme_id, deme_dict in gtmp["demes"].items():
         g.deme(
-            deme.id,
-            ancestors=deme.ancestors,
-            proportions=deme.proportions,
-            start_time=epochs[deme.id][0].start_time,
-            end_time=epochs[deme.id][-1].end_time,
+            deme_id,
+            ancestors=deme_dict["ancestors"],
+            proportions=deme_dict["proportions"],
             epochs=[
                 demes.Epoch(
                     start_time=epoch.start_time,
@@ -344,7 +360,7 @@ def from_msprime(
                     initial_size=epoch.initial_size,
                     final_size=epoch.final_size,
                 )
-                for epoch in epochs[deme.id]
+                for epoch in epochs[deme_id]
             ],
         )
 

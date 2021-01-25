@@ -6,39 +6,50 @@ generation_time: 25
 demes:
   - id: ancestral
     description: Equilibrium/root population
-    end_time: 5920
-    initial_size: 7310
+    epochs:
+    - end_time: 5920
+      initial_size: 7310
   - id: AMH
     description: Anatomically modern humans
     ancestors: [ancestral]
-    end_time: 2040
-    initial_size: 14474
+    epochs:
+    - end_time: 2040
+      initial_size: 14474
   - id: OOA
     description: Bottleneck out-of-Africa population
     ancestors: [AMH]
-    end_time: 920
-    initial_size: 1861
+    epochs:
+    - end_time: 920
+      initial_size: 1861
   - id: AFR
     description: African population
     ancestors: [AMH]
-    initial_size: 14474
+    epochs:
+    - initial_size: 14474
+      end_time: 0
   - id: EUR
     description: European population
     ancestors: [OOA]
-    initial_size: 1000
-    final_size: 34039
+    epochs:
+    - initial_size: 1000
+      final_size: 34039
+      end_time: 0
   - id: EAS
     description: East Asian population
     ancestors: [OOA]
-    initial_size: 510
-    final_size: 45852
+    epochs:
+    - initial_size: 510
+      final_size: 45852
+      end_time: 0
   - id: ADMIX
     description: Admixed America
     ancestors: [AFR, EUR, EAS]
     proportions: [0.167, 0.333, 0.5]
-    start_time: 12
-    initial_size: 30000
-    final_size: 54664
+    epochs:
+    - start_time: 12
+      initial_size: 30000
+      final_size: 54664
+      end_time: 0
 migrations:
   symmetric:
   - demes: [AFR, OOA]
