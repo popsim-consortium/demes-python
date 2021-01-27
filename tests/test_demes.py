@@ -1171,8 +1171,13 @@ class TestGraph(unittest.TestCase):
                     generation_time=generation_time,
                 )
 
+    def test_description(self):
+        Graph(description="test", time_units="generations")
+        Graph(description=None, time_units="generations")
+        Graph(time_units="generations")
+
     def test_bad_description(self):
-        for description in (None, [], {}, 0, 1e5, float("inf")):
+        for description in ([], {}, 0, 1e5, float("inf")):
             with self.assertRaises(TypeError):
                 Graph(
                     description=description,
