@@ -33,8 +33,8 @@ def to_msprime(graph: demes.Graph):
     pop_id = {deme.id: j for j, deme in enumerate(graph.demes)}
 
     def growth_rate(epoch: demes.Epoch) -> float:
-        initial_size = typing.cast(float, epoch.final_size)
-        final_size = typing.cast(float, epoch.initial_size)
+        initial_size = typing.cast(float, epoch.end_size)
+        final_size = typing.cast(float, epoch.start_size)
         if initial_size == final_size:
             growth_rate = 0.0
         else:
@@ -61,7 +61,7 @@ def to_msprime(graph: demes.Graph):
             initial_size = Ne_invalid
             _growth_rate = 0.0
         else:
-            initial_size = typing.cast(float, deme.epochs[-1].final_size)
+            initial_size = typing.cast(float, deme.epochs[-1].end_size)
             _growth_rate = growth_rate(deme.epochs[-1])
         population_configurations.append(
             msprime.PopulationConfiguration(
@@ -89,7 +89,7 @@ def to_msprime(graph: demes.Graph):
                 demographic_events.append(
                     msprime.PopulationParametersChange(
                         time=epoch.end_time,
-                        initial_size=epoch.final_size,
+                        initial_size=epoch.end_size,
                         growth_rate=growth_rate(epoch),
                         population_id=pop_id[deme.id],
                     )
@@ -240,7 +240,7 @@ def from_msprime(
                         gtmp["demes"][pop_name] = {
                             "ancestors": [],
                             "proportions": [],
-                            "epochs": [demes.Epoch(initial_size=1)],
+                            "epochs": [demes.Epoch(start_size=1)],
                         }
                     pop_param_changes.add(pop_name)
 
@@ -257,7 +257,7 @@ def from_msprime(
                     gtmp["demes"][parent] = {
                         "ancestors": [],
                         "proportions": [],
-                        "epochs": [demes.Epoch(initial_size=1)],
+                        "epochs": [demes.Epoch(start_size=1)],
                     }
 
             if math.isclose(sum(proportions), 1):
@@ -266,7 +266,7 @@ def from_msprime(
                 # Set attributes after deme creation, to avoid internal
                 # checks about the ancestors' existence time intervals.
                 gtmp["demes"][child]["epochs"] = [
-                    demes.Epoch(start_time=ddb_epoch.start_time, initial_size=1)
+                    demes.Epoch(start_time=ddb_epoch.start_time, start_size=1)
                 ]
                 gtmp["demes"][child]["ancestors"] = ancestors
                 gtmp["demes"][child]["proportions"] = proportions
@@ -296,14 +296,14 @@ def from_msprime(
             last_epoch = epochs[deme_id][-1]
             last_epoch.end_time = ddb_epoch.start_time
             if last_epoch.start_time == ddb_epoch.end_time:
-                last_epoch.initial_size = pop.end_size
-            last_epoch.final_size = pop.start_size
+                last_epoch.start_size = pop.end_size
+            last_epoch.end_size = pop.start_size
 
             if name[j] in pop_param_changes:
                 # Add new epoch, to be fixed in the next ddb_epoch iteration.
                 epochs[deme_id].append(
                     demes.Epoch(
-                        start_time=ddb_epoch.start_time, end_time=0, initial_size=1
+                        start_time=ddb_epoch.start_time, end_time=0, start_size=1
                     )
                 )
 
@@ -337,8 +337,8 @@ def from_msprime(
             epochs[deme_id][0] = demes.Epoch(
                 start_time=epoch.start_time,
                 end_time=epoch.end_time,
-                initial_size=epoch.final_size,
-                final_size=epoch.final_size,
+                start_size=epoch.end_size,
+                end_size=epoch.end_size,
             )
 
     # Create a fresh demes graph, now that we have complete epoch information
@@ -357,8 +357,8 @@ def from_msprime(
                 demes.Epoch(
                     start_time=epoch.start_time,
                     end_time=epoch.end_time,
-                    initial_size=epoch.initial_size,
-                    final_size=epoch.final_size,
+                    start_size=epoch.start_size,
+                    end_size=epoch.end_size,
                 )
                 for epoch in epochs[deme_id]
             ],

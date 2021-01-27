@@ -155,7 +155,7 @@ def augment_with_ancient_samples(g, sampled_demes, sample_times):
             sampled_demes[ii] = sd_frozen
             g.deme(
                 id=sd_frozen,
-                epochs=[Epoch(start_time=st, end_time=0, initial_size=1)],
+                epochs=[Epoch(start_time=st, end_time=0, start_size=1)],
                 ancestors=[sd],
             )
     return g, sampled_demes, frozen_demes
@@ -259,7 +259,7 @@ def get_integration_parameters(g, demes_present, frozen_list, Ne=None):
             if len(preds) == 0:
                 root_deme = deme_id
                 break
-        Ne = g[root_deme].epochs[0].initial_size
+        Ne = g[root_deme].epochs[0].start_size
 
     for interval, live_demes in sorted(demes_present.items())[::-1]:
         # get intergration time for interval
@@ -338,37 +338,33 @@ def sizes_at_time(g, deme_id, time_interval):
     size_function = epoch.size_function
 
     if size_function == "constant":
-        start_size = end_size = epoch.initial_size
+        start_size = end_size = epoch.start_size
 
     if epoch.start_time == time_interval[0]:
-        start_size = epoch.initial_size
+        start_size = epoch.start_size
     else:
         if size_function == "exponential":
-            start_size = epoch.initial_size * np.exp(
-                np.log(epoch.final_size / epoch.initial_size)
+            start_size = epoch.start_size * np.exp(
+                np.log(epoch.end_size / epoch.start_size)
                 * (epoch.start_time - time_interval[0])
                 / epoch.time_span
             )
         elif size_function == "linear":
             frac = (epoch.start_time - time_interval[0]) / epoch.time_span
-            start_size = epoch.initial_size + frac * (
-                epoch.final_size - epoch.initial_size
-            )
+            start_size = epoch.start_size + frac * (epoch.end_size - epoch.start_size)
 
     if epoch.end_time == time_interval[1]:
-        end_size = epoch.final_size
+        end_size = epoch.end_size
     else:
         if size_function == "exponential":
-            end_size = epoch.initial_size * np.exp(
-                np.log(epoch.final_size / epoch.initial_size)
+            end_size = epoch.start_size * np.exp(
+                np.log(epoch.end_size / epoch.start_size)
                 * (epoch.start_time - time_interval[1])
                 / epoch.time_span
             )
         elif size_function == "linear":
             frac = (epoch.start_time - time_interval[1]) / epoch.time_span
-            end_size = epoch.initial_size + frac * (
-                epoch.final_size - epoch.initial_size
-            )
+            end_size = epoch.start_size + frac * (epoch.end_size - epoch.start_size)
 
     return start_size, end_size, size_function
 

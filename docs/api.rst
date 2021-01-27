@@ -32,12 +32,12 @@ pulses via the methods available on this class.
         time_units="years",
         generation_time=25,
     )
-    g.deme("ancestral", epochs=[demes.Epoch(end_time=220e3, initial_size=7300)])
-    g.deme("AMH", ancestors=["ancestral"], epochs=[demes.Epoch(end_time=140e3, initial_size=12300)])
-    g.deme("OOA", ancestors=["AMH"], epochs=[demes.Epoch(end_time=21.2e3, initial_size=2100)])
-    g.deme("YRI", ancestors=["AMH"], epochs=[demes.Epoch(initial_size=12300, end_time=0)])
-    g.deme("CEU", ancestors=["OOA"], epochs=[demes.Epoch(initial_size=1000, final_size=29725, end_time=0)])
-    g.deme("CHB", ancestors=["OOA"], epochs=[demes.Epoch(initial_size=510, final_size=54090, end_time=0)])
+    g.deme("ancestral", epochs=[demes.Epoch(end_time=220e3, start_size=7300)])
+    g.deme("AMH", ancestors=["ancestral"], epochs=[demes.Epoch(end_time=140e3, start_size=12300)])
+    g.deme("OOA", ancestors=["AMH"], epochs=[demes.Epoch(end_time=21.2e3, start_size=2100)])
+    g.deme("YRI", ancestors=["AMH"], epochs=[demes.Epoch(start_size=12300, end_time=0)])
+    g.deme("CEU", ancestors=["OOA"], epochs=[demes.Epoch(start_size=1000, end_size=29725, end_time=0)])
+    g.deme("CHB", ancestors=["OOA"], epochs=[demes.Epoch(start_size=510, end_size=54090, end_time=0)])
     g.symmetric_migration(demes=["YRI", "OOA"], rate=25e-5)
     g.symmetric_migration(demes=["YRI", "CEU"], rate=3e-5)
     g.symmetric_migration(demes=["YRI", "CHB"], rate=1.9e-5)
@@ -65,7 +65,7 @@ with migration between adjacent demes, can be done with the following code.
     )
 
     for j in range(M):
-        g.deme(f"deme{j}", epochs=[demes.Epoch(initial_size=1000, end_time=0)])
+        g.deme(f"deme{j}", epochs=[demes.Epoch(start_size=1000, end_time=0)])
         if j > 0:
             g.symmetric_migration(demes=[f"deme{j - 1}", f"deme{j}"], rate=1e-5)
     g.symmetric_migration(demes=[f"deme{M - 1}", "deme0"], rate=1e-5)

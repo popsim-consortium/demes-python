@@ -5,13 +5,13 @@ generation_time: 25
 demes:
   our_population:
     description: A deme with multiple epochs.
-    initial_size: 10000
+    start_size: 10000
     epochs:
-    - initial_size: 10000
+    - start_size: 10000
       end_time: 250000
-    - initial_size: 20000
+    - start_size: 20000
       end_time: 60000
-    - initial_size: 1500
+    - start_size: 1500
       end_time: 30000
-    - final_size: 40000
+    - end_size: 40000
       end_time: 0

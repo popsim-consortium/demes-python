@@ -6,12 +6,12 @@ demes:
   - id: my_pop
     description: Multi-epoch population
     epochs:
-    - initial_size: 1e4
+    - start_size: 1e4
       end_time: 1000
-    - initial_size: 1e3
-      final_size: 1e4
+    - start_size: 1e3
+      end_size: 1e4
       end_time: 100
       size_function: linear
-    - initial_size: 1e4
-      final_size: 1e2
+    - start_size: 1e4
+      end_size: 1e2
       end_time: 0
