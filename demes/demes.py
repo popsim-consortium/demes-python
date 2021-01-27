@@ -1136,6 +1136,7 @@ class Graph:
     function uses this API internally.
 
     :ivar str description: A human readable description of the demography.
+        May be ``None``.
     :ivar str time_units: The units of time used for the demography. This is
         commonly ``years`` or ``generations``, but can be any string.
         This field is intended to be useful for documenting a demography,
@@ -1162,8 +1163,11 @@ class Graph:
     :vartype defaults: dict
     """
 
-    description: str = attr.ib(
-        validator=[attr.validators.instance_of(str), nonzero_len]
+    description: Optional[str] = attr.ib(
+        default=None,
+        validator=attr.validators.optional(
+            [attr.validators.instance_of(str), nonzero_len]
+        ),
     )
     time_units: str = attr.ib(validator=[attr.validators.instance_of(str), nonzero_len])
     generation_time: Optional[Time] = attr.ib(
