@@ -32,10 +32,10 @@
         "epoch": {
             "type": "object",
             "properties": {
-                "initial_size": {
+                "start_size": {
                     "$ref": "#/definitions/size"
                 },
-                "final_size": {
+                "end_size": {
                     "$ref": "#/definitions/size"
                 },
                 "size_function": {
@@ -56,7 +56,7 @@
                     "default": 0
                 }
             },
-            "required": ["initial_size", "final_size", "size_function", "start_time", "end_time"]
+            "required": ["start_size", "end_size", "size_function", "start_time", "end_time"]
         },
         "deme": {
             "type": "object",

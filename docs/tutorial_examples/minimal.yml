@@ -3,5 +3,5 @@ time_units: generations
 demes:
   constant_size_deme:
     epochs:
-    - initial_size: 1000
+    - start_size: 1000
       end_time: 0

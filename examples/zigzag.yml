@@ -10,22 +10,22 @@ demes:
       in this case).
     epochs:
     - end_time: 34133.31
-      initial_size: 1431
+      start_size: 1431
     - start_time: 34133.31
       end_time: 8533.33
-      final_size: 14312
+      end_size: 14312
     - start_time: 8533.33
       end_time: 2133.33
-      final_size: 1431
+      end_size: 1431
     - start_time: 2133.33
       end_time: 533.33
-      final_size: 14312
+      end_size: 14312
     - start_time: 533.33
       end_time: 133.33
-      final_size: 1431
+      end_size: 1431
     - start_time: 133.33
       end_time: 33.333
-      final_size: 14312
+      end_size: 14312
     - start_time: 33.333
       end_time: 0
-      final_size: 14312
+      end_size: 14312

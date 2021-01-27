@@ -5,10 +5,10 @@ demes:
   - id: our_population
     description: Bottleneck population using epochs
     epochs:
-    - initial_size: 1e4
+    - start_size: 1e4
       start_time: 10000
       end_time: 500
-    - initial_size: 1e2
+    - start_size: 1e2
       end_time: 100
-    - initial_size: 1e4
+    - start_size: 1e4
       end_time: 0

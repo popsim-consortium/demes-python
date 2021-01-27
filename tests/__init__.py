@@ -81,13 +81,13 @@ def epochs_lists(draw, start_time=math.inf, max_epochs=5):
     epochs = []
 
     for end_time in times[1:]:
-        initial_size = draw(
+        start_size = draw(
             st.floats(min_value=0, exclude_min=True, allow_infinity=False)
         )
         if math.isinf(start_time):
-            final_size = initial_size
+            end_size = start_size
         else:
-            final_size = draw(
+            end_size = draw(
                 st.floats(min_value=0, exclude_min=True, allow_infinity=False)
             )
         cloning_rate = draw(st.floats(min_value=0, max_value=1))
@@ -97,8 +97,8 @@ def epochs_lists(draw, start_time=math.inf, max_epochs=5):
             demes.Epoch(
                 start_time=start_time,
                 end_time=end_time,
-                initial_size=initial_size,
-                final_size=final_size,
+                start_size=start_size,
+                end_size=end_size,
                 cloning_rate=cloning_rate,
                 selfing_rate=selfing_rate,
             )

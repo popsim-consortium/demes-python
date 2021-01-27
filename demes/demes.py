@@ -125,9 +125,9 @@ class Epoch:
 
     :ivar start_time: The start time of the epoch.
     :ivar end_time: The end time of the epoch (must be specified).
-    :ivar initial_size: Population size at ``start_time``.
-    :ivar final_size: Population size at ``end_time``.
-        If ``initial_size != final_size``, the population size changes
+    :ivar start_size: Population size at ``start_time``.
+    :ivar end_size: Population size at ``end_time``.
+        If ``start_size != end_size``, the population size changes
         monotonically between the start and end times.
     :ivar size_function: The size change function. Common options are constant,
         exponential, or linear, though any string is valid. Warning: downstream
@@ -144,11 +144,11 @@ class Epoch:
         default=None,
         validator=attr.validators.optional([int_or_float, non_negative, finite]),
     )
-    initial_size: Optional[Size] = attr.ib(
+    start_size: Optional[Size] = attr.ib(
         default=None,
         validator=attr.validators.optional([int_or_float, positive, finite]),
     )
-    final_size: Optional[Size] = attr.ib(
+    end_size: Optional[Size] = attr.ib(
         default=None,
         validator=attr.validators.optional([int_or_float, positive, finite]),
     )
@@ -168,8 +168,8 @@ class Epoch:
     )
 
     def __attrs_post_init__(self):
-        if self.initial_size is None and self.final_size is None:
-            raise ValueError("must set either initial_size or final_size")
+        if self.start_size is None and self.end_size is None:
+            raise ValueError("must set either start_size or end_size")
         if (
             self.start_time is not None
             and self.end_time is not None
@@ -178,20 +178,18 @@ class Epoch:
             raise ValueError("must have start_time > end_time")
         if (
             self.start_time is not None
-            and self.initial_size is not None
-            and self.final_size is not None
+            and self.start_size is not None
+            and self.end_size is not None
         ):
-            if math.isinf(self.start_time) and self.initial_size != self.final_size:
+            if math.isinf(self.start_time) and self.start_size != self.end_size:
                 raise ValueError("if start time is inf, must be a constant size epoch")
         if (
             self.size_function == "constant"
-            and self.initial_size is not None
-            and self.final_size is not None
-            and self.initial_size != self.final_size
+            and self.start_size is not None
+            and self.end_size is not None
+            and self.start_size != self.end_size
         ):
-            raise ValueError(
-                "initial_size != final_size, but size_function is constant"
-            )
+            raise ValueError("start_size != end_size, but size_function is constant")
 
     @property
     def time_span(self):
@@ -211,7 +209,7 @@ class Epoch:
         Returns true if the epoch and ``other`` epoch implement essentially
         the same epoch and raises AssertionError otherwise.
         Compares values of the following attributes:
-        ``start_time``, ``end_time``, ``initial_size``, ``final_size``,
+        ``start_time``, ``end_time``, ``start_size``, ``end_size``,
         ``size_function``, ``selfing_rate``, ``cloning_rate``.
 
         :param other: The epoch to compare against.
@@ -237,14 +235,14 @@ class Epoch:
             self.end_time, other.end_time, rel_tol=rel_tol, abs_tol=abs_tol
         ), f"Failed for end_time {self.end_time} != {other.end_time} (other)."
         assert isclose(
-            self.initial_size, other.initial_size, rel_tol=rel_tol, abs_tol=abs_tol
+            self.start_size, other.start_size, rel_tol=rel_tol, abs_tol=abs_tol
         ), (
-            f"Failed for initial_size "
-            f"{self.initial_size} != {other.initial_size} (other)."
+            f"Failed for start_size "
+            f"{self.start_size} != {other.start_size} (other)."
         )
         assert isclose(
-            self.final_size, other.final_size, rel_tol=rel_tol, abs_tol=abs_tol
-        ), f"Failed for final_size {self.final_size} != {other.final_size} (other)."
+            self.end_size, other.end_size, rel_tol=rel_tol, abs_tol=abs_tol
+        ), f"Failed for end_size {self.end_size} != {other.end_size} (other)."
         assert self.size_function == other.size_function
         assert isclose(
             self.selfing_rate, other.selfing_rate, rel_tol=rel_tol, abs_tol=abs_tol
@@ -1332,8 +1330,8 @@ class Graph:
         epochs=None,
         start_time=None,
         end_time=None,
-        initial_size=None,
-        final_size=None,
+        start_size=None,
+        end_size=None,
         defaults={},
     ) -> Deme:
         """
@@ -1362,15 +1360,15 @@ class Graph:
         :param float end_time: The time at which this deme stops existing,
             in units of ``time_units`` before the present.
             If not specified, defaults to ``0.0`` (the present).
-        :param initial_size: The initial population size of the deme.
+        :param start_size: The initial population size of the deme.
             This must be provided.
-        :param final_size: The final population size of the deme. If ``None``,
-            the deme has a constant ``initial_size`` population size.
+        :param end_size: The final population size of the deme. If ``None``,
+            the deme has a constant ``start_size`` population size.
         :param epochs: Epochs that define population sizes, selfing rates, and
             cloning rates, for the deme over various time periods.
             If not specified, a single epoch will be created for the deme that
-            spans from ``start_time`` to ``end_time``, using the ``initial_size``,
-            ``final_size``, ``selfing_rate`` and ``cloning_rate`` provided.
+            spans from ``start_time`` to ``end_time``, using the ``start_size``,
+            ``end_size``, ``selfing_rate`` and ``cloning_rate`` provided.
         :param defaults: Default attributes for epochs, including cloning_rate
             and selfing_rate.
         :return: Newly created deme.
@@ -1381,10 +1379,10 @@ class Graph:
             raise ValueError(f"deme {id} already exists in this graph")
         if epochs is None:
             raise ValueError(f"deme {id} must have at least one specified epoch")
-        if initial_size is None and epochs is not None:
-            initial_size = epochs[0].initial_size
-        if initial_size is None:
-            raise ValueError(f"must set initial_size for deme {id}")
+        if start_size is None and epochs is not None:
+            start_size = epochs[0].start_size
+        if start_size is None:
+            raise ValueError(f"must set start_size for deme {id}")
         if ancestors is None:
             ancestors = []
         if not isinstance(ancestors, list):
@@ -1457,12 +1455,12 @@ class Graph:
                 )
             # for each subsequent epoch, fill in start size, final size,
             # and size function as necessary based on last epoch
-            if epochs[i].initial_size is None:
-                epochs[i].initial_size = epochs[i - 1].final_size
-            if epochs[i].final_size is None:
-                epochs[i].final_size = epochs[i].initial_size
+            if epochs[i].start_size is None:
+                epochs[i].start_size = epochs[i - 1].end_size
+            if epochs[i].end_size is None:
+                epochs[i].end_size = epochs[i].start_size
             if epochs[i].size_function is None:
-                if epochs[i].initial_size == epochs[i].final_size:
+                if epochs[i].start_size == epochs[i].end_size:
                     epochs[i].size_function = "constant"
                 else:
                     epochs[i].size_function = "exponential"
@@ -1847,8 +1845,8 @@ class Graph:
                         del epoch["start_time"]
                     if epoch["size_function"] in ("constant", "exponential"):
                         del epoch["size_function"]
-                    if epoch["initial_size"] == epoch["final_size"]:
-                        del epoch["final_size"]
+                    if epoch["start_size"] == epoch["end_size"]:
+                        del epoch["end_size"]
 
             for deme in data["demes"]:
                 del deme["start_time"]

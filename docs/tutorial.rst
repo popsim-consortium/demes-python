@@ -78,8 +78,8 @@ Defining epochs
 A ``deme`` can be made to have more interesting demographic history, such as
 size changes or non-constant size functions. This is done by defining
 ``epochs`` that span the time that a deme exists. When defining an epoch,
-we specify its ``start_time`` and ``end_time``, along with its ``initial_size``
-and ``final_size`` (or just ``initial_size`` if the population size is constant
+we specify its ``start_time`` and ``end_time``, along with its ``start_size``
+and ``end_size`` (or just ``start_size`` if the population size is constant
 over that epoch).
 
 For example, the same minimal demography :ref:`above <minimal-demography>`
@@ -91,7 +91,7 @@ the deme:
    demes:
      constant_size_deme:
        epochs:
-       - initial_size: 1000
+       - start_size: 1000
          end_time: 0
 
 By default, the first listed ``epoch`` has a ``start_time`` of :math:`\infty`
@@ -110,8 +110,8 @@ in order, from most ancient to most recent.
    :linenos:
 
 We also see, again, that for constant size epochs we only need to specify
-the ``initial_size``, and if no ``initial_size`` is given, the ``epoch`` inherits
-the ``final_size`` of the previous epoch.
+the ``start_size``, and if no ``start_size`` is given, the ``epoch`` inherits
+the ``end_size`` of the previous epoch.
 
 In the previous example, we have a ``deme`` that expands from an effective population
 size of 10,000 to 20,000 250 thousand years ago, goes through a bottleneck
@@ -120,7 +120,7 @@ bottleneck size of 1,500 to 40,000 from 30 thousand years ago until present
 time.
 
 .. note::
-   If no ``size_function`` is given, when the ``initial_size`` and ``final_size``
+   If no ``size_function`` is given, when the ``start_size`` and ``end_size``
    are different, the default size function is exponential. However, other
    size functions, such as linear, are permitted and can be specified.
 
@@ -135,9 +135,9 @@ interact (for illustration, not realism), we could write:
 
    demes:
      deme1:
-       initial_size: 1000
+       start_size: 1000
      deme2:
-       initial_size: 2000
+       start_size: 2000
 
 Population branches and splits
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -151,11 +151,11 @@ deme, we would specify that its ``ancestor`` is its parental deme. For example,
    demes:
      parental_deme:
        description: The parental deme, that exists for all time.
-       initial_size: 1000
+       start_size: 1000
      child_deme:
        description: The child deme, that exists from the branching time.
        ancestors: parental_deme
-       initial_size: 500
+       start_size: 500
        start_time: 100
 
 Here, the child deme split off from the parental deme 100 time units ago,
@@ -172,20 +172,20 @@ is written as
    demes:
      parental_deme:
        description: The parental deme, that splits into three demes.
-       initial_size: 1000
+       start_size: 1000
        end_time: 200
      child1:
        description: The first child deme.
        ancestors: parental_deme
-       initial_size: 500
+       start_size: 500
      child2:
        description: The second child deme.
        ancestors: parental_deme
-       initial_size: 800
+       start_size: 800
      child3:
        description: The third child deme.
        ancestors: parental_deme
-       initial_size: 600
+       start_size: 600
 
 Here, the parental deme exists until time 200, and each child deme exists
 from time 200 to present time.
@@ -225,9 +225,9 @@ over time:
 
    demes:
      deme1:
-       initial_size: 1000
+       start_size: 1000
      deme2:
-       initial_size: 1000
+       start_size: 1000
    migrations:
      symmetric:
        - demes: deme1, deme2
@@ -291,16 +291,16 @@ demes listed in ``ancestors``.
 
    demes:
      parental1:
-       initial_size: 1000
+       start_size: 1000
        end_time: 100
      parental2:
-       initial_size: 2000
+       start_size: 2000
        end_time: 100
      merged_deme:
        ancestors: parental1, parental2
        proportions: 0.7, 0.3
-       initial_size: 3000
-       final_size: 5000
+       start_size: 3000
+       end_size: 5000
 
 Here, two demes merge to form a single deme 100 time units ago, which
 then grows exponentially from 3,000 to 5,000 at present time.
