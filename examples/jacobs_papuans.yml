@@ -40,21 +40,21 @@ demes:
       start_size: 826.0
   - id: Den2
     ancestors: [DenA]
+    start_time: 12500.0
     epochs:
-    - start_time: 12500.0
-      start_size: 13249.0
+    - start_size: 13249.0
       end_time: 0
   - id: Den1
     ancestors: [DenA]
+    start_time: 9750.0
     epochs:
-    - start_time: 9750.0
-      start_size: 13249.0
+    - start_size: 13249.0
       end_time: 0
   - id: Nea1
     ancestors: [NeaA]
+    start_time: 3375.0
     epochs:
-    - start_time: 3375.0
-      start_size: 13249.0
+    - start_size: 13249.0
       end_time: 0
   - id: Ghost
     ancestors: [YRI]
@@ -84,9 +84,9 @@ demes:
       start_size: 9025.0
   - id: CEU
     ancestors: [CHB]
+    start_time: 1293.0
     epochs:
-    - start_time: 1293.0
-      start_size: 6962.0
+    - start_size: 6962.0
       end_time: 0
 migrations:
   symmetric:

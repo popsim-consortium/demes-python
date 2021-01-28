@@ -11,16 +11,16 @@ demes:
   - id: offshoot1
     description: More recent offshoot population
     ancestors: [ancestral]
+    start_time: 500
     epochs:
-    - start_time: 500
-      start_size: 100
+    - start_size: 100
       end_time: 0
   - id: offshoot2
     description: More ancient offshoot population
     ancestors: [ancestral]
+    start_time: 1000
     epochs:
-    - start_time: 1000
-      start_size: 200
+    - start_size: 200
       end_time: 0
 migrations:
   asymmetric:
