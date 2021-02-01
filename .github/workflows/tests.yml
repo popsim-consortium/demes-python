@@ -44,9 +44,21 @@ jobs:
 
       - name: install dependencies
         run: |
+          echo "## conda list"
+          conda list
           conda install --yes $(grep numpy requirements.txt) $(grep msprime requirements.txt)
+          echo "## conda list"
+          conda list
           pip install -r requirements.txt
+          echo "## conda list"
+          conda list
+          echo "## pip list"
+          pip list
 
       - name: run pytest
         run: |
+          echo "## conda list"
+          conda list
+          echo "## pip list"
+          pip list
           python -m pytest --cov=demes --cov-report=term-missing -v tests
