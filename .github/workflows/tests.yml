@@ -44,7 +44,7 @@ jobs:
 
       - name: install dependencies
         run: |
-          conda install --yes msprime==0.7.4
+          conda install --yes $(grep numpy requirements.txt) $(grep msprime requirements.txt)
           pip install -r requirements.txt
 
       - name: run pytest

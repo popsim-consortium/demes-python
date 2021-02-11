@@ -11,4 +11,3 @@ Conversion functions
 .. autofunction:: demes.convert.from_msprime
 .. autofunction:: demes.convert.to_stdpopsim
 .. autofunction:: demes.convert.from_stdpopsim
-.. autofunction:: demes.convert.SFS
