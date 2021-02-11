@@ -11,5 +11,5 @@ pytest==6.2.1
 pytest-cov==2.10.1
 ruamel.yaml==0.16.12
 sphinx==3.4.3
-sphinx_rtd_theme==0.5.0
+sphinx_rtd_theme==0.5.1
 stdpopsim==0.1.2
