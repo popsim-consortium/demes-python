@@ -1397,6 +1397,10 @@ class Graph:
                 start_time = self[ancestors[0]].end_time
             else:
                 start_time = float("inf")
+
+        if len(ancestors) == 0 and not math.isinf(start_time):
+            raise ValueError(f"deme {id} has finite start_time, but no ancestors")
+
         # the first epoch's start time is set to deme's start time
         if epochs[0].start_time is None:
             epochs[0].start_time = start_time
