@@ -31,7 +31,7 @@ jobs:
         run: make -C docs
 
       - name: Checkout docs site
-        if: github.event.push
+        if: (!github.event.pull_request)
         uses: actions/checkout@v2
         with:
           repository: popsim-consortium/demes-docs
@@ -39,7 +39,7 @@ jobs:
           path: demes-docs
 
       - name: Copy our docs to the tag specific location
-        if: github.event.push
+        if: (!github.event.pull_request)
         run: |
           cd demes-docs
           export DEST=`echo ${GITHUB_REF} | sed -e "s/refs\/heads\///g" |  sed -e "s/refs\/tags\///g"`
@@ -47,7 +47,7 @@ jobs:
           cp -r ../docs/_build/html $DEST
 
       - name: Commit and push the docs
-        if: github.event.push
+        if: (!github.event.pull_request)
         run: |
           cd demes-docs
           git config user.name PopSim-bot
