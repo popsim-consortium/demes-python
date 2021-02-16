@@ -83,7 +83,6 @@ def jacobs_papuans():
     g.deme(
         "Ghost1",
         ancestors=["AMH"],
-        start_size=N_ghost,
         epochs=[
             # bottleneck
             demes.Epoch(end_time=2119, start_size=1394),
@@ -343,9 +342,9 @@ class TestLoadAndDump:
                         "id": "C",
                         "ancestors": [ "A", "B" ],
                         "proportions": [ 0.1, 0.9 ],
+                        "start_time": 500,
                         "epochs": [
                         {
-                            "start_time": 500,
                             "start_size": 100,
                             "end_time": 0
                         }
@@ -380,9 +379,9 @@ class TestLoadAndDump:
                         -   start_size: 100
                             end_time: 0
                 -   id: C
+                    start_time: 500
                     epochs:
                         -   start_size: 100
-                            start_time: 500
                             end_time: 0
                     ancestors: [A, B]
                     proportions: [0.1, 0.9]
@@ -524,24 +523,26 @@ class TestLoadAndDump:
         g = demes.Graph(description="test", time_units="generations")
         g.deme(
             "A",
-            start_size=Ne.INITIAL,
+            start_time=600,
             epochs=[
-                demes.Epoch(start_time=500, end_time=400, start_size=Ne.BOTTLENECK),
-                demes.Epoch(start_time=400, end_time=300, start_size=Ne.NOMINAL),
-                demes.Epoch(start_time=300, end_time=200, start_size=Ne.HUGE),
+                demes.Epoch(end_time=500, start_size=Ne.INITIAL),
+                demes.Epoch(end_time=400, start_size=Ne.BOTTLENECK),
+                demes.Epoch(end_time=300, start_size=Ne.NOMINAL),
+                demes.Epoch(end_time=200, start_size=Ne.HUGE),
             ],
         )
         self.check_dump_load_roundtrip(g)
 
         N = np.array([Ne.INITIAL, Ne.BOTTLENECK, Ne.NOMINAL, Ne.HUGE], dtype=np.int32)
-        T = np.array([500, 400, 300, 200], dtype=np.int64)
+        T = np.array([600, 500, 400, 300, 200], dtype=np.int64)
         g.deme(
             "B",
-            start_size=N[0],
+            start_time=T[0],
             epochs=[
-                demes.Epoch(start_time=T[0], end_time=T[1], start_size=N[1]),
-                demes.Epoch(start_time=T[1], end_time=T[2], start_size=N[2]),
-                demes.Epoch(start_time=T[2], end_time=T[3], start_size=N[3]),
+                demes.Epoch(end_time=T[1], start_size=N[0]),
+                demes.Epoch(end_time=T[2], start_size=N[1]),
+                demes.Epoch(end_time=T[3], start_size=N[2]),
+                demes.Epoch(end_time=T[4], start_size=N[3]),
             ],
         )
         self.check_dump_load_roundtrip(g)
@@ -550,17 +551,18 @@ class TestLoadAndDump:
         # Check that subclasses of float are round-trippable.
         generation_time = np.array([1], dtype=np.float64)
         N = np.array([1000, 500, 10000, 100000], dtype=np.float64)
-        T = np.array([500, 400, 300, 200], dtype=np.float32)
+        T = np.array([600, 500, 400, 300, 200], dtype=np.float32)
         g = demes.Graph(
             description="test", time_units="years", generation_time=generation_time[0]
         )
         g.deme(
             "A",
-            start_size=N[0],
+            start_time=T[0],
             epochs=[
-                demes.Epoch(start_time=T[0], end_time=T[1], start_size=N[1]),
-                demes.Epoch(start_time=T[1], end_time=T[2], start_size=N[2]),
-                demes.Epoch(start_time=T[2], end_time=T[3], start_size=N[3]),
+                demes.Epoch(end_time=T[1], start_size=N[0]),
+                demes.Epoch(end_time=T[2], start_size=N[1]),
+                demes.Epoch(end_time=T[3], start_size=N[2]),
+                demes.Epoch(end_time=T[4], start_size=N[3]),
             ],
         )
         self.check_dump_load_roundtrip(g)
@@ -570,7 +572,8 @@ class TestLoadAndDump:
             "C",
             ancestors=["A", "B"],
             proportions=[fractions.Fraction(1, 3), fractions.Fraction(2, 3)],
-            epochs=[Epoch(start_size=N[0], start_time=T[1], end_time=0)],
+            start_time=T[1],
+            epochs=[Epoch(start_size=N[0], end_time=0)],
         )
         self.check_dump_load_roundtrip(g)
 

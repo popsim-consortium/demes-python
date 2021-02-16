@@ -21,4 +21,4 @@ class TestConvertStdpopsim(unittest.TestCase):
             # such awkwardness here and only check that dm1 and dm2 are
             # converted into semantically equivalent graphs.
             g2 = demes.convert.from_stdpopsim(dm2)
-            self.assertTrue(g1.isclose(g2), msg=dm1.id)
+            g1.assert_close(g2)

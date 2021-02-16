@@ -1333,13 +1333,10 @@ class Graph:
         proportions=None,
         epochs=None,
         start_time=None,
-        end_time=None,
-        start_size=None,
-        end_size=None,
         defaults={},
     ) -> Deme:
         """
-        Add a deme to the graph, with lifetime ``(start_time, end_time]``.
+        Add a deme to the graph.
 
         :param str id: A string identifier for the deme.
         :param ancestors: List of string identifiers for the deme's ancestors.
@@ -1361,18 +1358,9 @@ class Graph:
             - If the deme has multiple ancestors, the ``start_time`` must be
               provided.
 
-        :param float end_time: The time at which this deme stops existing,
-            in units of ``time_units`` before the present.
-            If not specified, defaults to ``0.0`` (the present).
-        :param start_size: The initial population size of the deme.
-            This must be provided.
-        :param end_size: The final population size of the deme. If ``None``,
-            the deme has a constant ``start_size`` population size.
         :param epochs: Epochs that define population sizes, selfing rates, and
             cloning rates, for the deme over various time periods.
-            If not specified, a single epoch will be created for the deme that
-            spans from ``start_time`` to ``end_time``, using the ``start_size``,
-            ``end_size``, ``selfing_rate`` and ``cloning_rate`` provided.
+            If the final epoch's ``end_time`` is ``None``, it will be set to ``0``.
         :param defaults: Default attributes for epochs, including cloning_rate
             and selfing_rate.
         :return: Newly created deme.
@@ -1383,10 +1371,6 @@ class Graph:
             raise ValueError(f"deme {id} already exists in this graph")
         if epochs is None:
             raise ValueError(f"deme {id} must have at least one specified epoch")
-        if start_size is None and epochs is not None:
-            start_size = epochs[0].start_size
-        if start_size is None:
-            raise ValueError(f"must set start_size for deme {id}")
         if ancestors is None:
             ancestors = []
         if not isinstance(ancestors, list):
@@ -1404,9 +1388,7 @@ class Graph:
         # if first epoch does not have a start time, set to inf or to
         # the ancestor's end time
         if start_time is None:
-            if epochs[0].start_time is not None:
-                start_time = epochs[0].start_time
-            elif len(ancestors) > 0:
+            if len(ancestors) > 0:
                 if len(ancestors) > 1:
                     raise ValueError(
                         "with multiple ancestors, start_time must be specified "
@@ -1422,14 +1404,9 @@ class Graph:
             raise ValueError(
                 f"deme and first epoch start times do not align for deme {id}"
             )
-
-        # set the end time to the last epoch's end time
-        if end_time is None:
-            end_time = epochs[-1].end_time
-        if epochs[-1].end_time is not None and epochs[-1].end_time != end_time:
-            raise ValueError(
-                f"deme and final epoch end times do not align for deme {id}"
-            )
+        # fix deme's end time to 0 if not set
+        if epochs[-1].end_time is None:
+            epochs[-1].end_time = 0
 
         # check start time is valid wrt ancestor time intervals
         for ancestor in ancestors:
@@ -1452,6 +1429,8 @@ class Graph:
                 epochs[i].start_time = epochs[i - 1].end_time
             if epochs[i].end_time is None:
                 raise ValueError("all epochs must specify the end time")
+            if epochs[i].start_time <= epochs[i].end_time:
+                raise ValueError(f"epoch {i} has start_time <= end_time for deme {id}")
             if i > 0 and epochs[i].start_time != epochs[i - 1].end_time:
                 raise ValueError(
                     "epoch start and end times do not align for deme {id}, "
@@ -1811,7 +1790,8 @@ class Graph:
         # translate to spec data model
         for deme in data["demes"]:
             deme["start_time"] = deme["epochs"][0]["start_time"]
-            deme["end_time"] = deme["epochs"][-1]["end_time"]
+            for epoch in deme["epochs"]:
+                del epoch["start_time"]
         migrations = data.pop("migrations", None)
         if migrations is not None:
             data["migrations"] = {"asymmetric": migrations}
@@ -1829,34 +1809,25 @@ class Graph:
 
         def simplify_epochs(data):
             """
-            Remove epoch start times if implied by previous epoch's end time
-            or if implied by the deme ancestor(s)'s end time(s).
+            Remove epoch start times. Also remove deme start time
+            if implied by the deme ancestor(s)'s end time(s).
             """
             for deme in data["demes"]:
                 for j, epoch in enumerate(deme["epochs"]):
-                    # remove implied start times
-                    if j == 0:
-                        if math.isinf(epoch["start_time"]):
-                            del epoch["start_time"]
-                        if "ancestors" in deme and len(deme["ancestors"]) == 1:
-                            # start time needed for more than 1 ancestor
-                            if (
-                                self[deme["ancestors"][0]].end_time
-                                == epoch["start_time"]
-                            ):
-                                del epoch["start_time"]
-                    else:
-                        del epoch["start_time"]
                     if epoch["size_function"] in ("constant", "exponential"):
                         del epoch["size_function"]
                     if epoch["start_size"] == epoch["end_size"]:
                         del epoch["end_size"]
 
             for deme in data["demes"]:
-                del deme["start_time"]
-                del deme["end_time"]
+                # remove implied start times
+                if math.isinf(deme["start_time"]):
+                    del deme["start_time"]
                 if "ancestors" in deme and len(deme["ancestors"]) == 1:
                     del deme["proportions"]
+                    # start time needed for more than 1 ancestor
+                    if self[deme["ancestors"][0]].end_time == deme["start_time"]:
+                        del deme["start_time"]
 
         def simplify_migration_rates(data):
             """

@@ -11,21 +11,15 @@ demes:
     epochs:
     - end_time: 34133.31
       start_size: 7156
-    - start_time: 34133.31
-      end_time: 8533.33
+    - end_time: 8533.33
       end_size: 71560
-    - start_time: 8533.33
-      end_time: 2133.33
+    - end_time: 2133.33
       end_size: 7156
-    - start_time: 2133.33
-      end_time: 533.33
+    - end_time: 533.33
       end_size: 71560
-    - start_time: 533.33
-      end_time: 133.33
+    - end_time: 133.33
       end_size: 7156
-    - start_time: 133.33
-      end_time: 33.333
+    - end_time: 33.333
       end_size: 71560
-    - start_time: 33.333
-      end_time: 0
+    - end_time: 0
       end_size: 71560

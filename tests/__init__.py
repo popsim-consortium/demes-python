@@ -161,6 +161,8 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
                             min_value=time_lo,
                             max_value=time_hi,
                             exclude_max=True,
+                            # Can't have start_time=0.
+                            exclude_min=time_lo == 0,
                         )
                     )
                     ancestors = [g.demes[j].id for j in anc_idx]
@@ -193,9 +195,10 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
             dk = g.demes[k].id
             time_lo = max(g[dj].end_time, g[dk].end_time)
             time_hi = min(g[dj].start_time, g[dk].start_time)
-            if time_hi <= time_lo or time_lo > 1e308:
-                # Demes j and k don't exist at the same time.
-                # (or time_lo is too close to infinity for floats)
+            if time_hi - time_lo < 1e308:
+                # Demes j and k don't exist at the same time,
+                # or the interval is too small to draw a floating
+                # point number within the interval.
                 continue
             # Draw asymmetric migrations.
             n = draw(st.integers(min_value=0, max_value=n_interactions))

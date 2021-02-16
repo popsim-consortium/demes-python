@@ -353,9 +353,9 @@ def from_msprime(
             deme_id,
             ancestors=deme_dict["ancestors"],
             proportions=deme_dict["proportions"],
+            start_time=epochs[deme_id][0].start_time,
             epochs=[
                 demes.Epoch(
-                    start_time=epoch.start_time,
                     end_time=epoch.end_time,
                     start_size=epoch.start_size,
                     end_size=epoch.end_size,
