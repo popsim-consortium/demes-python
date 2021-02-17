@@ -521,9 +521,11 @@ class TestLoadAndDump:
             HUGE = 100000
 
         g = demes.Graph(description="test", time_units="generations")
+        g.deme("ancestral", epochs=[demes.Epoch(start_size=100)])
         g.deme(
             "A",
             start_time=600,
+            ancestors=["ancestral"],
             epochs=[
                 demes.Epoch(end_time=500, start_size=Ne.INITIAL),
                 demes.Epoch(end_time=400, start_size=Ne.BOTTLENECK),
@@ -538,6 +540,7 @@ class TestLoadAndDump:
         g.deme(
             "B",
             start_time=T[0],
+            ancestors=["ancestral"],
             epochs=[
                 demes.Epoch(end_time=T[1], start_size=N[0]),
                 demes.Epoch(end_time=T[2], start_size=N[1]),
@@ -555,9 +558,11 @@ class TestLoadAndDump:
         g = demes.Graph(
             description="test", time_units="years", generation_time=generation_time[0]
         )
+        g.deme("ancestral", epochs=[demes.Epoch(start_size=100)])
         g.deme(
             "A",
             start_time=T[0],
+            ancestors=["ancestral"],
             epochs=[
                 demes.Epoch(end_time=T[1], start_size=N[0]),
                 demes.Epoch(end_time=T[2], start_size=N[1]),

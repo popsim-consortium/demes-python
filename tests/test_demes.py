@@ -1406,7 +1406,13 @@ class TestGraph(unittest.TestCase):
 
     def test_bad_start_time_wrt_ancestors(self):
         dg = demes.Graph(description="a", time_units="generations")
-        dg.deme("a", start_time=100, epochs=[Epoch(start_size=100, end_time=50)])
+        dg.deme("ancestral", epochs=[Epoch(start_size=100)])
+        dg.deme(
+            "a",
+            start_time=100,
+            ancestors=["ancestral"],
+            epochs=[Epoch(start_size=100, end_time=50)],
+        )
         dg.deme("b", epochs=[Epoch(start_size=100, end_time=0)])
         with self.assertRaises(ValueError):
             # start_time too old
@@ -1450,6 +1456,9 @@ class TestGraph(unittest.TestCase):
                 proportions=[0.5, 0.5],
                 epochs=[Epoch(start_size=100, end_time=0)],
             )
+        with self.assertRaises(ValueError):
+            # finite start time, but no ancestors
+            dg.deme("c", start_time=100, epochs=[Epoch(start_size=100)])
 
     def test_proportions_default(self):
         dg = demes.Graph(description="a", time_units="generations")
@@ -1642,7 +1651,14 @@ class TestGraph(unittest.TestCase):
 
         g3 = copy.deepcopy(g1)
         g4 = copy.deepcopy(g1)
-        g3.deme("d2", start_time=50, epochs=[Epoch(start_size=1000, end_time=0)])
+        g3.deme("dX", epochs=[Epoch(start_size=1000, end_time=0)])
+        g3.deme(
+            "d2",
+            ancestors=["dX"],
+            start_time=50,
+            epochs=[Epoch(start_size=1000, end_time=0)],
+        )
+        g4.deme("dX", epochs=[Epoch(start_size=1000)])
         g4.deme(
             "d2",
             ancestors=["d1"],
@@ -1702,7 +1718,13 @@ class TestGraph(unittest.TestCase):
     def test_validate(self):
         g1 = demes.Graph(description="test", time_units="generations")
         g1.deme("a", epochs=[Epoch(start_size=1, end_time=100)])
-        g1.deme("b", start_time=50, epochs=[Epoch(start_size=1, end_time=0)])
+        g1.deme("ancestral", epochs=[Epoch(start_size=1)])
+        g1.deme(
+            "b",
+            ancestors=["ancestral"],
+            start_time=50,
+            epochs=[Epoch(start_size=1, end_time=0)],
+        )
         g1.validate()
 
         #
@@ -1741,7 +1763,12 @@ class TestGraph(unittest.TestCase):
         g = demes.Graph(description="test", time_units="generations")
         d1 = g.deme("a", epochs=[Epoch(start_size=1, end_time=0)])
         self.assertIsInstance(d1, Deme)
-        d2 = g.deme("b", start_time=50, epochs=[Epoch(start_size=1, end_time=0)])
+        d2 = g.deme(
+            "b",
+            start_time=50,
+            ancestors=["a"],
+            epochs=[Epoch(start_size=1, end_time=0)],
+        )
         self.assertIsInstance(d2, Deme)
 
         mig = g.migration(source="a", dest="b", rate=1e-4, end_time=25)
@@ -1764,22 +1791,36 @@ class TestGraph(unittest.TestCase):
             ],
         )
         with self.assertRaises(ValueError):
-            g.deme("b", start_time=100, epochs=[Epoch(start_size=100, end_time=100)])
+            g.deme(
+                "b",
+                start_time=100,
+                ancestors=["a"],
+                epochs=[Epoch(start_size=100, end_time=100)],
+            )
         assert "b" not in g
         with self.assertRaises(ValueError):
-            g.deme("b", start_time=100, epochs=[Epoch(start_size=100, end_time=200)])
+            g.deme(
+                "b",
+                start_time=100,
+                ancestors=["a"],
+                epochs=[Epoch(start_size=100, end_time=200)],
+            )
         assert "b" not in g
         # Check that end_time can be ommitted for final epoch
-        g.deme("x", start_time=100, epochs=[Epoch(start_size=100)])
+        g.deme("x", start_time=100, ancestors=["a"], epochs=[Epoch(start_size=100)])
         g.deme("y", epochs=[Epoch(start_size=100)])
-        g.deme("z", epochs=[Epoch(start_size=100, end_time=10), Epoch(start_size=10)])
+        g.deme(
+            "z",
+            start_time=100,
+            ancestors=["a"],
+            epochs=[Epoch(start_size=100, end_time=10), Epoch(start_size=10)],
+        )
 
     def test_ambiguous_epoch_times(self):
         g = demes.Graph(description="test", time_units="generations")
         with self.assertRaises(ValueError):
             g.deme(
                 "a",
-                start_time=100,
                 epochs=[
                     Epoch(start_size=10),
                     Epoch(end_time=0, start_size=100),
@@ -1790,9 +1831,15 @@ class TestGraph(unittest.TestCase):
 class TestGraphToDict(unittest.TestCase):
     def test_finite_start_time(self):
         dg = demes.Graph(description="a", time_units="generations")
-        dg.deme("a", start_time=100, epochs=[Epoch(start_size=100, end_time=0)])
+        dg.deme("ancestral", epochs=[Epoch(start_size=100)])
+        dg.deme(
+            "a",
+            start_time=100,
+            ancestors=["ancestral"],
+            epochs=[Epoch(start_size=100, end_time=0)],
+        )
         d = dg.asdict()
-        self.assertTrue(d["demes"][0]["start_time"] == dg["a"].start_time == 100)
+        self.assertTrue(d["demes"][1]["start_time"] == dg["a"].start_time == 100)
 
     def test_deme_selfing_rate(self):
         dg = demes.Graph(description="a", time_units="generations")
@@ -1927,7 +1974,7 @@ class TestGraphToDict(unittest.TestCase):
 
     def test_mix_sym_asym_migrations(self):
         g = demes.Graph(description="a", time_units="generations")
-        g.deme("a", start_time=100, epochs=[Epoch(start_size=1, end_time=0)])
+        g.deme("a", epochs=[Epoch(start_size=1, end_time=0)])
         g.deme("b", epochs=[Epoch(start_size=1, end_time=0)])
         g.deme("c", epochs=[Epoch(start_size=1, end_time=0)])
         g.deme("d", epochs=[Epoch(start_size=1, end_time=0)])
