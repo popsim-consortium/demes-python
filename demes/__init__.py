@@ -8,5 +8,18 @@ try:
 except ImportError:
     pass
 
-from .demes import Epoch, Migration, Pulse, Deme, Graph, Split, Branch, Merge, Admix
+from .demes import (
+    Builder,
+    Epoch,
+    Migration,
+    SymmetricMigration,
+    AsymmetricMigration,
+    Pulse,
+    Deme,
+    Graph,
+    Split,
+    Branch,
+    Merge,
+    Admix,
+)
 from .load_dump import load_asdict, loads_asdict, load, loads, dump, dumps

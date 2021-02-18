@@ -1,5 +1,4 @@
-import typing
-from typing import List, Union, Optional, Dict
+from typing import List, Union, Optional, Dict, Mapping, MutableMapping, Any
 import itertools
 import math
 import numbers
@@ -67,27 +66,6 @@ def valid_deme_id(self, attribute, value):
         )
 
 
-def isclose(
-    a: Optional[Number],
-    b: Optional[Number],
-    *,
-    rel_tol=_ISCLOSE_REL_TOL,
-    abs_tol=_ISCLOSE_ABS_TOL,
-) -> bool:
-    """
-    Wrapper around math.isclose() that handles None.
-    """
-    if None in (a, b):
-        return (a,) == (b,)
-    else:
-        return math.isclose(
-            typing.cast(float, a),
-            typing.cast(float, b),
-            rel_tol=rel_tol,
-            abs_tol=abs_tol,
-        )
-
-
 def isclose_deme_proportions(
     a_ids: List[ID],
     a_proportions: List[Proportion],
@@ -107,11 +85,74 @@ def isclose_deme_proportions(
     a = sorted(zip(a_ids, a_proportions), key=operator.itemgetter(0))
     b = sorted(zip(b_ids, b_proportions), key=operator.itemgetter(0))
     for (a_id, a_proportion), (b_id, b_proportion) in zip(a, b):
-        if a_id != b_id or not isclose(
+        if a_id != b_id or not math.isclose(
             a_proportion, b_proportion, rel_tol=rel_tol, abs_tol=abs_tol
         ):
             return False
     return True
+
+
+def validate_item(name, value, required_type, scope):
+    if not isinstance(value, required_type):
+        raise TypeError(
+            f"{scope}: field '{name}' must be a {required_type}; "
+            f"current type is {type(value)}."
+        )
+
+
+# We need to use this trick because None is a meaninful input value for these
+# pop_x functions.
+NO_DEFAULT = object()
+
+
+def pop_item(data, name, *, required_type, default=NO_DEFAULT, scope=""):
+    if name in data:
+        value = data.pop(name)
+        validate_item(name, value, required_type, scope=scope)
+    else:
+        if default is NO_DEFAULT:
+            raise KeyError(f"{scope}: required field '{name}' not found")
+        value = default
+    return value
+
+
+def pop_list(data, name, default=NO_DEFAULT, required_type=None, scope=""):
+    value = pop_item(data, name, default=default, required_type=list)
+    if required_type is not None and default is not None:
+        for item in value:
+            validate_item(name, item, required_type, scope)
+    return value
+
+
+def pop_object(data, name, default=NO_DEFAULT, scope=""):
+    return pop_item(
+        data, name, default=default, required_type=MutableMapping, scope=scope
+    )
+
+
+def check_empty(data, scope):
+    assert isinstance(data, Mapping)
+    if len(data) != 0:
+        keys = list(data.keys())
+        if len(keys) == 1:
+            raise KeyError(f"{scope}: unexpected field: {keys[0]}")
+        else:
+            raise KeyError(f"{scope}: unexpected fields: {keys}")
+
+
+def check_defaults(defaults, allowed_fields, scope):
+    for key in defaults.keys():
+        if key not in allowed_fields:
+            raise KeyError(
+                f"{scope}: unexpected field: {key}. "
+                f"Allowed fields are: {allowed_fields}"
+            )
+
+
+def insert_defaults(data, defaults):
+    for key, value in defaults.items():
+        if key not in data:
+            data[key] = value
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -130,65 +171,37 @@ class Epoch:
         If ``start_size != end_size``, the population size changes
         monotonically between the start and end times.
     :ivar size_function: The size change function. Common options are constant,
-        exponential, or linear, though any string is valid. Warning: downstream
-        simulators might not understand the size_function provided.
-    :ivar selfing_rate: An optional selfing rate for this epoch.
-    :ivar cloning_rate: An optional cloning rate for this epoch.
+        exponential, or linear, though any string is valid.
+
+        .. warning::
+
+            Downstream simulators might not understand the size_function provided.
+
+    :ivar selfing_rate: The selfing rate for this epoch.
+    :ivar cloning_rate: The cloning rate for this epoch.
     """
 
-    start_time: Optional[Time] = attr.ib(
-        default=None,
-        validator=attr.validators.optional([int_or_float, non_negative]),
+    start_time: Time = attr.ib(validator=[int_or_float, non_negative])
+    end_time: Time = attr.ib(validator=[int_or_float, non_negative, finite])
+    start_size: Size = attr.ib(validator=[int_or_float, positive, finite])
+    end_size: Size = attr.ib(validator=[int_or_float, positive, finite])
+    size_function: str = attr.ib(
+        validator=[attr.validators.instance_of(str), nonzero_len]
     )
-    end_time: Optional[Time] = attr.ib(
-        default=None,
-        validator=attr.validators.optional([int_or_float, non_negative, finite]),
+    selfing_rate: Proportion = attr.ib(
+        default=0, validator=[int_or_float, unit_interval]
     )
-    start_size: Optional[Size] = attr.ib(
-        default=None,
-        validator=attr.validators.optional([int_or_float, positive, finite]),
-    )
-    end_size: Optional[Size] = attr.ib(
-        default=None,
-        validator=attr.validators.optional([int_or_float, positive, finite]),
-    )
-    size_function: Optional[str] = attr.ib(
-        default=None,
-        validator=attr.validators.optional(
-            [attr.validators.instance_of(str), nonzero_len]
-        ),
-    )
-    selfing_rate: Optional[Proportion] = attr.ib(
-        default=None,
-        validator=attr.validators.optional([int_or_float, unit_interval]),
-    )
-    cloning_rate: Optional[Proportion] = attr.ib(
-        default=None,
-        validator=attr.validators.optional([int_or_float, unit_interval]),
+    cloning_rate: Proportion = attr.ib(
+        default=0, validator=[int_or_float, unit_interval]
     )
 
     def __attrs_post_init__(self):
-        if self.start_size is None and self.end_size is None:
-            raise ValueError("must set either start_size or end_size")
-        if (
-            self.start_time is not None
-            and self.end_time is not None
-            and self.start_time <= self.end_time
-        ):
+        if self.start_time <= self.end_time:
             raise ValueError("must have start_time > end_time")
-        if (
-            self.start_time is not None
-            and self.start_size is not None
-            and self.end_size is not None
-        ):
-            if math.isinf(self.start_time) and self.start_size != self.end_size:
-                raise ValueError("if start time is inf, must be a constant size epoch")
-        if (
-            self.size_function == "constant"
-            and self.start_size is not None
-            and self.end_size is not None
-            and self.start_size != self.end_size
-        ):
+        # XXX: these tests should use math.isclose()
+        if math.isinf(self.start_time) and self.start_size != self.end_size:
+            raise ValueError("if start time is inf, must be a constant size epoch")
+        if self.size_function == "constant" and self.start_size != self.end_size:
             raise ValueError("start_size != end_size, but size_function is constant")
 
     @property
@@ -204,10 +217,10 @@ class Epoch:
         *,
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
-    ) -> bool:
+    ):
         """
-        Returns true if the epoch and ``other`` epoch implement essentially
-        the same epoch and raises AssertionError otherwise.
+        Raises AssertionError if the object is not equal to ``other``,
+        up to a numerical tolerance.
         Compares values of the following attributes:
         ``start_time``, ``end_time``, ``start_size``, ``end_size``,
         ``size_function``, ``selfing_rate``, ``cloning_rate``.
@@ -220,43 +233,38 @@ class Epoch:
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
-
-        :return: True if the two epochs are equivalent, raises AssertionError\
-                 otherwise.
-        :rtype: bool
         """
         assert (
             self.__class__ is other.__class__
         ), f"Failed as other epoch is not instance of {self.__class__} type."
-        assert isclose(
+        assert math.isclose(
             self.start_time, other.start_time, rel_tol=rel_tol, abs_tol=abs_tol
         ), f"Failed for start_time {self.start_time} != {other.start_time} (other)."
-        assert isclose(
+        assert math.isclose(
             self.end_time, other.end_time, rel_tol=rel_tol, abs_tol=abs_tol
         ), f"Failed for end_time {self.end_time} != {other.end_time} (other)."
-        assert isclose(
+        assert math.isclose(
             self.start_size, other.start_size, rel_tol=rel_tol, abs_tol=abs_tol
         ), (
             f"Failed for start_size "
             f"{self.start_size} != {other.start_size} (other)."
         )
-        assert isclose(
+        assert math.isclose(
             self.end_size, other.end_size, rel_tol=rel_tol, abs_tol=abs_tol
         ), f"Failed for end_size {self.end_size} != {other.end_size} (other)."
         assert self.size_function == other.size_function
-        assert isclose(
+        assert math.isclose(
             self.selfing_rate, other.selfing_rate, rel_tol=rel_tol, abs_tol=abs_tol
         ), (
             f"Failed for selfing_rate "
             f"{self.selfing_rate} != {other.selfing_rate} (other)."
         )
-        assert isclose(
+        assert math.isclose(
             self.cloning_rate, other.cloning_rate, rel_tol=rel_tol, abs_tol=abs_tol
         ), (
             f"Failed for cloning_rate "
             f"{self.cloning_rate} != {other.cloning_rate} (other)."
         )
-        return True
 
     def isclose(
         self,
@@ -292,28 +300,25 @@ class Epoch:
 @attr.s(auto_attribs=True, kw_only=True)
 class Migration:
     """
-    Parameters for continuous migration from one deme to another.
-    Source and destination demes follow the forwards-in-time convention,
-    of migrations born in the source deme having children in the dest
-    deme.
+    Parameters for continuous migration. Migration may be symmetric, in which
+    case the list of demes will be specified. Alternately, migration may be
+    asymmetric from one deme to another. In the latter case,
+    source and destination demes follow the forwards-in-time convention,
+    of migrations born in the source deme having children in the dest deme.
 
-    :ivar source: The source deme.
-    :ivar dest: The destination deme.
     :ivar start_time: The time at which the migration rate becomes activate.
     :ivar end_time: The time at which the migration rate is deactivated.
     :ivar rate: The rate of migration. Set to zero to disable migrations after
         the given time.
     """
 
-    source: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
-    dest: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
     start_time: Time = attr.ib(validator=[int_or_float, non_negative])
     end_time: Time = attr.ib(validator=[int_or_float, non_negative, finite])
     rate: Rate = attr.ib(validator=[int_or_float, non_negative, finite])
 
     def __attrs_post_init__(self):
-        if self.source == self.dest:
-            raise ValueError("source and dest cannot be the same deme")
+        if not (self.start_time > self.end_time):
+            raise ValueError("must have start_time > end_time")
 
     def assert_close(
         self,
@@ -321,12 +326,12 @@ class Migration:
         *,
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
-    ) -> bool:
+    ):
         """
-        Returns true if the migration is equal to the ``other`` migration and
-        raises AssertionError otherwise.
+        Raises AssertionError if the object is not equal to ``other``,
+        up to a numerical tolerance.
         Compares values of the following attributes:
-        ``source``, ``dest``, ``start_time``, ``end_time``, ``rate``.
+        `start_time``, ``end_time``, ``rate``.
 
         :param other: The migration to compare against.
         :type other: :class:`.Migration`
@@ -336,26 +341,19 @@ class Migration:
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
-
-        :return: True if the two migrations are equivalent, raises\
-                 AssertionError otherwise.
-        :rtype: bool
         """
         assert (
             self.__class__ is other.__class__
         ), f"Failed as other migration is not instance of {self.__class__} type."
-        assert self.source == other.source
-        assert self.dest == other.dest
-        assert isclose(
+        assert math.isclose(
             self.start_time, other.start_time, rel_tol=rel_tol, abs_tol=abs_tol
         ), f"Failed for start_time {self.start_time} != {other.start_time} (other)."
-        assert isclose(
+        assert math.isclose(
             self.end_time, other.end_time, rel_tol=rel_tol, abs_tol=abs_tol
         ), f"Failed for end_time {self.end_time} != {other.end_time} (other)."
-        assert isclose(
+        assert math.isclose(
             self.rate, other.rate, rel_tol=rel_tol, abs_tol=abs_tol
         ), f"Failed for rate {self.rate} != {other.rate} (other)."
-        return True
 
     def isclose(
         self,
@@ -389,6 +387,96 @@ class Migration:
 
 
 @attr.s(auto_attribs=True, kw_only=True)
+class SymmetricMigration(Migration):
+    """
+    :ivar demes: The list of demes for symmetric migration.
+    """
+
+    demes: List[ID] = attr.ib(
+        validator=attr.validators.deep_iterable(
+            member_validator=attr.validators.and_(
+                attr.validators.instance_of(str), valid_deme_id
+            ),
+            iterable_validator=attr.validators.instance_of(list),
+        ),
+    )
+
+    def __attrs_post_init__(self):
+        super().__attrs_post_init__()
+        if len(self.demes) < 2:
+            raise ValueError("must have at least 2 demes for symmetric migration")
+        if len(self.demes) != len(set(self.demes)):
+            raise ValueError("demes for symmetric migration must be unique")
+
+    def assert_close(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ):
+        """
+        Raises AssertionError if the object is not equal to ``other``,
+        up to a numerical tolerance.
+        Compares values of the following attributes:
+        ``demes``, ``start_time``, ``end_time``, ``rate``.
+
+        :param other: The migration to compare against.
+        :type other: :class:`.Migration`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+        """
+        super().assert_close(other, rel_tol=rel_tol, abs_tol=abs_tol)
+        assert sorted(self.demes) == sorted(other.demes)
+
+
+@attr.s(auto_attribs=True, kw_only=True)
+class AsymmetricMigration(Migration):
+    """
+    :ivar source: The source deme for asymmetric migration.
+    :ivar dest: The destination deme for asymmetric migration.
+    """
+
+    source: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    dest: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+
+    def __attrs_post_init__(self):
+        super().__attrs_post_init__()
+        if self.source == self.dest:
+            raise ValueError("source and dest cannot be the same deme")
+
+    def assert_close(
+        self,
+        other,
+        *,
+        rel_tol=_ISCLOSE_REL_TOL,
+        abs_tol=_ISCLOSE_ABS_TOL,
+    ):
+        """
+        Raises AssertionError if the object is not equal to ``other``,
+        up to a numerical tolerance.
+        Compares values of the following attributes:
+        ``source``, ``dest``, ``start_time``, ``end_time``, ``rate``.
+
+        :param other: The migration to compare against.
+        :type other: :class:`.Migration`
+        :param ret_tol: The relative tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`
+        :type ret_tol: float
+        :param abs_tol: The absolute tolerance permitted for numerical
+                        comparisons. See documentation for :func:`math.isclose`.
+        :type abs_tol: float
+        """
+        super().assert_close(other, rel_tol=rel_tol, abs_tol=abs_tol)
+        assert self.source == other.source
+        assert self.dest == other.dest
+
+
+@attr.s(auto_attribs=True, kw_only=True)
 class Pulse:
     """
     Parameters for a pulse of migration from one deme to another.
@@ -419,10 +507,10 @@ class Pulse:
         *,
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
-    ) -> bool:
+    ):
         """
-        Returns true if the pulse is equal to the ``other`` pulse and raises
-        AssertionError otherwise.
+        Raises AssertionError if the object is not equal to ``other``,
+        up to a numerical tolerance.
         Compares values of the following attributes:
         ``source``, ``dest``, ``time``, ``proportion``.
 
@@ -434,23 +522,18 @@ class Pulse:
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
-
-        :return: True if the two pulses are equivalent, raises AssertionError\
-                 otherwise.
-        :rtype: bool
         """
         assert (
             self.__class__ is other.__class__
         ), f"Failed as other pulse is not instance of {self.__class__} type."
         assert self.source == other.source
         assert self.dest == other.dest
-        assert isclose(
+        assert math.isclose(
             self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol
         ), f"Failed for time {self.time} != {other.time} (other)."
-        assert isclose(
+        assert math.isclose(
             self.proportion, other.proportion, rel_tol=rel_tol, abs_tol=abs_tol
         ), f"Failed for proportion {self.proportion} != {other.proportion} (other)."
-        return True
 
     def isclose(
         self,
@@ -522,11 +605,10 @@ class Split:
         *,
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
-        raise_ex=False,
     ) -> bool:
         """
-        Returns true if the split is equal to the ``other`` split and raises
-        AssertionError otherwise.
+        Raises AssertionError if the object is not equal to ``other``,
+        up to a numerical tolerance.
         Compares values of the following attributes:
         ``parent``, ``children``, ``time``.
 
@@ -538,17 +620,13 @@ class Split:
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
-
-        :return: True if the two splits are equivalent, raises AssertionError\
-                 otherwise.
-        :rtype: bool
         """
         assert (
             self.__class__ is other.__class__
         ), f"Failed as other split is not instance of {self.__class__} type."
         assert self.parent == other.parent
         assert sorted(self.children) == sorted(other.children)
-        assert isclose(
+        assert math.isclose(
             self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol
         ), f"Failed for time {self.time} != {other.time} (other)."
         return True
@@ -573,10 +651,6 @@ class Split:
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
-        :param raise_ex: Determines if exception (ValueError) should be raised
-                         when splits are not close. The error will contain
-                         information about attributes that are not equal.
-        :type raise_ex: bool
 
         :return: True if the two splits are equivalent, False otherwise.
         :rtype: bool
@@ -613,10 +687,10 @@ class Branch:
         *,
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
-    ) -> bool:
+    ):
         """
-        Returns true if the branch is equal to the ``other`` branch and raises
-        AssertionError otherwise.
+        Raises AssertionError if the object is not equal to ``other``,
+        up to a numerical tolerance.
         Compares values of the following attributes:
         ``parent``, ``child``, ``time``.
 
@@ -628,24 +702,15 @@ class Branch:
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
-        :param raise_ex: Determines if exception (ValueError) should be raised
-                         when branches are not close. The error will contain
-                         information about attributes that are not equal.
-        :type raise_ex: bool
-
-        :return: True if the two branches are equivalent, raises\
-                 AssertionError otherwise.
-        :rtype: bool
         """
         assert (
             self.__class__ is other.__class__
         ), f"failed as other branch is not instance of {self.__class__} type."
         assert self.parent == other.parent
-        assert sorted(self.child) == sorted(other.child)
-        assert isclose(
+        assert self.child == other.child
+        assert math.isclose(
             self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol
         ), f"Failed for time {self.time} != {other.time} (other)."
-        return True
 
     def isclose(
         self,
@@ -731,10 +796,10 @@ class Merge:
         *,
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
-    ) -> bool:
+    ):
         """
-        Returns true if the merge is equal to the ``other`` merge and raises
-        AssertionError otherwise.
+        Raises AssertionError if the object is not equal to ``other``,
+        up to a numerical tolerance.
         Compares values of the following attributes:
         ``parents``, ``proportions``, ``child``, ``time``.
 
@@ -746,10 +811,6 @@ class Merge:
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
-
-        :return: True if the two merges are equivalent, raises AssertionError\
-                 otherwise.
-        :rtype: bool
         """
         assert (
             self.__class__ is other.__class__
@@ -766,11 +827,10 @@ class Merge:
             f"parents: {self.parents}, {other.parents} (other), "
             f"proportions: {self.proportions}, {other.proportions} (other)."
         )
-        assert sorted(self.child) == sorted(other.child)
-        assert isclose(
+        assert self.child == other.child
+        assert math.isclose(
             self.time, other.time, rel_tol=rel_tol, abs_tol=abs_tol
         ), f"Failed for time {self.time} != {other.time} (other)."
-        return True
 
     def isclose(
         self,
@@ -856,11 +916,10 @@ class Admix:
         *,
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
-        raise_ex=False,
-    ) -> bool:
+    ):
         """
-        Returns true if the admixture is equal to the ``other`` admixture and
-        raises AssertionError otherwise.
+        Raises AssertionError if the object is not equal to ``other``,
+        up to a numerical tolerance.
         Compares values of the following attributes:
         ``parents``, ``proportions``, ``child``, ``time``.
 
@@ -872,14 +931,6 @@ class Admix:
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
-        :param raise_ex: Determines if exception (ValueError) should be raised
-                         when admixtures are not close. The error will contain
-                         information about attributes that are not equal.
-        :type raise_ex: bool
-
-        :return: True if the two admixtures are equivalent, raises\
-                 AssertionError otherwise.
-        :rtype: bool
         """
         assert (
             self.__class__ is other.__class__
@@ -896,14 +947,13 @@ class Admix:
             f"parents: {self.parents}, {other.parents} (other), "
             f"proportions: {self.proportions}, {other.proportions} (other)."
         )
-        assert sorted(self.child) == sorted(other.child)
-        assert isclose(
+        assert self.child == other.child
+        assert math.isclose(
             self.time,
             other.time,
             rel_tol=rel_tol,
             abs_tol=abs_tol,
         ), f"Failed for time {self.time} != {other.time} (other)."
-        return True
 
     def isclose(
         self,
@@ -924,10 +974,6 @@ class Admix:
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
-        :param raise_ex: Determines if exception (ValueError) should be raised
-                         when admixtures are not close. The error will contain
-                         information about attributes that are not equal.
-        :type raise_ex: bool
 
         :return: True if the two admixtures are equivalent, False otherwise.
         :rtype: bool
@@ -943,9 +989,6 @@ class Admix:
 class Deme:
     """
     A collection of individuals that are exchangeable at any fixed time.
-    This class is not intended to be instantiated directly. It is instead
-    recommended to add demes to a :class:`.Graph` object using the
-    :meth:`Graph.deme` method.
 
     :ivar str id: A string identifier for the deme.
     :ivar str description: A description of the deme. May be ``None``.
@@ -959,10 +1002,6 @@ class Deme:
     :ivar epochs: A list of epochs, which define the population size(s) of
         the deme. The deme must be created with all epochs listed.
     :vartype epochs: list of :class:`.Epoch`
-    :ivar defaults: A dictionary of default attributes, such as cloning and
-        selfing rates, that are inherited by epochs if those attributes are
-        not specified in the epoch.
-    :vartype defaults: dict
     """
 
     id: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
@@ -991,39 +1030,94 @@ class Deme:
             iterable_validator=attr.validators.instance_of(list),
         )
     )
-    defaults: dict = attr.ib()
+    start_time: Time = attr.ib(validator=[int_or_float, positive])
 
     @ancestors.validator
     def _check_ancestors(self, _attribute, _value):
         if len(set(self.ancestors)) != len(self.ancestors):
-            raise ValueError(f"duplicate ancestors in {self.ancestors}")
+            raise ValueError(f"deme {self.id}: duplicate ancestors in {self.ancestors}")
         if self.id in self.ancestors:
-            raise ValueError(f"{self.id} cannot be its own ancestor")
+            raise ValueError(f"deme {self.id}: deme cannot be its own ancestor")
 
     @proportions.validator
     def _check_proportions(self, attribute, _value):
         if len(self.proportions) > 0 and not math.isclose(sum(self.proportions), 1.0):
-            raise ValueError("proportions must sum to 1.0")
+            raise ValueError(f"deme {self.id}: ancestry proportions must sum to 1.0")
         for proportion in self.proportions:
             unit_interval(self, attribute, proportion)
             positive(self, attribute, proportion)
 
     @epochs.validator
     def _check_epochs(self, _attribute, _value):
-        # every deme must have at least one epoch
-        if len(self.epochs) == 0:
-            raise ValueError("Demes must be defined with at least one epoch")
         # check epoch times align
         for i, epoch in enumerate(self.epochs):
             if i > 0:
                 if self.epochs[i - 1].end_time != epoch.start_time:
-                    raise ValueError("Epoch start and end times must align")
+                    raise ValueError(
+                        f"deme {self.id}: "
+                        f"epoch[{i}].start_time != epoch[{i}-1].end_time"
+                    )
 
     def __attrs_post_init__(self):
         # We check the lengths of ancestors and proportions match
         # after the validators have confirmed that these are indeed lists.
         if len(self.ancestors) != len(self.proportions):
-            raise ValueError("ancestors and proportions must have same length")
+            raise ValueError(
+                f"deme {self.id}: ancestors and proportions have different lengths"
+            )
+
+    def _add_epoch(
+        self,
+        *,
+        end_time,
+        start_size=None,
+        end_size=None,
+        size_function=None,
+        selfing_rate=0,
+        cloning_rate=0,
+    ):
+        if len(self.epochs) == 0:
+            start_time = self.start_time
+            # The first epoch is special.
+            if start_size is None and end_size is None:
+                raise KeyError(
+                    f"deme {self.id}: first epoch must have start_size or end_size"
+                )
+            if start_size is None:
+                start_size = end_size
+            if end_size is None:
+                end_size = start_size
+
+        else:
+            start_time = self.epochs[-1].end_time
+            # Set size based on previous epoch.
+            if start_size is None:
+                start_size = self.epochs[-1].end_size
+            if end_size is None:
+                end_size = start_size
+
+        # XXX: use math.isclose()?
+        if size_function is None:
+            if start_size == end_size:
+                size_function = "constant"
+            else:
+                size_function = "exponential"
+
+        try:
+            epoch = Epoch(
+                start_time=start_time,
+                end_time=end_time,
+                start_size=start_size,
+                end_size=end_size,
+                size_function=size_function,
+                selfing_rate=selfing_rate,
+                cloning_rate=cloning_rate,
+            )
+        except (TypeError, ValueError) as e:
+            raise e.__class__(
+                f"deme {self.id}: epoch[{len(self.epochs)}]: invalid epoch"
+            ) from e
+        self.epochs.append(epoch)
 
     def assert_close(
         self,
@@ -1031,10 +1125,10 @@ class Deme:
         *,
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
-    ) -> bool:
+    ):
         """
-        Returns true if the deme is equal to the ``other`` deme and raises
-        AssertionError otherwise.
+        Raises AssertionError if the object is not equal to ``other``,
+        up to a numerical tolerance.
         Compares values of the following objects:
         ``id``, ``ancestors``, ``proportions``, epochs.
 
@@ -1046,15 +1140,11 @@ class Deme:
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
-
-        :return: True if the two demes are equivalent, raises AssertionError\
-                 otherwise.
-        :rtype: bool
         """
         assert (
             self.__class__ is other.__class__
         ), f"Failed as other deme is not instance of {self.__class__} type."
-        assert sorted(self.id) == sorted(other.id)
+        assert self.id == other.id
         assert isclose_deme_proportions(
             self.ancestors,
             self.proportions,
@@ -1072,7 +1162,6 @@ class Deme:
                 e1.assert_close(e2, rel_tol=rel_tol, abs_tol=abs_tol)
             except AssertionError as e:
                 raise AssertionError(f"Failed for epochs (number {i})") from e
-        return True
 
     def isclose(
         self,
@@ -1104,13 +1193,6 @@ class Deme:
             return False
 
     @property
-    def start_time(self):
-        """
-        The start time of the deme's existence.
-        """
-        return self.epochs[0].start_time
-
-    @property
     def end_time(self):
         """
         The end time of the deme's existence.
@@ -1128,12 +1210,10 @@ class Deme:
 @attr.s(auto_attribs=True, kw_only=True)
 class Graph:
     """
-    The Graph class provides a high-level API for constructing a demographic
-    model. The methods on this class ensure validity of a  model at all stages
-    of construction. They also allow omission of detail, when there is a single
-    unambiguous interpretation (or a very sensible default). The semantics
-    exactly match those for loading the ``yaml`` file, as the :func:`.load`
-    function uses this API internally.
+    The Graph class provides a high-level API for working with a demographic
+    model. A Graph object matches Demes' data model, with a small number of
+    additional redundant attributes that make the Graph a more convenient
+    object to use when inspecting a model's properties.
 
     :ivar str description: A human readable description of the demography.
         May be ``None``.
@@ -1151,16 +1231,11 @@ class Graph:
         should be be given here as a list.
     :vartype doi: list of str
     :ivar demes: A list of demes in the demography.
-        Use :meth:`.deme` to add a deme.
     :vartype demes: list of :class:`.Deme`
     :ivar migrations: A list of continuous migrations for the demography.
-        Use :meth:`migration` or :meth:`symmetric_migration` to add migrations.
     :vartype migrations: list of :class:`.Migration`
     :ivar pulses: A list of migration pulses for the demography.
-        Use :meth:`pulse` to add a pulse.
     :vartype pulses: list of :class:`.Pulse`
-    :ivar defaults: A dictionary of default attributes for demes and epochs.
-    :vartype defaults: dict
     """
 
     description: Optional[str] = attr.ib(
@@ -1186,7 +1261,6 @@ class Graph:
     demes: List[Deme] = attr.ib(factory=list, init=False)
     migrations: List[Migration] = attr.ib(factory=list, init=False)
     pulses: List[Pulse] = attr.ib(factory=list, init=False)
-    defaults: dict = attr.ib(default={})
 
     def __attrs_post_init__(self):
         self._deme_map: Dict[ID, Deme] = dict()
@@ -1214,12 +1288,10 @@ class Graph:
         *,
         rel_tol=_ISCLOSE_REL_TOL,
         abs_tol=_ISCLOSE_ABS_TOL,
-    ) -> bool:
+    ):
         """
-        Returns true if the graph and ``other`` implement essentially
-        the same demographic model and raises AssertionError otherwise.
-        Numerical values are compared using the
-        :func:`math.isclose` function, from which this method takes its name.
+        Raises AssertionError if the object is not equal to ``other``,
+        up to a numerical tolerance.
         Furthermore, the following implementation details are ignored during
         the comparison:
 
@@ -1228,11 +1300,6 @@ class Graph:
             - The order in which admixture ``pulses`` were specified.
             - The order in which ``demes`` were specified.
             - The order in which a deme's ``ancestors`` were specified.
-            - The ``selfing_rate`` and ``cloning_rate`` attributes of the deme
-              graph, or of the demes (if any). Theses attributes are considered
-              conveniences, and are propagated to the relevant demes'
-              epochs. The ``selfing_rate`` and ``cloning_rate`` attributes of
-              each epoch *are* evaluated for equality between the two models.
 
         :param other: The graph to compare against.
         :type other: :class:`.Graph`
@@ -1240,15 +1307,12 @@ class Graph:
             comparisons. See documentation for :func:`math.isclose`.
         :param float abs_tol: The absolute tolerance permitted for numerical
             comparisons. See documentation for :func:`math.isclose`.
-        :return: True if the two graphs implement the same model, raises\
-                 AssertionError otherwise.
-        :rtype: bool
         """
 
-        def sorted_eq(aa, bb, *, rel_tol, abs_tol, name) -> bool:
+        def assert_sorted_eq(aa, bb, *, rel_tol, abs_tol, name, key=None):
             # Order-agnostic equality check.
             assert len(aa) == len(bb)
-            for (a, b) in zip(sorted(aa), sorted(bb)):
+            for (a, b) in zip(sorted(aa, key=key), sorted(bb, key=key)):
                 try:
                     a.assert_close(b, rel_tol=rel_tol, abs_tol=abs_tol)
                 except AssertionError as e:
@@ -1257,31 +1321,31 @@ class Graph:
                             f"Failed for {name} {a.id} and {b.id}"
                         ) from e
                     raise AssertionError(f"Failed for {name}") from e
-            return True
 
         assert (
             self.__class__ is other.__class__
         ), f"Failed as other graph is not instance of {self.__class__} type."
         assert self.time_units == other.time_units
         assert self.generation_time == other.generation_time
-        return (
-            sorted_eq(
-                self.demes, other.demes, rel_tol=rel_tol, abs_tol=abs_tol, name="demes"
-            )
-            and sorted_eq(
-                self.migrations,
-                other.migrations,
-                rel_tol=rel_tol,
-                abs_tol=abs_tol,
-                name="migrations",
-            )
-            and sorted_eq(
-                self.pulses,
-                other.pulses,
-                rel_tol=rel_tol,
-                abs_tol=abs_tol,
-                name="pulses",
-            )
+        assert_sorted_eq(
+            self.demes, other.demes, rel_tol=rel_tol, abs_tol=abs_tol, name="demes"
+        )
+        assert_sorted_eq(
+            self.migrations,
+            other.migrations,
+            rel_tol=rel_tol,
+            abs_tol=abs_tol,
+            name="migrations",
+            # Sort using class name first (asymmetric versus symmetric)
+            # then using attributes of the migration objects.
+            key=lambda obj: (obj.__class__.__name__, obj),
+        )
+        assert_sorted_eq(
+            self.pulses,
+            other.pulses,
+            rel_tol=rel_tol,
+            abs_tol=abs_tol,
+            name="pulses",
         )
 
     def isclose(
@@ -1303,11 +1367,6 @@ class Graph:
             - The order in which admixture ``pulses`` were specified.
             - The order in which ``demes`` were specified.
             - The order in which a deme's ``ancestors`` were specified.
-            - The ``selfing_rate`` and ``cloning_rate`` attributes of the deme
-              graph, or of the demes (if any). Theses attributes are considered
-              conveniences, and are propagated to the relevant demes'
-              epochs. The ``selfing_rate`` and ``cloning_rate`` attributes of
-              each epoch *are* evaluated for equality between the two models.
 
         :param other: The graph to compare against.
         :type other: :class:`.Graph`
@@ -1324,16 +1383,14 @@ class Graph:
         except AssertionError:
             return False
 
-    def deme(
+    def _add_deme(
         self,
-        id,
         *,
+        id,
         description=None,
         ancestors=None,
         proportions=None,
-        epochs=None,
         start_time=None,
-        defaults={},
     ) -> Deme:
         """
         Add a deme to the graph.
@@ -1358,112 +1415,68 @@ class Graph:
             - If the deme has multiple ancestors, the ``start_time`` must be
               provided.
 
-        :param epochs: Epochs that define population sizes, selfing rates, and
-            cloning rates, for the deme over various time periods.
-            If the final epoch's ``end_time`` is ``None``, it will be set to ``0``.
-        :param defaults: Default attributes for epochs, including cloning_rate
-            and selfing_rate.
         :return: Newly created deme.
         :rtype: :class:`.Deme`
         """
         # some basic deme property checks
         if id in self:
-            raise ValueError(f"deme {id} already exists in this graph")
-        if epochs is None:
-            raise ValueError(f"deme {id} must have at least one specified epoch")
+            raise ValueError(f"deme[{len(self.demes)}] {id}: field 'id' must be unique")
         if ancestors is None:
             ancestors = []
         if not isinstance(ancestors, list):
-            raise TypeError(f"ancestors must be a list of deme IDs for deme {id}")
+            raise TypeError(
+                f"deme[{len(self.demes)}] {id}: field 'ancestors' must be "
+                "a list of deme IDs"
+            )
         for ancestor in ancestors:
             if ancestor not in self:
-                raise ValueError(f"ancestor deme {ancestor} not in graph for deme {id}")
+                raise ValueError(
+                    f"deme[{len(self.demes)}] {id}: ancestor deme '{ancestor}' "
+                    "not found. Note: ancestor demes must be specified before "
+                    "their children."
+                )
         if proportions is None:
             if len(ancestors) == 1:
                 proportions = [1.0]
             else:
                 proportions = []
 
-        # set the start time to first epoch's start time.
-        # if first epoch does not have a start time, set to inf or to
-        # the ancestor's end time
+        # set the start time to inf or to the ancestor's end time
         if start_time is None:
             if len(ancestors) > 0:
                 if len(ancestors) > 1:
                     raise ValueError(
-                        "with multiple ancestors, start_time must be specified "
-                        f"for deme {id}"
+                        f"deme[{len(self.demes)}] {id}: "
+                        "field 'start_time' not found, "
+                        "but is required for demes with multiple ancestors"
                     )
                 start_time = self[ancestors[0]].end_time
             else:
-                start_time = float("inf")
+                start_time = math.inf
 
         if len(ancestors) == 0 and not math.isinf(start_time):
-            raise ValueError(f"deme {id} has finite start_time, but no ancestors")
-
-        # the first epoch's start time is set to deme's start time
-        if epochs[0].start_time is None:
-            epochs[0].start_time = start_time
-        elif epochs[0].start_time != start_time:
             raise ValueError(
-                f"deme and first epoch start times do not align for deme {id}"
+                f"deme[{len(self.demes)}] {id}: field 'ancestors' not found, "
+                "but is required for demes with a finite 'start_time'"
             )
-        # fix deme's end time to 0 if not set
-        if epochs[-1].end_time is None:
-            epochs[-1].end_time = 0
 
         # check start time is valid wrt ancestor time intervals
         for ancestor in ancestors:
             anc = self[ancestor]
             if not (anc.start_time > start_time >= anc.end_time):
                 raise ValueError(
-                    f"start_time={start_time} is outside the interval "
-                    f"of existence for ancestor {ancestor} "
-                    f"({anc.start_time}, {anc.end_time})"
+                    f"deme[{len(self.demes)}] {id}: start_time={start_time} is "
+                    "outside the interval of existence for ancestor "
+                    f"'{ancestor}' ({anc.start_time}, {anc.end_time}]"
                 )
-
-        # set default cloning and selfing rates
-        cloning_rate = defaults.get("cloning_rate", self.defaults.get("cloning_rate"))
-        selfing_rate = defaults.get("selfing_rate", self.defaults.get("cloning_rate"))
-
-        # fill in all attributes of epochs
-        for i in range(len(epochs)):
-            # set the start time based on the last epoch's end time
-            if epochs[i].start_time is None:
-                epochs[i].start_time = epochs[i - 1].end_time
-            if epochs[i].end_time is None:
-                raise ValueError("all epochs must specify the end time")
-            if epochs[i].start_time <= epochs[i].end_time:
-                raise ValueError(f"epoch {i} has start_time <= end_time for deme {id}")
-            if i > 0 and epochs[i].start_time != epochs[i - 1].end_time:
-                raise ValueError(
-                    "epoch start and end times do not align for deme {id}, "
-                    f"epochs {i - 1} and {i}"
-                )
-            # for each subsequent epoch, fill in start size, final size,
-            # and size function as necessary based on last epoch
-            if epochs[i].start_size is None:
-                epochs[i].start_size = epochs[i - 1].end_size
-            if epochs[i].end_size is None:
-                epochs[i].end_size = epochs[i].start_size
-            if epochs[i].size_function is None:
-                if epochs[i].start_size == epochs[i].end_size:
-                    epochs[i].size_function = "constant"
-                else:
-                    epochs[i].size_function = "exponential"
-            # set per-epoch selfing and cloning rates
-            if epochs[i].selfing_rate is None:
-                epochs[i].selfing_rate = selfing_rate
-            if epochs[i].cloning_rate is None:
-                epochs[i].cloning_rate = cloning_rate
 
         deme = Deme(
             id=id,
             description=description,
             ancestors=ancestors,
             proportions=proportions,
-            epochs=epochs,
-            defaults=defaults,
+            start_time=start_time,
+            epochs=[],
         )
         self._deme_map[deme.id] = deme
         self.demes.append(deme)
@@ -1485,9 +1498,31 @@ class Graph:
                 )
         return time_lo, time_hi
 
-    def symmetric_migration(
+    def _check_overlapping_migrations(self, *, source, dest, start_time, end_time):
+        for migration in self.migrations:
+            if (
+                isinstance(migration, SymmetricMigration)
+                and source in migration.demes
+                and dest in migration.demes
+            ) or (
+                isinstance(migration, AsymmetricMigration)
+                and source == migration.source
+                and dest == migration.dest
+            ):
+                if (
+                    start_time >= migration.start_time > end_time
+                    or start_time > migration.end_time >= end_time
+                    or migration.start_time >= start_time > migration.end_time
+                    or migration.start_time > end_time >= migration.end_time
+                ):
+                    raise ValueError(
+                        "new migration overlaps exisiting migration "
+                        f"between {source} and {dest}"
+                    )
+
+    def _add_symmetric_migration(
         self, *, demes, rate, start_time=None, end_time=None
-    ) -> List[Migration]:
+    ) -> SymmetricMigration:
         """
         Add continuous symmetric migrations between all pairs of demes in a list.
 
@@ -1497,26 +1532,32 @@ class Graph:
         :param start_time: The time at which the migration rate is enabled.
         :param end_time: The time at which the migration rate is disabled.
         :return: List of newly created migrations.
-        :rtype: list of :class:`.Migration`
+        :rtype: list of :class:`.SymmetricMigration`
         """
         if not isinstance(demes, list) or len(demes) < 2:
             raise ValueError("must specify a list of two or more deme IDs")
-        migrations = list()
+        if start_time is None:
+            start_time = min(self[deme_id].start_time for deme_id in demes)
+        if end_time is None:
+            end_time = max(self[deme_id].end_time for deme_id in demes)
         for source, dest in itertools.permutations(demes, 2):
-            migrations.append(
-                self.migration(
-                    source=source,
-                    dest=dest,
-                    rate=rate,
-                    start_time=start_time,
-                    end_time=end_time,
-                )
+            self._check_time_intersection(source, dest, start_time)
+            self._check_time_intersection(source, dest, end_time)
+            self._check_overlapping_migrations(
+                source=source, dest=dest, start_time=start_time, end_time=end_time
             )
-        return migrations
+        migration = SymmetricMigration(
+            demes=demes,
+            start_time=start_time,
+            end_time=end_time,
+            rate=rate,
+        )
+        self.migrations.append(migration)
+        return migration
 
-    def migration(
+    def _add_asymmetric_migration(
         self, *, source, dest, rate, start_time=None, end_time=None
-    ) -> Migration:
+    ) -> AsymmetricMigration:
         """
         Add continuous migration from one deme to another.
         Source and destination demes follow the forwards-in-time convention,
@@ -1533,7 +1574,7 @@ class Graph:
             If ``None``, the end time is defined by the latest time at which
             the demes coexist.
         :return: Newly created migration.
-        :rtype: :class:`.Migration`
+        :rtype: :class:`.AsymmetricMigration`
         """
         for deme_id in (source, dest):
             if deme_id not in self:
@@ -1547,23 +1588,10 @@ class Graph:
             end_time = time_lo
         else:
             self._check_time_intersection(source, dest, end_time)
-        for existing_migration in self.migrations:
-            if source == existing_migration.source and dest == existing_migration.dest:
-                if (
-                    start_time >= existing_migration.start_time > end_time
-                    or start_time > existing_migration.end_time >= end_time
-                    or existing_migration.start_time
-                    >= start_time
-                    > existing_migration.end_time
-                    or existing_migration.start_time
-                    > end_time
-                    >= existing_migration.end_time
-                ):
-                    raise ValueError(
-                        "new migration overlaps exisiting migration "
-                        f"from {source} to {dest}"
-                    )
-        migration = Migration(
+        self._check_overlapping_migrations(
+            source=source, dest=dest, start_time=start_time, end_time=end_time
+        )
+        migration = AsymmetricMigration(
             source=source,
             dest=dest,
             start_time=start_time,
@@ -1574,7 +1602,7 @@ class Graph:
         self.migrations.append(migration)
         return migration
 
-    def pulse(self, *, source, dest, proportion, time) -> Pulse:
+    def _add_pulse(self, *, source, dest, proportion, time) -> Pulse:
         """
         Add a pulse of migration at a fixed time.
         Source and destination demes follow the forwards-in-time convention.
@@ -1714,12 +1742,6 @@ class Graph:
             )
         return demo_events
 
-    def validate(self):
-        """
-        Validates the demographic model.
-        """
-        self.fromdict(self.asdict())
-
     def in_generations(self):
         """
         Return a copy of the graph with times in units of generations.
@@ -1741,32 +1763,188 @@ class Graph:
         return graph
 
     @classmethod
-    def fromdict(cls, data):
+    def fromdict(cls, data: MutableMapping[str, Any]):
         """
         Return a graph from a dict representation. The inverse of asdict().
         """
-        g = cls(
-            description=data.get("description"),
-            time_units=data.get("time_units"),
-            generation_time=data.get("generation_time"),
-            doi=data.get("doi", []),
-            defaults=data.get("defaults", {}),
+        if not isinstance(data, MutableMapping):
+            raise TypeError("data is not a dictionary")
+
+        # Don't modify the input data dict.
+        data = copy.deepcopy(data)
+
+        defaults = pop_object(data, "defaults", {}, scope="toplevel")
+        deme_defaults = pop_object(defaults, "deme", {}, scope="defaults")
+        migration_defaults = pop_object(defaults, "migration", {}, scope="defaults")
+        pulse_defaults = pop_object(defaults, "pulse", {}, scope="defaults")
+        # epoch defaults may also be specified within a Deme definition.
+        global_epoch_defaults = pop_object(defaults, "epoch", {}, scope="defaults")
+        check_empty(defaults, "defaults")
+
+        if "time_units" not in data:
+            raise KeyError("toplevel: required field 'time_units' not found")
+
+        graph = cls(
+            description=data.pop("description", None),
+            time_units=data.pop("time_units"),
+            doi=data.pop("doi", []),
+            generation_time=data.pop("generation_time", None),
+        )
+        check_defaults(
+            deme_defaults,
+            ["description", "start_time", "ancestors", "proportions"],
+            "defaults: deme",
         )
 
-        for deme in data.get("demes", []):
-            if "epochs" in deme:
-                deme["epochs"] = [Epoch(**epoch) for epoch in deme["epochs"]]
-            g.deme(**deme)
-        for migration_type, migration_list in data.get("migrations", dict()).items():
-            if migration_type == "symmetric":
-                for m in migration_list:
-                    g.symmetric_migration(**m)
-            if migration_type == "asymmetric":
-                for m in migration_list:
-                    g.migration(**m)
-        for pulse in data.get("pulses", []):
-            g.pulse(**pulse)
-        return g
+        for i, deme_data in enumerate(
+            pop_list(data, "demes", required_type=MutableMapping, scope="toplevel")
+        ):
+            insert_defaults(deme_data, deme_defaults)
+            if "id" not in deme_data:
+                raise KeyError("deme[{i}]: required field 'id' not found")
+            deme = graph._add_deme(
+                id=deme_data.pop("id"),
+                description=deme_data.pop("description", None),
+                start_time=deme_data.pop("start_time", None),
+                ancestors=deme_data.pop("ancestors", None),
+                proportions=deme_data.pop("proportions", None),
+            )
+
+            local_defaults = pop_object(
+                deme_data, "defaults", {}, scope=f"deme[{i}] {deme.id}"
+            )
+            local_epoch_defaults = pop_object(
+                local_defaults, "epoch", {}, scope=f"deme[{i}] {deme.id}: defaults"
+            )
+            check_empty(local_defaults, f"deme[{i}] {deme.id}: defaults")
+            epoch_defaults = global_epoch_defaults.copy()
+            epoch_defaults.update(local_epoch_defaults)
+
+            check_defaults(
+                epoch_defaults,
+                [
+                    "end_time",
+                    "start_size",
+                    "end_size",
+                    "selfing_rate",
+                    "cloning_rate",
+                    "size_function",
+                ],
+                f"deme[{i}] {deme.id}: defaults: epoch",
+            )
+
+            if len(epoch_defaults) == 0 and "epochs" not in deme_data:
+                # This condition would be caught downstream, because start_size
+                # or end_size are required for the first epoch. But we check
+                # here to provide a more informative error message.
+                raise KeyError(
+                    f"deme[{i}] {deme.id}: required field 'epochs' not found"
+                )
+
+            # There is always at least one epoch defined with the default values.
+            epochs = pop_list(
+                deme_data,
+                "epochs",
+                [{}],
+                required_type=MutableMapping,
+                scope=f"deme[{i}] {deme.id}",
+            )
+            for j, epoch_data in enumerate(epochs):
+                insert_defaults(epoch_data, epoch_defaults)
+                if "end_time" not in epoch_data:
+                    if j == len(epochs) - 1:
+                        epoch_data["end_time"] = 0
+                    else:
+                        raise KeyError(
+                            f"deme[{i}] {deme.id}: epoch[{j}]: "
+                            "required field 'end_time' not found"
+                        )
+                deme._add_epoch(
+                    end_time=epoch_data.pop("end_time"),
+                    start_size=epoch_data.pop("start_size", None),
+                    end_size=epoch_data.pop("end_size", None),
+                    size_function=epoch_data.pop("size_function", None),
+                    selfing_rate=epoch_data.pop("selfing_rate", 0),
+                    cloning_rate=epoch_data.pop("cloning_rate", 0),
+                )
+                check_empty(epoch_data, f"deme[{i}] {deme.id}: epoch[{j}]")
+            check_empty(deme_data, f"deme[{i}] {deme.id}")
+
+        check_defaults(
+            migration_defaults,
+            ["rate", "start_time", "end_time", "source", "dest", "demes"],
+            "defaults: migration",
+        )
+        for i, migration_data in enumerate(
+            pop_list(
+                data, "migrations", [], required_type=MutableMapping, scope="toplevel"
+            )
+        ):
+            insert_defaults(migration_data, migration_defaults)
+            if "rate" not in migration_data:
+                raise KeyError(f"migration[{i}]: required field 'rate' not found")
+            if not (
+                # symmetric
+                (
+                    "demes" in migration_data
+                    and "source" not in migration_data
+                    and "dest" not in migration_data
+                )
+                # asymmetric
+                or (
+                    "demes" not in migration_data
+                    and "source" in migration_data
+                    and "dest" in migration_data
+                )
+            ):
+                raise KeyError(
+                    f"migration[{i}]: must be symmetric (specify 'demes' list) "
+                    "*or* asymmetric (specify both 'source' and 'dest')."
+                )
+            try:
+                if "demes" in migration_data:
+                    graph._add_symmetric_migration(
+                        demes=migration_data.pop("demes"),
+                        rate=migration_data.pop("rate"),
+                        start_time=migration_data.pop("start_time", None),
+                        end_time=migration_data.pop("end_time", None),
+                    )
+                else:
+                    graph._add_asymmetric_migration(
+                        source=migration_data.pop("source"),
+                        dest=migration_data.pop("dest"),
+                        rate=migration_data.pop("rate"),
+                        start_time=migration_data.pop("start_time", None),
+                        end_time=migration_data.pop("end_time", None),
+                    )
+            except (TypeError, ValueError) as e:
+                raise e.__class__(f"migration[{i}]: invalid migration") from e
+            check_empty(migration_data, f"migration[{i}]")
+
+        check_defaults(
+            pulse_defaults, ["source", "dest", "time", "proportion"], "defaults: pulse"
+        )
+        for i, pulse_data in enumerate(
+            pop_list(data, "pulses", [], required_type=MutableMapping, scope="toplevel")
+        ):
+            insert_defaults(pulse_data, pulse_defaults)
+            for field in ("source", "dest", "time", "proportion"):
+                if field not in pulse_data:
+                    raise KeyError(f"pulse[{i}]: required field '{field}' not found")
+            try:
+                graph._add_pulse(
+                    source=pulse_data.pop("source"),
+                    dest=pulse_data.pop("dest"),
+                    time=pulse_data.pop("time"),
+                    proportion=pulse_data.pop("proportion"),
+                )
+            except (TypeError, ValueError) as e:
+                raise e.__class__(f"pulse[{i}]: invalid pulse") from e
+            check_empty(pulse_data, f"pulse[{i}]")
+
+        check_empty(data, "toplevel")
+
+        return graph
 
     def asdict(self):
         """
@@ -1796,20 +1974,16 @@ class Graph:
             deme["start_time"] = deme["epochs"][0]["start_time"]
             for epoch in deme["epochs"]:
                 del epoch["start_time"]
-        migrations = data.pop("migrations", None)
-        if migrations is not None:
-            data["migrations"] = {"asymmetric": migrations}
+                if epoch["selfing_rate"] == 0:
+                    del epoch["selfing_rate"]
+                if epoch["cloning_rate"] == 0:
+                    del epoch["cloning_rate"]
         return data
 
-    def asdict_simplified(self, custom_attributes=[]):
+    def asdict_simplified(self):
         """
         Return a simplified dict representation of the graph.
-
-        :param custom_attributes: List of additional attributes to simplify, which
-            are not ``selfing_rate`` or ``cloning_rate``.
         """
-        if not isinstance(custom_attributes, list):
-            raise TypeError("custom_attributes must be a list of attributes")
 
         def simplify_epochs(data):
             """
@@ -1835,100 +2009,22 @@ class Graph:
 
         def simplify_migration_rates(data):
             """
-            Collapse symmetric migration rates, and remove redundant information
+            Remove redundant information
             about start and end times if they are implied by the time overlap
             interval of the demes involved.
-
-            To collapse symmetric migrations, we collect all source/dest migration
-            pairs for each set of migration attributes (rate, start_time, end_time),
-            and then iteratively check for all-way symmetric migration between all
-            demes that are involved in migrations for the given set of migration
-            attributes.
             """
 
-            def collapse_demes(pairs):
-                all_demes = []
-                for pair in pairs:
-                    if pair[0] not in all_demes:
-                        all_demes.append(pair[0])
-                    if pair[1] not in all_demes:
-                        all_demes.append(pair[1])
-                return all_demes
+            for migration in data["migrations"]:
+                demes = migration.get("demes", [])
+                if len(demes) == 0:
+                    demes = [migration["source"], migration["dest"]]
 
-            symmetric = []
-            asymmetric = data["migrations"]["asymmetric"].copy()
-            # first remove start/end times if equal time intersections
-            rate_sets = {}
-            # keys of rate_types are (rate, start_time, end_time)
-            for migration in data["migrations"]["asymmetric"]:
-                source = migration["source"]
-                dest = migration["dest"]
-                time_lo, time_hi = self._check_time_intersection(source, dest, None)
-                if migration["end_time"] == time_lo:
-                    del migration["end_time"]
-                if migration["start_time"] == time_hi:
+                time_lo = min(self[deme_id].start_time for deme_id in demes)
+                time_hi = max(self[deme_id].end_time for deme_id in demes)
+                if migration["start_time"] == time_lo:
                     del migration["start_time"]
-                k = tuple(
-                    migration.get(key) for key in ("rate", "start_time", "end_time")
-                )
-                rate_sets.setdefault(k, [])
-                rate_sets[k].append((source, dest))
-
-            for k, pairs in rate_sets.items():
-                if len(pairs) == 1:
-                    continue
-                # list of all demes that are source or dest in this rate set
-                all_demes = collapse_demes(pairs)
-
-                # we check all possible sets of n-way symmetric migration
-                i = len(all_demes)
-                while len(all_demes) >= 2 and i >= 2:
-                    # loop through each possible set for a given set size i
-                    compress_demes = False
-                    for deme_set in itertools.combinations(all_demes, i):
-                        # check if all (source, dest) pairs exist in pairs of migration
-                        all_present = True
-                        for deme_pair in itertools.permutations(deme_set, 2):
-                            if deme_pair not in pairs:
-                                all_present = False
-                                break
-                        # if they do all exist
-                        if all_present:
-                            compress_demes = True
-                            # remove from asymmetric list
-                            for deme_pair in itertools.permutations(deme_set, 2):
-                                mig = {
-                                    "source": deme_pair[0],
-                                    "dest": deme_pair[1],
-                                    "rate": k[0],
-                                }
-                                if k[1] is not None:
-                                    mig["start_time"] = k[1]
-                                if k[2] is not None:
-                                    mig["end_time"] = k[2]
-                                asymmetric.remove(mig)
-                                pairs.remove(deme_pair)
-                            # add to symmetric list
-                            sym_mig = dict(demes=[d for d in deme_set], rate=k[0])
-                            if k[1] is not None:
-                                sym_mig["start_time"] = k[1]
-                            if k[2] is not None:
-                                sym_mig["end_time"] = k[2]
-                            symmetric.append(sym_mig)
-                    # if we found a set of symmetric migrations, compress all_demes
-                    if compress_demes:
-                        all_demes = collapse_demes(pairs)
-                        i = min(i, len(all_demes))
-                    # otherwise, check one set size smaller
-                    else:
-                        i -= 1
-
-            if len(symmetric) > 0:
-                data["migrations"]["symmetric"] = symmetric
-            if len(asymmetric) == 0:
-                del data["migrations"]["asymmetric"]
-            else:
-                data["migrations"]["asymmetric"] = asymmetric
+                if migration["end_time"] == time_hi:
+                    del migration["end_time"]
 
         data = self.asdict()
 
@@ -1937,3 +2033,194 @@ class Graph:
         simplify_epochs(data)
 
         return data
+
+
+class Builder:
+    """
+    The Builder provides a set of convenient methods for incrementally
+    constructing a deme graph. The state of the graph is stored internally as a
+    dictionary of objects following Demes' data model, and may be converted
+    into a fully-resolved :class:`Graph` object using the :meth:`.resolve()` method.
+
+    TODO: add some example code.
+
+    :ivar dict data: The data dictionary of the graph's current state.
+        The objects nested within this dictionary follow Demes' data model,
+        as described in the :ref:`schema <sec_schema>`.
+
+        .. note::
+            Users may freely modify the data dictionary, as long as the data
+            model is not violated.
+    """
+
+    def __init__(
+        self,
+        *,
+        description: str = None,
+        time_units: str = "generations",
+        generation_time: float = None,
+        doi: list = None,
+        defaults: dict = None,
+    ):
+        """
+        :param str description: A human readable description of the demography.
+            May be ``None``.
+        :param str time_units: The units of time used for the demography. This is
+            commonly ``years`` or ``generations``, but can be any string.
+        :param float generation_time: The generation time of demes, in units given
+            by the ``time_units`` parameter. Concretely, dividing all times
+            by ``generation_time`` will convert the graph to have time
+            units in generations.  If ``generation_time`` is ``None``, the units
+            are assumed to be in generations already.
+        :param doi: If the graph describes a published demography, the DOI(s)
+            should be be given here as a list.
+        :vartype doi: list of str
+        """
+        self.data: MutableMapping[str, Any] = dict(time_units=time_units)
+        if description is not None:
+            self.data["description"] = description
+        if generation_time is not None:
+            self.data["generation_time"] = generation_time
+        if doi is not None:
+            self.data["doi"] = doi
+        if defaults is not None:
+            self.data["defaults"] = defaults
+
+    def add_deme(
+        self,
+        id: str,
+        *,
+        description: str = None,
+        ancestors: list = None,
+        proportions: list = None,
+        start_time: float = None,
+        epochs: list = None,
+        defaults: dict = None,
+    ):
+        """
+        Add a deme. Ancestor demes must be added before their children.
+
+        :param str id: A string identifier for the deme.
+        :param str description: A description of the deme. May be ``None``.
+        :param ancestors: List of string identifiers for the deme's ancestors.
+            This may be ``None``, indicating the deme has no ancestors.
+        :vartype ancestors: list of str
+        :param proportions: If ``ancestors`` is not ``None``, this indicates the
+            proportions of ancestry from each ancestor. This list has the same
+            length as ``ancestors``, and must sum to 1.
+        :vartype proportions: list of float
+        :param float start_time: The deme's start time.
+        :param epochs: List of epoch dictionaries. Each dictionary contains
+            parameters to be passed to the deme's DemeProxy.add_epoch() method
+        :vartype epochs: list of dict
+        """
+        deme: MutableMapping[str, Any] = dict(id=id)
+        if description is not None:
+            deme["description"] = description
+        if ancestors is not None:
+            deme["ancestors"] = ancestors
+        if proportions is not None:
+            deme["proportions"] = proportions
+        if start_time is not None:
+            deme["start_time"] = start_time
+        if epochs is not None:
+            deme["epochs"] = epochs
+        if defaults is not None:
+            deme["defaults"] = defaults
+
+        if "demes" not in self.data:
+            self.data["demes"] = []
+        self.data["demes"].append(deme)
+
+    def add_migration(
+        self,
+        *,
+        rate: float,
+        demes: list = None,
+        source: str = None,
+        dest: str = None,
+        start_time: float = None,
+        end_time: float = None,
+    ):
+        """
+        Add continuous symmetric migrations between all pairs of demes in a list,
+        or alternately, add asymmetric migration from one deme to another.
+        Source and destination demes follow the forwards-in-time convention,
+        so that the migration rate refers to the movement of individuals from
+        the ``source`` deme to the ``dest`` deme.
+
+        :param demes: list of deme IDs. Migration is symmetric between all
+            pairs of demes in this list. If not specified, migration will
+            be asymmetric (and ``source`` and ``dest`` must be given).
+        :vartype demes: list of str
+        :param str source: The ID of the source deme.
+        :param str dest: The ID of the destination deme.
+        :param float rate: The rate of migration per generation.
+        :param float start_time: The time at which the migration rate is enabled.
+            If ``None``, the start time is defined by the earliest time at
+            which the demes coexist.
+        :param float end_time: The time at which the migration rate is disabled.
+            If ``None``, the end time is defined by the latest time at which
+            the demes coexist.
+        """
+        migration: MutableMapping[str, Any] = dict(rate=rate)
+        if demes is not None:
+            migration["demes"] = demes
+        if source is not None:
+            migration["source"] = source
+        if dest is not None:
+            migration["dest"] = dest
+        if start_time is not None:
+            migration["start_time"] = start_time
+        if end_time is not None:
+            migration["end_time"] = end_time
+
+        if "migrations" not in self.data:
+            self.data["migrations"] = []
+        self.data["migrations"].append(migration)
+
+    def add_pulse(self, *, source: str, dest: str, proportion: float, time: float):
+        """
+        Add a pulse of migration at a fixed time.
+        Source and destination demes follow the forwards-in-time convention.
+
+        :param str source: The ID of the source deme.
+        :param str dest: The ID of the destination deme.
+        :param float proportion: At the instant after migration, this is the
+            expected proportion of individuals in the destination deme made up
+            of individuals from the source deme.
+        :param float time: The time at which migrations occur.
+        """
+        pulse = dict(
+            source=source,
+            dest=dest,
+            proportion=proportion,
+            time=time,
+        )
+        if "pulses" not in self.data:
+            self.data["pulses"] = []
+        self.data["pulses"].append(pulse)
+
+    def resolve(self):
+        """
+        Resolve the data dictionary into a Graph.
+
+        :return: The fully-resolved Graph.
+        :rtype: Graph
+        """
+        return Graph.fromdict(self.data)
+
+    @classmethod
+    def fromdict(cls, data: MutableMapping[str, Any]):
+        """
+        Make a Builder object from an existing data dictionary.
+
+        :param MutableMapping data: The data dictionary to initialise the
+            graph's state. The objects nested within this dictionary must
+            follow Demes' data model, as described in the
+            :ref:`schema <sec_schema>`.
+        """
+        builder = cls()
+        builder.data = data
+        # TODO: should we check some basic properties for correctness?
+        return builder

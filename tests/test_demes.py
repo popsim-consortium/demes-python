@@ -1,12 +1,17 @@
 import unittest
 import copy
 import pathlib
+import math
+import typing
 
 import pytest
+import hypothesis as hyp
 
 from demes import (
+    Builder,
     Epoch,
-    Migration,
+    AsymmetricMigration,
+    SymmetricMigration,
     Pulse,
     Deme,
     Graph,
@@ -17,195 +22,528 @@ from demes import (
     load,
 )
 import demes
+import tests
 
 
 class TestEpoch(unittest.TestCase):
     def test_bad_time(self):
-        for time in ("0", "inf", {}, [], float("NaN")):
+        for time in ("0", "inf", {}, [], math.nan):
             with self.assertRaises(TypeError):
-                Epoch(start_time=time, end_time=0, start_size=1)
+                Epoch(
+                    start_time=time,
+                    end_time=0,
+                    start_size=1,
+                    end_size=1,
+                    size_function="constant",
+                )
             with self.assertRaises(TypeError):
-                Epoch(start_time=100, end_time=time, start_size=1)
+                Epoch(
+                    start_time=100,
+                    end_time=time,
+                    start_size=1,
+                    end_size=1,
+                    size_function="constant",
+                )
 
         for start_time in (-10000, -1, -1e-9):
             with self.assertRaises(ValueError):
-                Epoch(start_time=start_time, end_time=0, start_size=1)
-        for end_time in (-10000, -1, -1e-9, float("inf")):
+                Epoch(
+                    start_time=start_time,
+                    end_time=0,
+                    start_size=1,
+                    end_size=1,
+                    size_function="constant",
+                )
+        for end_time in (-10000, -1, -1e-9, math.inf):
             with self.assertRaises(ValueError):
-                Epoch(start_time=100, end_time=end_time, start_size=1)
+                Epoch(
+                    start_time=100,
+                    end_time=end_time,
+                    start_size=1,
+                    end_size=1,
+                    size_function="constant",
+                )
 
     def test_bad_time_span(self):
         with self.assertRaises(ValueError):
-            Epoch(start_time=1, end_time=1, start_size=1)
+            Epoch(
+                start_time=1,
+                end_time=1,
+                start_size=1,
+                end_size=1,
+                size_function="constant",
+            )
         with self.assertRaises(ValueError):
-            Epoch(start_time=1, end_time=2, start_size=1)
+            Epoch(
+                start_time=1,
+                end_time=2,
+                start_size=1,
+                end_size=1,
+                size_function="constant",
+            )
 
     def test_bad_size(self):
-        for size in ("0", "100", {}, [], float("NaN")):
+        for size in ("0", "100", {}, [], math.nan):
             with self.assertRaises(TypeError):
-                Epoch(start_time=1, end_time=0, start_size=size)
+                Epoch(
+                    start_time=1,
+                    end_time=0,
+                    start_size=size,
+                    end_size=1,
+                    size_function="exponential",
+                )
             with self.assertRaises(TypeError):
-                Epoch(start_time=1, end_time=0, start_size=1, end_size=size)
+                Epoch(
+                    start_time=1,
+                    end_time=0,
+                    start_size=1,
+                    end_size=size,
+                    size_function="exponential",
+                )
 
-        for size in (-10000, -1, -1e-9, 0, float("inf")):
+        for size in (-10000, -1, -1e-9, 0, math.inf):
             with self.assertRaises(ValueError):
-                Epoch(start_time=1, end_time=0, start_size=size)
+                Epoch(
+                    start_time=1,
+                    end_time=0,
+                    start_size=size,
+                    end_size=1,
+                    size_function="exponential",
+                )
             with self.assertRaises(ValueError):
-                Epoch(start_time=1, end_time=0, start_size=1, end_size=size)
+                Epoch(
+                    start_time=1,
+                    end_time=0,
+                    start_size=1,
+                    end_size=size,
+                    size_function="exponential",
+                )
 
-    def test_missing_size(self):
-        with self.assertRaises(ValueError):
-            Epoch(start_time=1, end_time=0)
+    def test_missing_values(self):
+        with self.assertRaises(TypeError):
+            Epoch()
+        with self.assertRaises(TypeError):
+            Epoch(start_time=1, end_time=0, start_size=1, end_size=1)
+        with self.assertRaises(TypeError):
+            Epoch(start_time=1, end_time=0, start_size=1, size_function="constant")
+        with self.assertRaises(TypeError):
+            Epoch(start_time=1, end_time=0, end_size=1, size_function="constant")
+        with self.assertRaises(TypeError):
+            Epoch(start_time=1, start_size=1, end_size=1, size_function="constant")
+        with self.assertRaises(TypeError):
+            Epoch(end_time=0, start_size=1, end_size=1, size_function="constant")
 
     def test_valid_epochs(self):
-        Epoch(end_time=0, start_size=1)
-        Epoch(end_time=0, end_size=1)
-        Epoch(start_time=float("inf"), end_time=0, start_size=1)
-        Epoch(start_time=float("inf"), end_time=10, start_size=1)
-        Epoch(start_time=100, end_time=99, start_size=1)
-        Epoch(end_time=0, start_size=1, end_size=1)
-        Epoch(end_time=0, start_size=1, end_size=100)
-        Epoch(end_time=0, start_size=100, end_size=1)
-        Epoch(start_time=20, end_time=10, start_size=1, end_size=100)
+        Epoch(
+            start_time=math.inf,
+            end_time=0,
+            start_size=1,
+            end_size=1,
+            size_function="constant",
+        )
+        Epoch(
+            start_time=math.inf,
+            end_time=10,
+            start_size=1,
+            end_size=1,
+            size_function="constant",
+        )
+        Epoch(
+            start_time=100,
+            end_time=99,
+            start_size=1,
+            end_size=1,
+            size_function="constant",
+        )
+        Epoch(
+            start_time=100,
+            end_time=0,
+            start_size=1,
+            end_size=100,
+            size_function="exponential",
+        )
+        Epoch(
+            start_time=20,
+            end_time=10,
+            start_size=1,
+            end_size=100,
+            size_function="exponential",
+        )
         for rate in (0, 1, 0.5, 1e-5):
-            Epoch(end_time=0, start_size=1, selfing_rate=rate)
-            Epoch(end_time=0, start_size=1, cloning_rate=rate)
-            Epoch(end_time=0, start_size=1, selfing_rate=rate, cloning_rate=rate)
-        Epoch(end_time=0, start_size=1, size_function="constant")
-        Epoch(end_time=0, end_size=1, size_function="constant")
-        Epoch(end_time=0, start_size=1, end_size=1, size_function="constant")
+            Epoch(
+                start_time=math.inf,
+                end_time=0,
+                start_size=1,
+                end_size=1,
+                size_function="constant",
+                selfing_rate=rate,
+            )
+            Epoch(
+                start_time=math.inf,
+                end_time=0,
+                start_size=1,
+                end_size=1,
+                size_function="constant",
+                cloning_rate=rate,
+            )
+            Epoch(
+                start_time=math.inf,
+                end_time=0,
+                start_size=1,
+                end_size=1,
+                size_function="constant",
+                selfing_rate=rate,
+                cloning_rate=rate,
+            )
         for fn in ("linear", "exponential", "N(t) = 6 * log(t)"):
-            Epoch(end_time=0, start_size=1, end_size=10, size_function=fn)
-            Epoch(end_time=0, start_size=1, size_function=fn)
-            Epoch(end_time=0, end_size=10, size_function=fn)
+            Epoch(
+                start_time=100, end_time=0, start_size=1, end_size=10, size_function=fn
+            )
 
     def test_time_span(self):
-        e = Epoch(start_time=float("inf"), end_time=0, start_size=1)
-        self.assertEqual(e.time_span, float("inf"))
-        e = Epoch(start_time=100, end_time=20, start_size=1)
+        e = Epoch(
+            start_time=math.inf,
+            end_time=0,
+            start_size=1,
+            end_size=1,
+            size_function="constant",
+        )
+        self.assertEqual(e.time_span, math.inf)
+        e = Epoch(
+            start_time=100,
+            end_time=20,
+            start_size=1,
+            end_size=1,
+            size_function="constant",
+        )
         self.assertEqual(e.time_span, 80)
 
     def test_inf_start_time_constant_epoch(self):
         with self.assertRaises(ValueError):
-            Epoch(start_time=float("inf"), end_time=0, start_size=10, end_size=20)
+            Epoch(
+                start_time=math.inf,
+                end_time=0,
+                start_size=10,
+                end_size=20,
+                size_function="exponential",
+            )
 
     def test_isclose(self):
         eps = 1e-50
-        e1 = Epoch(end_time=0, start_size=1)
+        e1 = Epoch(
+            start_time=10,
+            end_time=0,
+            start_size=1,
+            end_size=1,
+            size_function="exponential",
+        )
         self.assertTrue(e1.isclose(e1))
-        self.assertTrue(e1.isclose(Epoch(end_time=0 + eps, start_size=1)))
-        self.assertTrue(e1.isclose(Epoch(end_time=0, start_size=1 + eps)))
-
-        self.assertFalse(e1.isclose(Epoch(end_time=1e-9, start_size=1)))
-        self.assertFalse(e1.isclose(Epoch(end_time=0, start_size=1 + 1e-9)))
-        self.assertFalse(e1.isclose(Epoch(start_time=10, end_time=0, start_size=1)))
-        self.assertFalse(e1.isclose(Epoch(end_time=0, start_size=1, end_size=2)))
-        self.assertFalse(
-            Epoch(end_time=0, start_size=1, end_size=2).isclose(
+        self.assertTrue(
+            e1.isclose(
                 Epoch(
-                    end_time=0,
+                    start_time=10,
+                    end_time=0 + eps,
                     start_size=1,
-                    end_size=2,
+                    end_size=1,
                     size_function="exponential",
                 )
             )
         )
-        self.assertFalse(e1.isclose(Epoch(end_time=0, start_size=1, selfing_rate=0.1)))
-        self.assertFalse(e1.isclose(Epoch(end_time=0, start_size=1, cloning_rate=0.1)))
+        self.assertTrue(
+            e1.isclose(
+                Epoch(
+                    start_time=10,
+                    end_time=0,
+                    start_size=1 + eps,
+                    end_size=1,
+                    size_function="exponential",
+                )
+            )
+        )
+
+        self.assertFalse(
+            e1.isclose(
+                Epoch(
+                    start_time=10,
+                    end_time=1e-9,
+                    start_size=1,
+                    end_size=1,
+                    size_function="exponential",
+                )
+            )
+        )
+        self.assertFalse(
+            e1.isclose(
+                Epoch(
+                    start_time=10,
+                    end_time=0,
+                    start_size=1 + 1e-9,
+                    end_size=1,
+                    size_function="exponential",
+                )
+            )
+        )
+        self.assertFalse(
+            e1.isclose(
+                Epoch(
+                    start_time=math.inf,
+                    end_time=0,
+                    start_size=1,
+                    end_size=1,
+                    size_function="exponential",
+                )
+            )
+        )
+        self.assertFalse(
+            e1.isclose(
+                Epoch(
+                    start_time=10,
+                    end_time=0,
+                    start_size=1,
+                    end_size=1,
+                    size_function="constant",
+                )
+            )
+        )
+        self.assertFalse(
+            e1.isclose(
+                Epoch(
+                    start_time=10,
+                    end_time=0,
+                    start_size=1,
+                    end_size=1,
+                    size_function="constant",
+                    selfing_rate=0.1,
+                )
+            )
+        )
+        self.assertFalse(
+            e1.isclose(
+                Epoch(
+                    start_time=10,
+                    end_time=0,
+                    start_size=1,
+                    end_size=1,
+                    size_function="constant",
+                    cloning_rate=0.1,
+                )
+            )
+        )
         self.assertFalse(e1.isclose(None))
         self.assertFalse(e1.isclose(123))
         self.assertFalse(e1.isclose("foo"))
 
     def test_bad_selfing_rate(self):
-        for rate in ("0", "1e-4", "inf", [], {}, float("NaN")):
+        for rate in ("0", "1e-4", "inf", [], {}, math.nan):
             with self.assertRaises(TypeError):
-                Epoch(start_time=100, end_time=0, start_size=1, selfing_rate=rate)
+                Epoch(
+                    start_time=100,
+                    end_time=0,
+                    start_size=1,
+                    end_size=1,
+                    size_function="constant",
+                    selfing_rate=rate,
+                )
 
-        for rate in (-10000, 10000, -1, -1e-9, 1.2, float("inf")):
+        for rate in (-10000, 10000, -1, -1e-9, 1.2, math.inf):
             with self.assertRaises(ValueError):
-                Epoch(start_time=100, end_time=0, start_size=1, selfing_rate=rate)
+                Epoch(
+                    start_time=100,
+                    end_time=0,
+                    start_size=1,
+                    end_size=1,
+                    size_function="constant",
+                    selfing_rate=rate,
+                )
 
     def test_bad_cloning_rate(self):
-        for rate in ("0", "1e-4", "inf", [], {}, float("NaN")):
+        for rate in ("0", "1e-4", "inf", [], {}, math.nan):
             with self.assertRaises(TypeError):
-                Epoch(start_time=100, end_time=0, start_size=1, cloning_rate=rate)
+                Epoch(
+                    start_time=100,
+                    end_time=0,
+                    start_size=1,
+                    end_size=1,
+                    size_function="constant",
+                    cloning_rate=rate,
+                )
 
-        for rate in (-10000, 10000, -1, -1e-9, 1.2, float("inf")):
+        for rate in (-10000, 10000, -1, -1e-9, 1.2, math.inf):
             with self.assertRaises(ValueError):
-                Epoch(start_time=100, end_time=0, start_size=1, cloning_rate=rate)
+                Epoch(
+                    start_time=100,
+                    end_time=0,
+                    start_size=1,
+                    end_size=1,
+                    size_function="constant",
+                    cloning_rate=rate,
+                )
 
     def test_bad_size_function(self):
-        for fn in (0, 1e5, [], {}, float("NaN")):
+        for fn in (0, 1e5, [], {}, math.nan):
             with self.assertRaises(TypeError):
-                Epoch(end_time=0, start_size=1, end_size=10, size_function=fn)
+                Epoch(
+                    start_time=10,
+                    end_time=0,
+                    start_size=1,
+                    end_size=10,
+                    size_function=fn,
+                )
 
         for fn in ("", "constant"):
             with self.assertRaises(ValueError):
-                Epoch(end_time=0, start_size=1, end_size=10, size_function=fn)
+                Epoch(
+                    start_time=10,
+                    end_time=0,
+                    start_size=1,
+                    end_size=10,
+                    size_function=fn,
+                )
 
 
 class TestMigration(unittest.TestCase):
     def test_bad_time(self):
-        for time in ("inf", "100", {}, [], float("NaN")):
+        for time in ("inf", "100", {}, [], math.nan):
             with self.assertRaises(TypeError):
-                Migration(source="a", dest="b", start_time=time, end_time=0, rate=0.1)
+                AsymmetricMigration(
+                    source="a", dest="b", start_time=time, end_time=0, rate=0.1
+                )
             with self.assertRaises(TypeError):
-                Migration(source="a", dest="b", start_time=100, end_time=time, rate=0.1)
+                AsymmetricMigration(
+                    source="a", dest="b", start_time=100, end_time=time, rate=0.1
+                )
+            with self.assertRaises(TypeError):
+                SymmetricMigration(
+                    demes=["a", "b"], start_time=time, end_time=0, rate=0.1
+                )
+            with self.assertRaises(TypeError):
+                SymmetricMigration(
+                    demes=["a", "b"], start_time=100, end_time=time, rate=0.1
+                )
 
         for time in (-10000, -1, -1e-9):
             with self.assertRaises(ValueError):
-                Migration(source="a", dest="b", start_time=time, end_time=0, rate=0.1)
-        for time in (-10000, -1, -1e-9, float("inf")):
+                AsymmetricMigration(
+                    source="a", dest="b", start_time=time, end_time=0, rate=0.1
+                )
             with self.assertRaises(ValueError):
-                Migration(source="a", dest="b", start_time=100, end_time=time, rate=0.1)
+                SymmetricMigration(
+                    demes=["a", "b"], start_time=time, end_time=0, rate=0.1
+                )
+        for time in (-10000, -1, -1e-9, math.inf):
+            with self.assertRaises(ValueError):
+                AsymmetricMigration(
+                    source="a", dest="b", start_time=100, end_time=time, rate=0.1
+                )
+            with self.assertRaises(ValueError):
+                SymmetricMigration(
+                    demes=["a", "b"], start_time=100, end_time=time, rate=0.1
+                )
+
+        # start_time == end_time
+        with self.assertRaises(ValueError):
+            AsymmetricMigration(
+                source="a", dest="b", start_time=100, end_time=100, rate=0.1
+            )
+        with self.assertRaises(ValueError):
+            SymmetricMigration(demes=["a", "b"], start_time=100, end_time=100, rate=0.1)
+
+        # start_time < end_time
+        with self.assertRaises(ValueError):
+            AsymmetricMigration(
+                source="a", dest="b", start_time=10, end_time=100, rate=0.1
+            )
+        with self.assertRaises(ValueError):
+            SymmetricMigration(demes=["a", "b"], start_time=10, end_time=100, rate=0.1)
 
     def test_bad_rate(self):
-        for rate in ("inf", "100", {}, [], float("NaN")):
+        for rate in ("inf", "100", {}, [], math.nan):
             with self.assertRaises(TypeError):
-                Migration(source="a", dest="b", start_time=10, end_time=0, rate=rate)
+                AsymmetricMigration(
+                    source="a", dest="b", start_time=10, end_time=0, rate=rate
+                )
+            with self.assertRaises(TypeError):
+                SymmetricMigration(
+                    demes=["a", "b"], start_time=10, end_time=0, rate=rate
+                )
 
-        for rate in (-10000, -1, -1e-9, float("inf")):
+        for rate in (-10000, -1, -1e-9, math.inf):
             with self.assertRaises(ValueError):
-                Migration(source="a", dest="b", start_time=10, end_time=0, rate=rate)
+                AsymmetricMigration(
+                    source="a", dest="b", start_time=10, end_time=0, rate=rate
+                )
+            with self.assertRaises(ValueError):
+                SymmetricMigration(
+                    demes=["a", "b"], start_time=10, end_time=0, rate=rate
+                )
 
     def test_bad_demes(self):
-        for id in (None, 0, float("inf"), 1e3, {}, []):
+        for id in (0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
-                Migration(source=id, dest="a", start_time=10, end_time=0, rate=0.1)
+                AsymmetricMigration(
+                    source=id, dest="a", start_time=10, end_time=0, rate=0.1
+                )
             with self.assertRaises(TypeError):
-                Migration(source="a", dest=id, start_time=10, end_time=0, rate=0.1)
+                AsymmetricMigration(
+                    source="a", dest=id, start_time=10, end_time=0, rate=0.1
+                )
+            with self.assertRaises(TypeError):
+                SymmetricMigration(demes=["a", id], start_time=10, end_time=0, rate=0.1)
 
         for id in ("a", "", "pop 1"):
             with self.assertRaises(ValueError):
-                Migration(source=id, dest="a", start_time=10, end_time=0, rate=0.1)
+                AsymmetricMigration(
+                    source=id, dest="a", start_time=10, end_time=0, rate=0.1
+                )
             with self.assertRaises(ValueError):
-                Migration(source="a", dest=id, start_time=10, end_time=0, rate=0.1)
+                AsymmetricMigration(
+                    source="a", dest=id, start_time=10, end_time=0, rate=0.1
+                )
+            with self.assertRaises(ValueError):
+                SymmetricMigration(demes=["a", id], start_time=10, end_time=0, rate=0.1)
+
+        # need at least two demes for symmetric migration
+        with self.assertRaises(ValueError):
+            SymmetricMigration(demes=["a"], start_time=10, end_time=0, rate=0.1)
+        with self.assertRaises(ValueError):
+            SymmetricMigration(demes=[], start_time=10, end_time=0, rate=0.1)
 
     def test_valid_migration(self):
-        Migration(source="a", dest="b", start_time=float("inf"), end_time=0, rate=1e-9)
-        Migration(source="a", dest="b", start_time=1000, end_time=999, rate=0.9)
+        AsymmetricMigration(
+            source="a", dest="b", start_time=math.inf, end_time=0, rate=1e-9
+        )
+        AsymmetricMigration(
+            source="a", dest="b", start_time=1000, end_time=999, rate=0.9
+        )
+        SymmetricMigration(demes=["a", "b"], start_time=math.inf, end_time=0, rate=1e-9)
+        SymmetricMigration(demes=["a", "b"], start_time=1000, end_time=999, rate=0.9)
+        SymmetricMigration(
+            demes=["a", "b", "c", "d", "e"], start_time=1, end_time=0, rate=0.9
+        )
 
     def test_isclose(self):
         eps = 1e-50
-        m1 = Migration(source="a", dest="b", start_time=1, end_time=0, rate=1e-9)
+        m1 = AsymmetricMigration(
+            source="a", dest="b", start_time=1, end_time=0, rate=1e-9
+        )
         self.assertTrue(m1.isclose(m1))
         self.assertTrue(
             m1.isclose(
-                Migration(
+                AsymmetricMigration(
                     source="a", dest="b", start_time=1, end_time=0, rate=1e-9 + eps
                 )
             )
         )
         self.assertTrue(
             m1.isclose(
-                Migration(
+                AsymmetricMigration(
                     source="a", dest="b", start_time=1 + eps, end_time=0, rate=1e-9
                 )
             )
         )
         self.assertTrue(
             m1.isclose(
-                Migration(
+                AsymmetricMigration(
                     source="a", dest="b", start_time=1, end_time=0 + eps, rate=1e-9
                 )
             )
@@ -213,27 +551,37 @@ class TestMigration(unittest.TestCase):
 
         self.assertFalse(
             m1.isclose(
-                Migration(source="b", dest="a", start_time=1, end_time=0, rate=1e-9)
+                AsymmetricMigration(
+                    source="b", dest="a", start_time=1, end_time=0, rate=1e-9
+                )
             )
         )
         self.assertFalse(
             m1.isclose(
-                Migration(source="a", dest="b", start_time=1, end_time=0, rate=2e-9)
+                AsymmetricMigration(
+                    source="a", dest="b", start_time=1, end_time=0, rate=2e-9
+                )
             )
         )
         self.assertFalse(
             m1.isclose(
-                Migration(source="a", dest="c", start_time=1, end_time=0, rate=1e-9)
+                AsymmetricMigration(
+                    source="a", dest="c", start_time=1, end_time=0, rate=1e-9
+                )
             )
         )
         self.assertFalse(
             m1.isclose(
-                Migration(source="a", dest="c", start_time=2, end_time=0, rate=1e-9)
+                AsymmetricMigration(
+                    source="a", dest="c", start_time=2, end_time=0, rate=1e-9
+                )
             )
         )
         self.assertFalse(
             m1.isclose(
-                Migration(source="a", dest="c", start_time=1, end_time=0.1, rate=1e-9)
+                AsymmetricMigration(
+                    source="a", dest="c", start_time=1, end_time=0.1, rate=1e-9
+                )
             )
         )
         self.assertFalse(m1.isclose(None))
@@ -243,25 +591,25 @@ class TestMigration(unittest.TestCase):
 
 class TestPulse(unittest.TestCase):
     def test_bad_time(self):
-        for time in ("inf", "100", {}, [], float("NaN")):
+        for time in ("inf", "100", {}, [], math.nan):
             with self.assertRaises(TypeError):
                 Pulse(source="a", dest="b", time=time, proportion=0.1)
 
-        for time in (-10000, -1, -1e-9, float("inf")):
+        for time in (-10000, -1, -1e-9, math.inf):
             with self.assertRaises(ValueError):
                 Pulse(source="a", dest="b", time=time, proportion=0.1)
 
     def test_bad_proportion(self):
-        for proportion in ("inf", "100", {}, [], float("NaN")):
+        for proportion in ("inf", "100", {}, [], math.nan):
             with self.assertRaises(TypeError):
                 Pulse(source="a", dest="b", time=1, proportion=proportion)
 
-        for proportion in (-10000, -1, -1e-9, 1.2, 100, float("inf")):
+        for proportion in (-10000, -1, -1e-9, 1.2, 100, math.inf):
             with self.assertRaises(ValueError):
                 Pulse(source="a", dest="b", time=1, proportion=proportion)
 
     def test_bad_demes(self):
-        for id in (None, 0, float("inf"), 1e3, {}, []):
+        for id in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 Pulse(source=id, dest="a", time=1, proportion=0.1)
             with self.assertRaises(TypeError):
@@ -307,11 +655,11 @@ class TestPulse(unittest.TestCase):
 
 class TestSplit(unittest.TestCase):
     def test_bad_time(self):
-        for time in ("inf", "100", {}, [], float("NaN")):
+        for time in ("inf", "100", {}, [], math.nan):
             with self.assertRaises(TypeError):
                 Split(parent="a", children=["b", "c"], time=time)
 
-        for time in [-1e-12, -1, float("inf")]:
+        for time in [-1e-12, -1, math.inf]:
             with self.assertRaises(ValueError):
                 Split(parent="a", children=["b", "c"], time=time)
 
@@ -319,7 +667,7 @@ class TestSplit(unittest.TestCase):
         for children in (None, "b", {"b": 1}, set("b"), ("b",)):
             with self.assertRaises(TypeError):
                 Split(parent="a", children=children, time=1)
-        for id in (None, 0, float("inf"), 1e3, {}, []):
+        for id in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 Split(parent="a", children=[id], time=1)
 
@@ -331,7 +679,7 @@ class TestSplit(unittest.TestCase):
                 Split(parent="a", children=[id], time=1)
 
     def test_bad_parent(self):
-        for id in (None, 0, float("inf"), 1e3, {}, []):
+        for id in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 Split(parent=id, children=["b"], time=1)
 
@@ -368,16 +716,16 @@ class TestSplit(unittest.TestCase):
 
 class TestBranch(unittest.TestCase):
     def test_bad_time(self):
-        for time in ("inf", "100", {}, [], float("NaN")):
+        for time in ("inf", "100", {}, [], math.nan):
             with self.assertRaises(TypeError):
                 Branch(parent="a", child="b", time=time)
 
-        for time in [-1e-12, -1, float("inf")]:
+        for time in [-1e-12, -1, math.inf]:
             with self.assertRaises(ValueError):
                 Branch(parent="a", child="b", time=time)
 
     def test_bad_child(self):
-        for id in (None, 0, float("inf"), 1e3, {}, []):
+        for id in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 Branch(parent="a", child=id, time=1)
 
@@ -386,7 +734,7 @@ class TestBranch(unittest.TestCase):
                 Branch(parent="a", child=id, time=1)
 
     def test_bad_parent(self):
-        for id in (None, 0, float("inf"), 1e3, {}, []):
+        for id in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 Branch(parent=id, child="b", time=1)
 
@@ -414,16 +762,16 @@ class TestBranch(unittest.TestCase):
 
 class TestMerge(unittest.TestCase):
     def test_bad_time(self):
-        for time in ("inf", "100", {}, [], float("NaN")):
+        for time in ("inf", "100", {}, [], math.nan):
             with self.assertRaises(TypeError):
                 Merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=time)
 
-        for time in [-1e-12, -1, float("inf")]:
+        for time in [-1e-12, -1, math.inf]:
             with self.assertRaises(ValueError):
                 Merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=time)
 
     def test_bad_child(self):
-        for id in (None, 0, float("inf"), 1e3, {}, []):
+        for id in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 Merge(parents=["a", "b"], proportions=[0.5, 0.5], child=id, time=1)
 
@@ -435,7 +783,7 @@ class TestMerge(unittest.TestCase):
         for parents in (None, "b", {"b": 1}, set("b"), ("b", "b")):
             with self.assertRaises(TypeError):
                 Merge(parents=parents, proportions=[0.5, 0.5], child="c", time=1)
-        for id in (None, 0, float("inf"), 1e3, {}, []):
+        for id in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 Merge(parents=["a", id], proportions=[0.5, 0.5], child="c", time=1)
             with self.assertRaises(TypeError):
@@ -450,11 +798,11 @@ class TestMerge(unittest.TestCase):
             Merge(parents=["a"], proportions=[1], child="b", time=1)
 
     def test_bad_proportions(self):
-        for proportion in ("inf", "100", {}, [], float("NaN")):
+        for proportion in ("inf", "100", {}, [], math.nan):
             with self.assertRaises(TypeError):
                 Merge(parents=["a", "b"], child="c", time=1, proportions=[proportion])
 
-        for proportion in (-10000, -1, -1e-9, 1.2, 100, float("inf")):
+        for proportion in (-10000, -1, -1e-9, 1.2, 100, math.inf):
             with self.assertRaises(ValueError):
                 Merge(
                     parents=["a", "b"], child="c", time=1, proportions=[proportion, 0.5]
@@ -582,16 +930,16 @@ class TestMerge(unittest.TestCase):
 
 class TestAdmix(unittest.TestCase):
     def test_bad_time(self):
-        for time in ("inf", "100", {}, [], float("NaN")):
+        for time in ("inf", "100", {}, [], math.nan):
             with self.assertRaises(TypeError):
                 Admix(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=time)
 
-        for time in [-1e-12, -1, float("inf")]:
+        for time in [-1e-12, -1, math.inf]:
             with self.assertRaises(ValueError):
                 Admix(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=time)
 
     def test_bad_child(self):
-        for id in (None, 0, float("inf"), 1e3, {}, []):
+        for id in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 Admix(parents=["a", "b"], proportions=[0.5, 0.5], child=id, time=1)
 
@@ -603,7 +951,7 @@ class TestAdmix(unittest.TestCase):
         for parents in (None, "b", {"b": 1}, set("b"), ("b", "b")):
             with self.assertRaises(TypeError):
                 Admix(parents=parents, proportions=[0.5, 0.5], child="c", time=1)
-        for id in (None, 0, float("inf"), 1e3, {}, []):
+        for id in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 Admix(parents=["a", id], proportions=[0.5, 0.5], child="c", time=1)
             with self.assertRaises(TypeError):
@@ -618,11 +966,11 @@ class TestAdmix(unittest.TestCase):
             Admix(parents=["a"], proportions=[1], child="b", time=1)
 
     def test_bad_proportions(self):
-        for proportion in ("inf", "100", {}, [], float("NaN")):
+        for proportion in ("inf", "100", {}, [], math.nan):
             with self.assertRaises(TypeError):
                 Admix(parents=["a", "b"], child="c", time=1, proportions=[proportion])
 
-        for proportion in (-10000, -1, -1e-9, 1.2, 100, float("inf")):
+        for proportion in (-10000, -1, -1e-9, 1.2, 100, math.inf):
             with self.assertRaises(ValueError):
                 Admix(
                     parents=["a", "b"], child="c", time=1, proportions=[proportion, 0.5]
@@ -761,10 +1109,18 @@ class TestDeme(unittest.TestCase):
             description="b",
             ancestors=["c"],
             proportions=[1],
-            epochs=[Epoch(start_time=float("inf"), end_time=0, start_size=1)],
-            defaults={},
+            start_time=math.inf,
+            epochs=[
+                Epoch(
+                    start_time=math.inf,
+                    end_time=0,
+                    start_size=1,
+                    end_size=1,
+                    size_function="constant",
+                )
+            ],
         )
-        self.assertEqual(deme.start_time, float("inf"))
+        self.assertEqual(deme.start_time, math.inf)
         self.assertEqual(deme.end_time, 0)
         self.assertEqual(deme.ancestors[0], "c")
         self.assertEqual(deme.proportions[0], 1)
@@ -774,12 +1130,30 @@ class TestDeme(unittest.TestCase):
             description="b",
             ancestors=["c"],
             proportions=[1],
+            start_time=100,
             epochs=[
-                Epoch(start_time=100, end_time=50, start_size=1),
-                Epoch(start_time=50, end_time=20, start_size=100),
-                Epoch(start_time=20, end_time=1, start_size=200),
+                Epoch(
+                    start_time=100,
+                    end_time=50,
+                    start_size=1,
+                    end_size=1,
+                    size_function="constant",
+                ),
+                Epoch(
+                    start_time=50,
+                    end_time=20,
+                    start_size=100,
+                    end_size=100,
+                    size_function="constant",
+                ),
+                Epoch(
+                    start_time=20,
+                    end_time=1,
+                    start_size=200,
+                    end_size=1,
+                    size_function="exponential",
+                ),
             ],
-            defaults={},
         )
         self.assertEqual(deme.start_time, 100)
         self.assertEqual(deme.end_time, 1)
@@ -789,21 +1163,37 @@ class TestDeme(unittest.TestCase):
             description=None,
             ancestors=["c"],
             proportions=[1],
-            epochs=[Epoch(start_time=float("inf"), end_time=0, start_size=1)],
-            defaults={},
+            start_time=math.inf,
+            epochs=[
+                Epoch(
+                    start_time=math.inf,
+                    end_time=0,
+                    start_size=1,
+                    end_size=1,
+                    size_function="constant",
+                )
+            ],
         )
         self.assertEqual(deme.description, None)
 
     def test_bad_id(self):
-        for id in (None, 0, float("inf"), 1e3, {}, []):
+        for id in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 Deme(
                     id=id,
                     description="b",
                     ancestors=[],
                     proportions=[],
-                    epochs=[Epoch(start_time=float("inf"), end_time=0, start_size=1)],
-                    defaults={},
+                    start_time=math.inf,
+                    epochs=[
+                        Epoch(
+                            start_time=math.inf,
+                            end_time=0,
+                            start_size=1,
+                            end_size=1,
+                            size_function="constant",
+                        )
+                    ],
                 )
         for id in ["", "501", "pop-1", "pop.2", "pop 3"]:
             with self.assertRaises(ValueError):
@@ -812,19 +1202,36 @@ class TestDeme(unittest.TestCase):
                     description="b",
                     ancestors=[],
                     proportions=[],
-                    epochs=[Epoch(start_time=float("inf"), end_time=0, start_size=1)],
-                    defaults={},
+                    start_time=math.inf,
+                    epochs=[
+                        Epoch(
+                            start_time=math.inf,
+                            end_time=0,
+                            start_size=1,
+                            end_size=1,
+                            size_function="constant",
+                        )
+                    ],
                 )
 
     def test_bad_description(self):
-        for description in (0, float("inf"), 1e3, {}, []):
+        for description in (0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 Deme(
                     id="a",
                     description=description,
                     ancestors=[],
                     proportions=[],
-                    epochs=[Epoch(start_time=float("inf"), end_time=0, start_size=1)],
+                    start_time=math.inf,
+                    epochs=[
+                        Epoch(
+                            start_time=math.inf,
+                            end_time=0,
+                            start_size=1,
+                            end_size=1,
+                            size_function="constant",
+                        )
+                    ],
                 )
         with self.assertRaises(ValueError):
             Deme(
@@ -832,8 +1239,16 @@ class TestDeme(unittest.TestCase):
                 description="",
                 ancestors=[],
                 proportions=[],
-                epochs=[Epoch(start_time=float("inf"), end_time=0, start_size=1)],
-                defaults={},
+                start_time=math.inf,
+                epochs=[
+                    Epoch(
+                        start_time=math.inf,
+                        end_time=0,
+                        start_size=1,
+                        end_size=1,
+                        size_function="constant",
+                    )
+                ],
             )
 
     def test_bad_ancestors(self):
@@ -844,18 +1259,34 @@ class TestDeme(unittest.TestCase):
                     description="b",
                     ancestors=ancestors,
                     proportions=[1],
-                    epochs=[Epoch(start_time=10, end_time=0, start_size=1)],
-                    defaults={},
+                    start_time=10,
+                    epochs=[
+                        Epoch(
+                            start_time=10,
+                            end_time=0,
+                            start_size=1,
+                            end_size=1,
+                            size_function="constant",
+                        )
+                    ],
                 )
-        for id in (None, 0, float("inf"), 1e3, {}, []):
+        for id in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 Deme(
                     id="a",
                     description="b",
                     ancestors=[id],
                     proportions=[1],
-                    epochs=[Epoch(start_time=10, end_time=0, start_size=1)],
-                    defaults={},
+                    start_time=10,
+                    epochs=[
+                        Epoch(
+                            start_time=10,
+                            end_time=0,
+                            start_size=1,
+                            end_size=1,
+                            size_function="constant",
+                        )
+                    ],
                 )
         for id in ["", "501", "pop-1", "pop.2", "pop 3"]:
             with self.assertRaises(ValueError):
@@ -864,8 +1295,16 @@ class TestDeme(unittest.TestCase):
                     description="b",
                     ancestors=[id],
                     proportions=[1],
-                    epochs=[Epoch(start_time=10, end_time=0, start_size=1)],
-                    defaults={},
+                    start_time=10,
+                    epochs=[
+                        Epoch(
+                            start_time=10,
+                            end_time=0,
+                            start_size=1,
+                            end_size=1,
+                            size_function="constant",
+                        )
+                    ],
                 )
 
         with self.assertRaises(ValueError):
@@ -874,8 +1313,16 @@ class TestDeme(unittest.TestCase):
                 description="b",
                 ancestors=["a", "c"],
                 proportions=[0.5, 0.5],
-                epochs=[Epoch(start_time=10, end_time=0, start_size=1)],
-                defaults={},
+                start_time=10,
+                epochs=[
+                    Epoch(
+                        start_time=10,
+                        end_time=0,
+                        start_size=1,
+                        end_size=1,
+                        size_function="constant",
+                    )
+                ],
             )
         with self.assertRaises(ValueError):
             # duplicate ancestors
@@ -884,30 +1331,54 @@ class TestDeme(unittest.TestCase):
                 description="test",
                 ancestors=["x", "x"],
                 proportions=[0.5, 0.5],
-                epochs=[Epoch(start_time=10, end_time=0, start_size=1)],
-                defaults={},
+                start_time=10,
+                epochs=[
+                    Epoch(
+                        start_time=10,
+                        end_time=0,
+                        start_size=1,
+                        end_size=1,
+                        size_function="constant",
+                    )
+                ],
             )
 
     def test_bad_proportions(self):
-        for proportions in (None, {}, 1e5, "proportions", float("NaN")):
+        for proportions in (None, {}, 1e5, "proportions", math.nan):
             with self.assertRaises(TypeError):
                 Deme(
                     id="a",
                     description="test",
                     ancestors=[],
                     proportions=proportions,
-                    epochs=[Epoch(start_time=10, end_time=0, start_size=1)],
-                    defaults={},
+                    start_time=10,
+                    epochs=[
+                        Epoch(
+                            start_time=10,
+                            end_time=0,
+                            start_size=1,
+                            end_size=1,
+                            size_function="constant",
+                        )
+                    ],
                 )
-        for proportion in (None, "inf", "100", {}, [], float("NaN")):
+        for proportion in (None, "inf", "100", {}, [], math.nan):
             with self.assertRaises(TypeError):
                 Deme(
                     id="a",
                     description="test",
                     ancestors=["b"],
                     proportions=[proportion],
-                    epochs=[Epoch(start_time=10, end_time=0, start_size=1)],
-                    defaults={},
+                    start_time=10,
+                    epochs=[
+                        Epoch(
+                            start_time=10,
+                            end_time=0,
+                            start_size=1,
+                            end_size=1,
+                            size_function="constant",
+                        )
+                    ],
                 )
 
         for proportions in (
@@ -922,19 +1393,35 @@ class TestDeme(unittest.TestCase):
                     description="test",
                     ancestors=["x", "y"],
                     proportions=proportions,
-                    epochs=[Epoch(start_time=10, end_time=0, start_size=1)],
-                    defaults={},
+                    start_time=10,
+                    epochs=[
+                        Epoch(
+                            start_time=10,
+                            end_time=0,
+                            start_size=1,
+                            end_size=1,
+                            size_function="constant",
+                        )
+                    ],
                 )
 
-        for proportion in (-10000, -1, -1e-9, 1.2, 100, float("inf")):
+        for proportion in (-10000, -1, -1e-9, 1.2, 100, math.inf):
             with self.assertRaises(ValueError):
                 Deme(
                     id="a",
                     description="test",
                     ancestors=["b", "c"],
                     proportions=[0.5, proportion],
-                    epochs=[Epoch(start_time=10, end_time=0, start_size=1)],
-                    defaults={},
+                    start_time=10,
+                    epochs=[
+                        Epoch(
+                            start_time=10,
+                            end_time=0,
+                            start_size=1,
+                            end_size=1,
+                            size_function="constant",
+                        )
+                    ],
                 )
             with self.assertRaises(ValueError):
                 Deme(
@@ -942,38 +1429,70 @@ class TestDeme(unittest.TestCase):
                     description="test",
                     ancestors=["b", "c"],
                     proportions=[proportion, 0.5],
-                    epochs=[Epoch(start_time=10, end_time=0, start_size=1)],
-                    defaults={},
+                    start_time=10,
+                    epochs=[
+                        Epoch(
+                            start_time=10,
+                            end_time=0,
+                            start_size=1,
+                            end_size=1,
+                            size_function="constant",
+                        )
+                    ],
                 )
 
     def test_epochs_out_of_order(self):
-        for time in (5, -1, float("inf")):
+        for time in (5, -1, math.inf):
             with self.assertRaises(ValueError):
                 Deme(
                     id="a",
                     description="b",
                     ancestors=["c"],
                     proportions=[1],
+                    start_time=10,
                     epochs=[
-                        Epoch(start_time=10, end_time=5, start_size=1),
-                        Epoch(start_time=5, end_time=time, start_size=100),
+                        Epoch(
+                            start_time=10,
+                            end_time=5,
+                            start_size=1,
+                            end_size=1,
+                            size_function="constant",
+                        ),
+                        Epoch(
+                            start_time=5,
+                            end_time=time,
+                            start_size=100,
+                            end_size=100,
+                            size_function="constant",
+                        ),
                     ],
-                    defaults={},
                 )
 
     def test_epochs_are_a_partition(self):
-        for start_time, end_time in [(float("inf"), 100), (200, 100)]:
+        for start_time, end_time in [(math.inf, 100), (200, 100)]:
             with self.assertRaises(ValueError):
                 Deme(
                     id="a",
                     description="b",
                     ancestors=["c"],
                     proportions=[1],
+                    start_time=start_time,
                     epochs=[
-                        Epoch(start_time=start_time, end_time=end_time, start_size=1),
-                        Epoch(start_time=50, end_time=0, start_size=2),
+                        Epoch(
+                            start_time=start_time,
+                            end_time=end_time,
+                            start_size=1,
+                            end_size=1,
+                            size_function="constant",
+                        ),
+                        Epoch(
+                            start_time=50,
+                            end_time=0,
+                            start_size=2,
+                            end_size=2,
+                            size_function="constant",
+                        ),
                     ],
-                    defaults={},
                 )
 
     def test_bad_epochs(self):
@@ -984,28 +1503,27 @@ class TestDeme(unittest.TestCase):
                     description="b",
                     ancestors=["c"],
                     proportions=[1],
+                    start_time=10,
                     epochs=epochs,
-                    defaults={},
                 )
-        with self.assertRaises(ValueError):
-            Deme(
-                id="a",
-                description="b",
-                ancestors=["c"],
-                proportions=[1],
-                epochs=[],
-                defaults={},
-            )
 
     def test_time_span(self):
-        for start_time, end_time in zip((float("inf"), 100, 20), (0, 20, 0)):
+        for start_time, end_time in zip((math.inf, 100, 20), (0, 20, 0)):
             deme = Deme(
                 id="a",
                 description="b",
                 ancestors=["c"],
                 proportions=[1],
-                epochs=[Epoch(start_time=start_time, end_time=end_time, start_size=1)],
-                defaults={},
+                start_time=start_time,
+                epochs=[
+                    Epoch(
+                        start_time=start_time,
+                        end_time=end_time,
+                        start_size=1,
+                        end_size=1,
+                        size_function="constant",
+                    )
+                ],
             )
             self.assertEqual(deme.time_span, start_time - end_time)
         with self.assertRaises(ValueError):
@@ -1014,8 +1532,16 @@ class TestDeme(unittest.TestCase):
                 description="b",
                 ancestors=["c"],
                 proportions=[1],
-                epochs=[Epoch(start_time=100, end_time=100, start_size=1)],
-                defaults={},
+                start_time=100,
+                epochs=[
+                    Epoch(
+                        start_time=100,
+                        end_time=100,
+                        start_size=1,
+                        end_size=1,
+                        size_function="constant",
+                    )
+                ],
             )
 
     def test_isclose(self):
@@ -1024,8 +1550,16 @@ class TestDeme(unittest.TestCase):
             description="foo deme",
             ancestors=[],
             proportions=[],
-            epochs=[Epoch(start_time=10, end_time=5, start_size=1)],
-            defaults={},
+            start_time=10,
+            epochs=[
+                Epoch(
+                    start_time=10,
+                    end_time=5,
+                    start_size=1,
+                    end_size=1,
+                    size_function="exponential",
+                )
+            ],
         )
         self.assertTrue(d1.isclose(d1))
         self.assertTrue(
@@ -1035,8 +1569,16 @@ class TestDeme(unittest.TestCase):
                     description="foo deme",
                     ancestors=[],
                     proportions=[],
-                    epochs=[Epoch(start_time=10, end_time=5, start_size=1)],
-                    defaults={},
+                    start_time=10,
+                    epochs=[
+                        Epoch(
+                            start_time=10,
+                            end_time=5,
+                            start_size=1,
+                            end_size=1,
+                            size_function="exponential",
+                        )
+                    ],
                 )
             )
         )
@@ -1048,8 +1590,16 @@ class TestDeme(unittest.TestCase):
                     description="bar deme",
                     ancestors=[],
                     proportions=[],
-                    epochs=[Epoch(start_time=10, end_time=5, start_size=1)],
-                    defaults={},
+                    start_time=10,
+                    epochs=[
+                        Epoch(
+                            start_time=10,
+                            end_time=5,
+                            start_size=1,
+                            end_size=1,
+                            size_function="exponential",
+                        )
+                    ],
                 )
             )
         )
@@ -1065,8 +1615,16 @@ class TestDeme(unittest.TestCase):
                     description="foo deme",
                     ancestors=[],
                     proportions=[],
-                    epochs=[Epoch(start_time=10, end_time=5, start_size=1)],
-                    defaults={},
+                    start_time=10,
+                    epochs=[
+                        Epoch(
+                            start_time=10,
+                            end_time=5,
+                            start_size=1,
+                            end_size=1,
+                            size_function="exponential",
+                        )
+                    ],
                 )
             )
         )
@@ -1077,8 +1635,16 @@ class TestDeme(unittest.TestCase):
                     description="foo deme",
                     ancestors=["x"],
                     proportions=[1],
-                    epochs=[Epoch(start_time=10, end_time=5, start_size=1)],
-                    defaults={},
+                    start_time=10,
+                    epochs=[
+                        Epoch(
+                            start_time=10,
+                            end_time=5,
+                            start_size=1,
+                            end_size=1,
+                            size_function="exponential",
+                        )
+                    ],
                 )
             )
         )
@@ -1089,8 +1655,16 @@ class TestDeme(unittest.TestCase):
                     description="foo deme",
                     ancestors=[],
                     proportions=[],
-                    epochs=[Epoch(start_time=9, end_time=5, start_size=1)],
-                    defaults={},
+                    start_time=9,
+                    epochs=[
+                        Epoch(
+                            start_time=9,
+                            end_time=5,
+                            start_size=1,
+                            end_size=1,
+                            size_function="exponential",
+                        )
+                    ],
                 )
             )
         )
@@ -1101,8 +1675,16 @@ class TestDeme(unittest.TestCase):
                     description="foo deme",
                     ancestors=[],
                     proportions=[],
-                    epochs=[Epoch(start_time=10, end_time=9, start_size=1)],
-                    defaults={},
+                    start_time=10,
+                    epochs=[
+                        Epoch(
+                            start_time=10,
+                            end_time=9,
+                            start_size=1,
+                            end_size=1,
+                            size_function="exponential",
+                        )
+                    ],
                 )
             )
         )
@@ -1114,8 +1696,16 @@ class TestDeme(unittest.TestCase):
                     description="foo deme",
                     ancestors=[],
                     proportions=[],
-                    epochs=[Epoch(start_time=10, end_time=5, start_size=9)],
-                    defaults={},
+                    start_time=10,
+                    epochs=[
+                        Epoch(
+                            start_time=10,
+                            end_time=5,
+                            start_size=9,
+                            end_size=1,
+                            size_function="exponential",
+                        )
+                    ],
                 )
             )
         )
@@ -1126,10 +1716,17 @@ class TestDeme(unittest.TestCase):
                     description="foo deme",
                     ancestors=[],
                     proportions=[],
+                    start_time=10,
                     epochs=[
-                        Epoch(start_time=10, end_time=5, start_size=1, selfing_rate=0.1)
+                        Epoch(
+                            start_time=10,
+                            end_time=5,
+                            start_size=1,
+                            end_size=1,
+                            size_function="exponential",
+                            selfing_rate=0.1,
+                        )
                     ],
-                    defaults={},
                 )
             )
         )
@@ -1140,28 +1737,32 @@ class TestDeme(unittest.TestCase):
                     description="foo deme",
                     ancestors=[],
                     proportions=[],
+                    start_time=10,
                     epochs=[
-                        Epoch(start_time=10, end_time=5, start_size=1, cloning_rate=0.1)
+                        Epoch(
+                            start_time=10,
+                            end_time=5,
+                            start_size=1,
+                            end_size=1,
+                            size_function="exponential",
+                            cloning_rate=0.1,
+                        )
                     ],
-                    defaults={},
                 )
             )
         )
-
-    # APR (7/28): Add tests for selfing rate, cloning rate, and size function.
-    # Also add tests for any implied values.
 
 
 class TestGraph(unittest.TestCase):
     def test_bad_generation_time(self):
-        for generation_time in ([], {}, "42", "inf", float("NaN")):
+        for generation_time in ([], {}, "42", "inf", math.nan):
             with self.assertRaises(TypeError):
                 Graph(
                     description="test",
                     time_units="years",
                     generation_time=generation_time,
                 )
-        for generation_time in (-100, -1e-9, 0, float("inf"), None):
+        for generation_time in (-100, -1e-9, 0, math.inf, None):
             with self.assertRaises(ValueError):
                 Graph(
                     description="test",
@@ -1175,7 +1776,7 @@ class TestGraph(unittest.TestCase):
         Graph(time_units="generations")
 
     def test_bad_description(self):
-        for description in ([], {}, 0, 1e5, float("inf")):
+        for description in ([], {}, 0, 1e5, math.inf):
             with self.assertRaises(TypeError):
                 Graph(
                     description=description,
@@ -1229,14 +1830,14 @@ class TestGraph(unittest.TestCase):
         )
 
     def test_bad_doi(self):
-        for doi_list in ({}, "10.1000/123456", float("inf"), 1e5, 0):
+        for doi_list in ({}, "10.1000/123456", math.inf, 1e5, 0):
             with self.assertRaises(TypeError):
                 Graph(
                     description="test",
                     time_units="generations",
                     doi=doi_list,
                 )
-        for doi in (None, {}, [], float("inf"), 1e5, 0):
+        for doi in (None, {}, [], math.inf, 1e5, 0):
             with self.assertRaises(TypeError):
                 Graph(
                     description="test",
@@ -1309,686 +1910,1026 @@ class TestGraph(unittest.TestCase):
             i += 1
         self.assertGreater(i, 0)
 
-    def test_bad_migration_time(self):
-        dg = demes.Graph(description="test bad migration", time_units="generations")
-        dg.deme("deme1", epochs=[Epoch(start_size=1000, end_time=0)])
-        dg.deme("deme2", epochs=[Epoch(end_time=100, start_size=1000)])
-        with self.assertRaises(ValueError):
-            dg.migration(
-                source="deme1", dest="deme2", rate=0.01, start_time=1000, end_time=0
-            )
-
-    def test_overlapping_migrations(self):
-        dg = demes.Graph(description="test", time_units="generations")
-        dg.deme("A", epochs=[Epoch(start_size=1, end_time=0)])
-        dg.deme("B", epochs=[Epoch(start_size=1, end_time=0)])
-        dg.migration(source="A", dest="B", rate=0.01)
-        with self.assertRaises(ValueError):
-            dg.migration(source="A", dest="B", start_time=10, rate=0.02)
-        with self.assertRaises(ValueError):
-            dg.symmetric_migration(demes=["A", "B"], rate=0.02)
-        with self.assertRaises(ValueError):
-            dg.symmetric_migration(demes=["A", "B"], rate=0.02, end_time=100)
-        dg.migration(source="B", dest="A", rate=0.03, start_time=100, end_time=10)
-        with self.assertRaises(ValueError):
-            dg.migration(source="B", dest="A", rate=0.04, start_time=50)
-        dg.migration(source="B", dest="A", rate=0.03, start_time=5)
-        with self.assertRaises(ValueError):
-            dg.migration(source="B", dest="A", rate=0.05, start_time=10)
-        dg.migration(source="B", dest="A", rate=0.01, start_time=10, end_time=5)
-
-    def test_bad_pulse_time(self):
-        dg = demes.Graph(description="test bad pulse time", time_units="generations")
-        dg.deme("deme1", epochs=[Epoch(start_size=1000, end_time=0)])
-        dg.deme("deme2", epochs=[Epoch(end_time=100, start_size=1000)])
-        with self.assertRaises(ValueError):
-            dg.pulse(source="deme1", dest="deme2", proportion=0.1, time=10)
-
-    def test_bad_deme(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme("b", epochs=[Epoch(start_size=1, end_time=0)])
-        with self.assertRaises(ValueError):
-            # no epochs given
-            dg.deme("a")
-        with self.assertRaises(ValueError):
-            # no start_size
-            dg.deme("a", epochs=[Epoch(end_time=1)])
-        with self.assertRaises(TypeError):
-            # ancestors must be a list
-            dg.deme(
-                "a",
-                ancestors="b",
-                start_time=10,
-                epochs=[Epoch(start_size=1, end_time=0)],
-            )
-        with self.assertRaises(ValueError):
-            # ancestor c doesn't exist
-            dg.deme(
-                "a",
-                ancestors=["b", "c"],
-                proportions=[0.5, 0.5],
-                epochs=[Epoch(start_size=1, end_time=0)],
-            )
-        with self.assertRaises(ValueError):
-            # start_time is more recent than an epoch's start_time
-            dg.deme(
-                "a",
-                ancestors=["b"],
-                start_time=15,
-                epochs=[
-                    Epoch(start_size=1, start_time=20, end_time=10),
-                    Epoch(end_time=0, start_size=2),
-                ],
-            )
-
-    def test_duplicate_deme(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme("a", epochs=[Epoch(start_size=1, end_time=0)])
-        with self.assertRaises(ValueError):
-            dg.deme("a", epochs=[Epoch(start_size=1, end_time=0)])
-
-    def test_ancestor_not_in_graph(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        with self.assertRaises(ValueError):
-            dg.deme("a", ancestors=["b"], epochs=[Epoch(start_size=1)])
-
-    def test_duplicate_ancestors(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme("a", epochs=[Epoch(start_size=100, end_time=50)])
-        with self.assertRaises(ValueError):
-            dg.deme(
-                "b",
-                ancestors=["a", "a"],
-                proportions=[0.5, 0.5],
-                start_time=100,
-                epochs=[Epoch(start_size=100, end_time=0)],
-            )
-
-    def test_bad_start_time_wrt_ancestors(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme("ancestral", epochs=[Epoch(start_size=100)])
-        dg.deme(
-            "a",
-            start_time=100,
-            ancestors=["ancestral"],
-            epochs=[Epoch(start_size=100, end_time=50)],
-        )
-        dg.deme("b", epochs=[Epoch(start_size=100, end_time=0)])
-        with self.assertRaises(ValueError):
-            # start_time too old
-            dg.deme(
-                "c",
-                ancestors=["a"],
-                start_time=200,
-                epochs=[Epoch(start_size=100, end_time=0)],
-            )
-        with self.assertRaises(ValueError):
-            # start_time too young
-            dg.deme(
-                "c",
-                ancestors=["a"],
-                start_time=20,
-                epochs=[Epoch(start_size=100, end_time=0)],
-            )
-        with self.assertRaises(ValueError):
-            # start_time too old
-            dg.deme(
-                "c",
-                ancestors=["a", "b"],
-                proportions=[0.5, 0.5],
-                start_time=200,
-                epochs=[Epoch(start_size=100, end_time=0)],
-            )
-        with self.assertRaises(ValueError):
-            # start_time too young
-            dg.deme(
-                "c",
-                ancestors=["a", "b"],
-                proportions=[0.5, 0.5],
-                start_time=20,
-                epochs=[Epoch(start_size=100, end_time=0)],
-            )
-        with self.assertRaises(ValueError):
-            # start_time not provided
-            dg.deme(
-                "c",
-                ancestors=["a", "b"],
-                proportions=[0.5, 0.5],
-                epochs=[Epoch(start_size=100, end_time=0)],
-            )
-        with self.assertRaises(ValueError):
-            # finite start time, but no ancestors
-            dg.deme("c", start_time=100, epochs=[Epoch(start_size=100)])
-
-    def test_proportions_default(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme("a", epochs=[Epoch(start_size=100, end_time=50)])
-        dg.deme("b", epochs=[Epoch(start_size=100, end_time=50)])
-        with self.assertRaises(ValueError):
-            # proportions missing
-            dg.deme(
-                "c",
-                ancestors=["a", "b"],
-                start_time=100,
-                epochs=[Epoch(start_size=100, end_time=0)],
-            )
-        with self.assertRaises(ValueError):
-            # proportions wrong length
-            dg.deme(
-                "c",
-                ancestors=["a", "b"],
-                proportions=[1],
-                start_time=100,
-                epochs=[Epoch(start_size=100, end_time=0)],
-            )
-        with self.assertRaises(ValueError):
-            # proportions wrong length
-            dg.deme(
-                "c",
-                ancestors=["a", "b"],
-                proportions=[1 / 3, 1 / 3, 1 / 3],
-                start_time=100,
-                epochs=[Epoch(start_size=100, end_time=0)],
-            )
-        dg.deme("c", ancestors=["b"], epochs=[Epoch(start_size=100, end_time=0)])
-        self.assertEqual(len(dg["c"].proportions), 1)
-        self.assertEqual(dg["c"].proportions[0], 1.0)
-
-    def test_bad_epochs(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        # end_time and start_time of epochs don't align
-        with self.assertRaises(ValueError):
-            dg.deme(
-                "a",
-                epochs=[
-                    Epoch(start_size=1, end_time=100),
-                    Epoch(start_size=1, start_time=101, end_time=0),
-                ],
-            )
-
-    def test_bad_migration(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        with self.assertRaises(ValueError):
-            dg.symmetric_migration(demes=[], rate=0)
-        with self.assertRaises(ValueError):
-            dg.symmetric_migration(demes=["a"], rate=0.1)
-        with self.assertRaises(ValueError):
-            dg.migration(source="a", dest="b", rate=0.1)
-        dg.deme("a", epochs=[Epoch(start_size=100, end_time=0)])
-        with self.assertRaises(ValueError):
-            dg.migration(source="a", dest="b", rate=0.1)
-        with self.assertRaises(ValueError):
-            dg.migration(source="b", dest="a", rate=0.1)
-
-    def test_bad_pulse(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme("a", epochs=[Epoch(start_size=100, end_time=0)])
-        with self.assertRaises(ValueError):
-            dg.pulse(source="a", dest="b", proportion=0.1, time=10)
-        with self.assertRaises(ValueError):
-            dg.pulse(source="b", dest="a", proportion=0.1, time=10)
-
-    def test_pulse_same_time(self):
-        g1 = Graph(description="test", time_units="generations")
-        for j in range(4):
-            g1.deme(f"d{j}", epochs=[Epoch(start_size=1000, end_time=0)])
-
-        T = 100  # time of pulses
-
-        # Warn for duplicate pulses
-        g2 = copy.deepcopy(g1)
-        g2.pulse(source="d0", dest="d1", time=T, proportion=0.1)
-        with pytest.warns(UserWarning):
-            g2.pulse(source="d0", dest="d1", time=T, proportion=0.1)
-
-        # Warn for: d0 -> d1; d1 -> d2.
-        g2 = copy.deepcopy(g1)
-        g2.pulse(source="d0", dest="d1", time=T, proportion=0.1)
-        with pytest.warns(UserWarning):
-            g2.pulse(source="d1", dest="d2", time=T, proportion=0.1)
-
-        # Warn for: d0 -> d2; d1 -> d2.
-        g2 = copy.deepcopy(g1)
-        g2.pulse(source="d0", dest="d2", time=T, proportion=0.1)
-        with pytest.warns(UserWarning):
-            g2.pulse(source="d1", dest="d2", time=T, proportion=0.1)
-
-        # Shouldn't warn for: d0 -> d1; d0 -> d2.
-        g2 = copy.deepcopy(g1)
-        g2.pulse(source="d0", dest="d1", time=T, proportion=0.1)
-        with pytest.warns(None) as record:
-            g2.pulse(source="d0", dest="d2", time=T, proportion=0.1)
-        assert len(record) == 0
-
-        # Shouldn't warn for: d0 -> d1; d2 -> d3.
-        g2 = copy.deepcopy(g1)
-        g2.pulse(source="d0", dest="d1", time=T, proportion=0.1)
-        with pytest.warns(None) as record:
-            g2.pulse(source="d2", dest="d3", time=T, proportion=0.1)
-        assert len(record) == 0
-
-        # Different pulse times shouldn't warn for: d0 -> d1; d1 -> d2.
-        g2 = copy.deepcopy(g1)
-        g2.pulse(source="d0", dest="d1", time=T, proportion=0.1)
-        with pytest.warns(None) as record:
-            g2.pulse(source="d1", dest="d2", time=2 * T, proportion=0.1)
-        assert len(record) == 0
-
-        # Different pulse times shouldn't warn for: d0 -> d2; d1 -> d2.
-        g2 = copy.deepcopy(g1)
-        g2.pulse(source="d0", dest="d2", time=T, proportion=0.1)
-        with pytest.warns(None) as record:
-            g2.pulse(source="d1", dest="d2", time=2 * T, proportion=0.1)
-        assert len(record) == 0
-
     def test_isclose(self):
-        g1 = Graph(
-            description="test",
-            time_units="generations",
-        )
-        g2 = copy.deepcopy(g1)
-        g1.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
+        b1 = Builder(description="test", time_units="generations")
+        b2 = copy.deepcopy(b1)
+        b1.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        g1 = b1.resolve()
         self.assertTrue(g1.isclose(g1))
         self.assertTrue(g1.isclose(demes.loads(demes.dumps(g1))))
 
         # Don't care about description for equality.
-        g3 = Graph(
-            description="some other description",
-            time_units="generations",
-        )
-        g3.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
+        b3 = Builder(description="some other description", time_units="generations")
+        b3.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        g3 = b3.resolve()
         self.assertTrue(g1.isclose(g3))
 
         # Don't care about doi for equality.
-        g3 = Graph(
+        b3 = Builder(
             description="test",
             time_units="generations",
             doi=["https://example.com/foo.bar"],
         )
-        g3.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
+        b3.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        g3 = b3.resolve()
         self.assertTrue(g1.isclose(g3))
 
         # The order in which demes are added shouldn't matter.
-        g3 = copy.deepcopy(g2)
-        g4 = copy.deepcopy(g2)
-        g3.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
-        g3.deme("d2", epochs=[Epoch(start_size=1000, end_time=0)])
-        g4.deme("d2", epochs=[Epoch(start_size=1000, end_time=0)])
-        g4.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
+        b3 = copy.deepcopy(b2)
+        b4 = copy.deepcopy(b2)
+        b3.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        b3.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
+        b4.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
+        b4.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        g3 = b3.resolve()
+        g4 = b4.resolve()
         self.assertTrue(g3.isclose(g4))
 
         # The order in which migrations are added shouldn't matter.
-        g3.migration(source="d1", dest="d2", rate=1e-4, start_time=50, end_time=40)
-        g3.migration(source="d2", dest="d1", rate=1e-5)
-        g4.migration(source="d2", dest="d1", rate=1e-5)
-        g4.migration(source="d1", dest="d2", rate=1e-4, start_time=50, end_time=40)
+        b3.add_migration(source="d1", dest="d2", rate=1e-4, start_time=50, end_time=40)
+        b3.add_migration(source="d2", dest="d1", rate=1e-5)
+        b4.add_migration(source="d2", dest="d1", rate=1e-5)
+        b4.add_migration(source="d1", dest="d2", rate=1e-4, start_time=50, end_time=40)
+        g3 = b3.resolve()
+        g4 = b4.resolve()
         self.assertTrue(g3.isclose(g4))
 
         # The order in which pulses are added shouldn't matter.
-        g3.pulse(source="d1", dest="d2", proportion=0.01, time=100)
-        g3.pulse(source="d1", dest="d2", proportion=0.01, time=50)
-        g4.pulse(source="d1", dest="d2", proportion=0.01, time=50)
-        g4.pulse(source="d1", dest="d2", proportion=0.01, time=100)
+        b3.add_pulse(source="d1", dest="d2", proportion=0.01, time=100)
+        b3.add_pulse(source="d1", dest="d2", proportion=0.01, time=50)
+        b4.add_pulse(source="d1", dest="d2", proportion=0.01, time=50)
+        b4.add_pulse(source="d1", dest="d2", proportion=0.01, time=100)
+        g3 = b3.resolve()
+        g4 = b4.resolve()
         self.assertTrue(g3.isclose(g4))
 
         #
         # Check inequalities
         #
 
-        self.assertFalse(g1 == g2)
-        g3 = copy.deepcopy(g2)
-        g3.deme("dX", epochs=[Epoch(start_size=1000, end_time=0)])
+        b3 = copy.deepcopy(b2)
+        b3.add_deme("dX", epochs=[dict(start_size=1000, end_time=0)])
+        g3 = b3.resolve()
         self.assertFalse(g1.isclose(g3))
 
-        g3 = copy.deepcopy(g2)
-        g3.deme("d1", epochs=[Epoch(start_size=1001, end_time=0)])
+        b3 = copy.deepcopy(b2)
+        b3.add_deme("d1", epochs=[dict(start_size=1001, end_time=0)])
+        g3 = b3.resolve()
         self.assertFalse(g1.isclose(g3))
 
-        g3 = copy.deepcopy(g2)
-        g3.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
-        g3.deme("d2", epochs=[Epoch(start_size=1000, end_time=0)])
+        b3 = copy.deepcopy(b2)
+        b3.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        b3.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
+        g3 = b3.resolve()
         self.assertFalse(g1.isclose(g3))
 
-        g3 = copy.deepcopy(g1)
-        g4 = copy.deepcopy(g1)
-        g3.deme("dX", epochs=[Epoch(start_size=1000, end_time=0)])
-        g3.deme(
+        b3 = copy.deepcopy(b1)
+        b4 = copy.deepcopy(b1)
+        b3.add_deme("dX", epochs=[dict(start_size=1000, end_time=0)])
+        b3.add_deme(
             "d2",
             ancestors=["dX"],
             start_time=50,
-            epochs=[Epoch(start_size=1000, end_time=0)],
+            epochs=[dict(start_size=1000, end_time=0)],
         )
-        g4.deme("dX", epochs=[Epoch(start_size=1000)])
-        g4.deme(
+        b4.add_deme("dX", epochs=[dict(start_size=1000)])
+        b4.add_deme(
             "d2",
             ancestors=["d1"],
             start_time=50,
-            epochs=[Epoch(start_size=1000, end_time=0)],
+            epochs=[dict(start_size=1000, end_time=0)],
         )
+        g3 = b3.resolve()
+        g4 = b4.resolve()
         self.assertFalse(g3.isclose(g4))
 
-        g3 = copy.deepcopy(g2)
-        g3.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
-        g3.deme("d2", epochs=[Epoch(start_size=1000, end_time=0)])
-        g4 = copy.deepcopy(g2)
-        g4.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
-        g4.deme("d2", epochs=[Epoch(start_size=1000, end_time=0)])
-        g4.migration(source="d2", dest="d1", rate=1e-5)
+        b3 = copy.deepcopy(b2)
+        b3.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        b3.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
+        b4 = copy.deepcopy(b2)
+        b4.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        b4.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
+        b4.add_migration(source="d2", dest="d1", rate=1e-5)
+        g3 = b3.resolve()
+        g4 = b4.resolve()
         self.assertFalse(g3.isclose(g4))
 
-        g3 = copy.deepcopy(g2)
-        g3.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
-        g3.deme("d2", epochs=[Epoch(start_size=1000, end_time=0)])
-        g3.migration(source="d1", dest="d2", rate=1e-5)
-        g4 = copy.deepcopy(g2)
-        g4.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
-        g4.deme("d2", epochs=[Epoch(start_size=1000, end_time=0)])
-        g4.migration(source="d2", dest="d1", rate=1e-5)
+        b3 = copy.deepcopy(b2)
+        b3.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        b3.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
+        b3.add_migration(source="d1", dest="d2", rate=1e-5)
+        b4 = copy.deepcopy(b2)
+        b4.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        b4.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
+        b4.add_migration(source="d2", dest="d1", rate=1e-5)
+        g3 = b3.resolve()
+        g4 = b4.resolve()
         self.assertFalse(g3.isclose(g4))
 
-        g3 = copy.deepcopy(g2)
-        g3.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
-        g3.deme("d2", epochs=[Epoch(start_size=1000, end_time=0)])
-        g3.migration(source="d2", dest="d1", rate=1e-5)
-        g4 = copy.deepcopy(g2)
-        g4.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
-        g4.deme("d2", epochs=[Epoch(start_size=1000, end_time=0)])
-        g4.symmetric_migration(demes=["d2", "d1"], rate=1e-5)
+        b3 = copy.deepcopy(b2)
+        b3.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        b3.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
+        b3.add_migration(source="d2", dest="d1", rate=1e-5)
+        b4 = copy.deepcopy(b2)
+        b4.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        b4.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
+        b4.add_migration(demes=["d2", "d1"], rate=1e-5)
+        g3 = b3.resolve()
+        g4 = b4.resolve()
         self.assertFalse(g3.isclose(g4))
 
-        g3 = copy.deepcopy(g2)
-        g3.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
-        g3.deme("d2", epochs=[Epoch(start_size=1000, end_time=0)])
-        g4 = copy.deepcopy(g2)
-        g4.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
-        g4.deme("d2", epochs=[Epoch(start_size=1000, end_time=0)])
-        g4.pulse(source="d1", dest="d2", proportion=0.01, time=100)
+        b3 = copy.deepcopy(b2)
+        b3.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        b3.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
+        b4 = copy.deepcopy(b2)
+        b4.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        b4.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
+        b4.add_pulse(source="d1", dest="d2", proportion=0.01, time=100)
+        g3 = b3.resolve()
+        g4 = b4.resolve()
         self.assertFalse(g3.isclose(g4))
 
-        g3 = copy.deepcopy(g2)
-        g3.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
-        g3.deme("d2", epochs=[Epoch(start_size=1000, end_time=0)])
-        g3.pulse(source="d2", dest="d1", proportion=0.01, time=100)
-        g4 = copy.deepcopy(g2)
-        g4.deme("d1", epochs=[Epoch(start_size=1000, end_time=0)])
-        g4.deme("d2", epochs=[Epoch(start_size=1000, end_time=0)])
-        g4.pulse(source="d1", dest="d2", proportion=0.01, time=100)
+        b3 = copy.deepcopy(b2)
+        b3.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        b3.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
+        b3.add_pulse(source="d2", dest="d1", proportion=0.01, time=100)
+        b4 = copy.deepcopy(b2)
+        b4.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
+        b4.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
+        b4.add_pulse(source="d1", dest="d2", proportion=0.01, time=100)
+        g3 = b3.resolve()
+        g4 = b4.resolve()
         self.assertFalse(g3.isclose(g4))
 
-    def test_validate(self):
-        g1 = demes.Graph(description="test", time_units="generations")
-        g1.deme("a", epochs=[Epoch(start_size=1, end_time=100)])
-        g1.deme("ancestral", epochs=[Epoch(start_size=1)])
-        g1.deme(
+
+class TestGraphResolution(unittest.TestCase):
+    def test_basic_resolution(self):
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.resolve()
+
+        b = Builder()
+        b.add_deme("a", epochs=[dict(end_size=1)])
+        b.resolve()
+
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1, end_time=100)])
+        b.add_deme("b", ancestors=["a"], epochs=[dict(start_size=1)])
+        b.resolve()
+
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)])
+        b.add_migration(source="a", dest="b", rate=1e-5)
+        b.resolve()
+
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)])
+        b.add_deme("c", epochs=[dict(start_size=1)])
+        b.add_migration(demes=["a", "b", "c"], rate=1e-5)
+        b.resolve()
+
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)])
+        b.add_pulse(source="a", dest="b", proportion=0.1, time=100)
+        b.resolve()
+
+    def test_bad_data_dict(self):
+        # not a dict
+        for data in (None, [], "string", 0, 1e-5):
+            b = Builder()
+            b.data = data
+            with pytest.raises(TypeError):
+                b.resolve()
+
+        # empty dict
+        b = Builder.fromdict(dict())
+        with pytest.raises(KeyError):
+            b.resolve()
+
+    def test_bad_toplevel(self):
+        # no time units
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        del b.data["time_units"]
+        with pytest.raises(KeyError):
+            b.resolve()
+
+        # unrecognised toplevel field
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.data["thyme_younerts"] = "generations"
+        with pytest.raises(KeyError):
+            b.resolve()
+
+        # unrecognised toplevel fields
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.data["foo"] = [dict(bar=10), dict(baz=20)]
+        b.data["zort"] = "tron"
+        with pytest.raises(KeyError):
+            b.resolve()
+
+    def test_bad_toplevel_defaults(self):
+        # defaults is not a dict
+        for data in (None, [], "string", 0, 1e-5):
+            b = Builder()
+            b.add_deme("a", epochs=[dict(start_size=1)])
+            b.data["defaults"] = data
+            with pytest.raises(TypeError):
+                b.resolve()
+
+        # unrecognised defaults fields
+        b = Builder(defaults=dict(rate=0.1, proportion=0.1))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError):
+            b.resolve()
+
+        # unrecognised defaults.deme fields
+        b = Builder(defaults=dict(deme=dict(foo=10, bar=20)))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError):
+            b.resolve()
+
+        # unrecognised defaults.epoch fields
+        b = Builder(defaults=dict(epoch=dict(foo=10)))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError):
+            b.resolve()
+
+        # unrecognised defaults.migration fields
+        b = Builder(defaults=dict(migration=dict(foo=10)))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError):
+            b.resolve()
+
+        # unrecognised defaults.pulse fields
+        b = Builder(defaults=dict(pulse=dict(foo={}, bar=[], baz=None)))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError):
+            b.resolve()
+
+        # defaults field is not a dict
+        for data in (None, [], "string", 0, 1e-5):
+            for key in ("deme", "migration", "pulse", "epoch"):
+                b = Builder()
+                b.add_deme("a", epochs=[dict(start_size=1)])
+                b.data["defaults"] = {key: data}
+                with pytest.raises(TypeError):
+                    b.resolve()
+
+    def test_bad_demelevel_defaults(self):
+        # defaults is not a dict
+        for data in (None, [], "string", 0, 1e-5):
+            b = Builder()
+            b.add_deme("a", epochs=[dict(start_size=1)])
+            b.data["demes"][0]["defaults"] = data
+            with pytest.raises(TypeError):
+                b.resolve()
+
+        # unrecognised defaults fields
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)], defaults=dict(foo=10, bar=20))
+        with pytest.raises(KeyError):
+            b.resolve()
+
+        # defaults.epoch field is not a dict
+        for data in (None, [], "string", 0, 1e-5):
+            b = Builder()
+            b.add_deme("a", epochs=[dict(start_size=1)], defaults=data)
+            b.data["demes"][0]["defaults"] = dict(epoch=data)
+            with pytest.raises(TypeError):
+                b.resolve()
+
+        # unrecognised defaults.epoch fields
+        b = Builder()
+        b.add_deme(
+            "a", epochs=[dict(start_size=1)], defaults=dict(epoch=dict(foo=10, bar=20))
+        )
+        with pytest.raises(KeyError):
+            b.resolve()
+
+    def test_bad_demes(self):
+        # no demes
+        b = Builder()
+        with pytest.raises(KeyError):
+            b.resolve()
+
+        # demes is not a list
+        for data in (None, {}, "string", 0, 1e-5):
+            b = Builder()
+            b.data["demes"] = data
+            with pytest.raises(TypeError):
+                b.resolve()
+
+        # deme is not a dict
+        for data in (None, [], "string", 0, 1e-5):
+            b = Builder()
+            b.data["demes"] = [data]
+            with pytest.raises(TypeError):
+                b.resolve()
+
+        # deme has no id
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        del b.data["demes"][0]["id"]
+        with pytest.raises(KeyError):
+            b.resolve()
+
+        # no epochs given
+        b = Builder()
+        b.add_deme("a")
+        with self.assertRaises(KeyError):
+            b.resolve()
+
+        # missing start_size or end_size
+        b = Builder()
+        b.add_deme("a", epochs=[dict(end_time=1)])
+        with self.assertRaises(KeyError):
+            b.resolve()
+
+        # ancestors must be a list
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme(
             "b",
+            ancestors="a",
+            start_time=10,
+            epochs=[dict(start_size=1)],
+        )
+        with self.assertRaises(TypeError):
+            b.resolve()
+
+        # ancestor x doesn't exist
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme(
+            "b",
+            ancestors=["a", "x"],
+            proportions=[0.5, 0.5],
+            epochs=[dict(start_size=1)],
+        )
+        with self.assertRaises(ValueError):
+            b.resolve()
+
+    def test_duplicate_deme(self):
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with self.assertRaises(ValueError):
+            b.resolve()
+
+    def test_duplicate_ancestors(self):
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=100, end_time=50)])
+        b.add_deme(
+            "b",
+            ancestors=["a", "a"],
+            proportions=[0.5, 0.5],
+            start_time=100,
+            epochs=[dict(start_size=100)],
+        )
+        with self.assertRaises(ValueError):
+            b.resolve()
+
+    def test_bad_start_time_wrt_ancestors(self):
+        b1 = Builder()
+        b1.add_deme("ancestral", epochs=[dict(start_size=100)])
+        b1.add_deme(
+            "a",
+            start_time=100,
             ancestors=["ancestral"],
-            start_time=50,
-            epochs=[Epoch(start_size=1, end_time=0)],
+            epochs=[dict(start_size=100, end_time=50)],
         )
-        g1.validate()
+        b1.add_deme("b", epochs=[dict(start_size=100)])
 
-        #
-        # bypass the usual API to invalidate the graph
-        #
-
-        # add an ancestor deme that's not in the graph
-        g2 = copy.deepcopy(g1)
-        g2["a"].ancestors = ["x"]
-        g2["a"].proportions = [1]
-        with self.assertRaises(ValueError):
-            g2.validate()
-
-        # add an ancestor deme that's temporally not possible
-        g2 = copy.deepcopy(g1)
-        g2["b"].ancestors = ["a"]
-        g2["b"].proportions = [1]
-        with self.assertRaises(ValueError):
-            g2.validate()
-
-        # add an overlapping epoch
-        g2 = copy.deepcopy(g1)
-        g2["a"].epochs.append(Epoch(start_time=300, end_time=200, start_size=1))
-        with self.assertRaises(ValueError):
-            g2.validate()
-
-        # add migration between non-temporally overlapping populations
-        g2 = copy.deepcopy(g1)
-        g2.migrations.append(
-            Migration(source="a", dest="b", start_time=200, end_time=0, rate=1e-5)
-        )
-        with self.assertRaises(ValueError):
-            g2.validate()
-
-    def test_newly_created_objects_return(self):
-        g = demes.Graph(description="test", time_units="generations")
-        d1 = g.deme("a", epochs=[Epoch(start_size=1, end_time=0)])
-        self.assertIsInstance(d1, Deme)
-        d2 = g.deme(
-            "b",
-            start_time=50,
+        # start_time too old
+        b2 = copy.deepcopy(b1)
+        b2.add_deme(
+            "c",
             ancestors=["a"],
-            epochs=[Epoch(start_size=1, end_time=0)],
+            start_time=200,
+            epochs=[dict(start_size=100)],
         )
-        self.assertIsInstance(d2, Deme)
+        with self.assertRaises(ValueError):
+            b2.resolve()
 
-        mig = g.migration(source="a", dest="b", rate=1e-4, end_time=25)
-        self.assertIsInstance(mig, Migration)
-        migs = g.symmetric_migration(demes=["a", "b"], rate=1e-4, start_time=25)
-        self.assertIsInstance(migs, list)
-        for m in migs:
-            self.assertIsInstance(m, Migration)
+        # start_time too young
+        b2 = copy.deepcopy(b1)
+        b2.add_deme(
+            "c",
+            ancestors=["a"],
+            start_time=20,
+            epochs=[dict(start_size=100)],
+        )
+        with self.assertRaises(ValueError):
+            b2.resolve()
 
-        pulse = g.pulse(source="a", dest="b", proportion=0.5, time=25)
-        self.assertIsInstance(pulse, Pulse)
+        # start_time too old
+        b2 = copy.deepcopy(b1)
+        b2.add_deme(
+            "c",
+            ancestors=["a", "b"],
+            proportions=[0.5, 0.5],
+            start_time=200,
+            epochs=[dict(start_size=100)],
+        )
+        with self.assertRaises(ValueError):
+            b2.resolve()
+
+        # start_time too young
+        b2 = copy.deepcopy(b1)
+        b2.add_deme(
+            "c",
+            ancestors=["a", "b"],
+            proportions=[0.5, 0.5],
+            start_time=20,
+            epochs=[dict(start_size=100)],
+        )
+        with self.assertRaises(ValueError):
+            b2.resolve()
+
+        # start_time not provided
+        b2 = copy.deepcopy(b1)
+        b2.add_deme(
+            "c",
+            ancestors=["a", "b"],
+            proportions=[0.5, 0.5],
+            epochs=[dict(start_size=100)],
+        )
+        with self.assertRaises(ValueError):
+            b2.resolve()
+
+        # finite start time, but no ancestors
+        b2 = copy.deepcopy(b1)
+        b2.add_deme("c", start_time=100, epochs=[dict(start_size=100)])
+        with self.assertRaises(ValueError):
+            b2.resolve()
+
+    def test_proportions_default(self):
+        b1 = Builder()
+        b1.add_deme("a", epochs=[dict(start_size=100, end_time=50)])
+        b1.add_deme("b", epochs=[dict(start_size=100, end_time=50)])
+
+        # proportions missing
+        b2 = copy.deepcopy(b1)
+        b2.add_deme(
+            "c",
+            ancestors=["a", "b"],
+            start_time=100,
+            epochs=[dict(start_size=100)],
+        )
+        with self.assertRaises(ValueError):
+            b2.resolve()
+
+        b2 = copy.deepcopy(b1)
+        # proportions wrong length
+        b2.add_deme(
+            "c",
+            ancestors=["a", "b"],
+            proportions=[1],
+            start_time=100,
+            epochs=[dict(start_size=100)],
+        )
+        with self.assertRaises(ValueError):
+            b2.resolve()
+
+        b2 = copy.deepcopy(b1)
+        # proportions wrong length
+        b2.add_deme(
+            "c",
+            ancestors=["a", "b"],
+            proportions=[1 / 3, 1 / 3, 1 / 3],
+            start_time=100,
+            epochs=[dict(start_size=100)],
+        )
+        with self.assertRaises(ValueError):
+            b2.resolve()
+
+        b2 = copy.deepcopy(b1)
+        b2.add_deme("c", ancestors=["b"], epochs=[dict(start_size=100)])
+        g2 = b2.resolve()
+        self.assertEqual(len(g2["c"].proportions), 1)
+        self.assertEqual(g2["c"].proportions[0], 1.0)
 
     def test_deme_end_time(self):
-        g = demes.Graph(description="test", time_units="generations")
-        g.deme(
+        b1 = Builder()
+        b1.add_deme(
             "a",
             epochs=[
-                Epoch(end_time=100, start_size=10),
-                Epoch(start_size=20, end_time=0),
+                dict(end_time=100, start_size=10),
+                dict(start_size=20, end_time=0),
             ],
         )
+
+        # can't have epoch end_time == deme start_time
+        b2 = copy.deepcopy(b1)
+        b2.add_deme(
+            "b",
+            start_time=100,
+            ancestors=["a"],
+            epochs=[dict(start_size=100, end_time=100)],
+        )
         with self.assertRaises(ValueError):
-            g.deme(
-                "b",
-                start_time=100,
-                ancestors=["a"],
-                epochs=[Epoch(start_size=100, end_time=100)],
-            )
-        assert "b" not in g
+            b2.resolve()
+
+        # can't have epoch end_time > deme start_time
+        b2 = copy.deepcopy(b1)
+        b2.add_deme(
+            "b",
+            start_time=100,
+            ancestors=["a"],
+            epochs=[dict(start_size=100, end_time=200)],
+        )
         with self.assertRaises(ValueError):
-            g.deme(
-                "b",
-                start_time=100,
-                ancestors=["a"],
-                epochs=[Epoch(start_size=100, end_time=200)],
-            )
-        assert "b" not in g
+            b2.resolve()
+
         # Check that end_time can be ommitted for final epoch
-        g.deme("x", start_time=100, ancestors=["a"], epochs=[Epoch(start_size=100)])
-        g.deme("y", epochs=[Epoch(start_size=100)])
-        g.deme(
+        b2 = copy.deepcopy(b1)
+        b2.add_deme("x", start_time=100, ancestors=["a"], epochs=[dict(start_size=100)])
+        b2.add_deme("y", epochs=[dict(start_size=100)])
+        b2.add_deme(
             "z",
             start_time=100,
             ancestors=["a"],
-            epochs=[Epoch(start_size=100, end_time=10), Epoch(start_size=10)],
+            epochs=[dict(start_size=100, end_time=10), dict(start_size=10)],
         )
+        b2.resolve()
 
-    def test_ambiguous_epoch_times(self):
-        g = demes.Graph(description="test", time_units="generations")
+    def test_bad_epochs(self):
+        # deme has no epochs
+        b = Builder()
+        b.add_deme("a")
+        with pytest.raises(KeyError):
+            b.resolve()
+
+        # epochs is not a list
+        for data in (None, {}, "string", 0, 1e-5):
+            b = Builder()
+            b.add_deme("a")
+            b.data["demes"][0]["epochs"] = data
+            with pytest.raises(TypeError):
+                b.resolve()
+
+        # epoch is not a dict
+        for data in (None, [], "string", 0, 1e-5):
+            b = Builder()
+            b.add_deme("a")
+            b.data["demes"][0]["epochs"] = [data]
+            with pytest.raises(TypeError):
+                b.resolve()
+
+        # epochs out of order
+        b = Builder()
+        b.add_deme(
+            "a",
+            epochs=[
+                dict(start_size=1, end_time=0),
+                dict(start_size=1, end_time=100),
+            ],
+        )
         with self.assertRaises(ValueError):
-            g.deme(
-                "a",
-                epochs=[
-                    Epoch(start_size=10),
-                    Epoch(end_time=0, start_size=100),
-                ],
-            )
+            b.resolve()
+
+        # must have a start_size or end_size
+        b = Builder()
+        b.add_deme("a", epochs=[dict(end_time=0)])
+        with self.assertRaises(KeyError):
+            b.resolve()
+
+        # except for the last epoch, all epochs must have an end_time
+        b = Builder()
+        b.add_deme(
+            "a",
+            epochs=[
+                dict(start_size=1, end_time=100),
+                dict(start_size=1),
+                dict(start_size=1, end_time=0),
+            ],
+        )
+        with self.assertRaises(KeyError):
+            b.resolve()
+
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=10), dict(end_time=0, start_size=100)])
+        with self.assertRaises(KeyError):
+            b.resolve()
+
+    def test_bad_migrations(self):
+        # migrations is not a list
+        for data in (None, {}, "string", 0, 1e-5):
+            b = Builder()
+            b.add_deme("a", epochs=[dict(start_size=1)])
+            b.data["migrations"] = data
+            with pytest.raises(TypeError):
+                b.resolve()
+
+        # migration is not a dict
+        for data in (None, [], "string", 0, 1e-5):
+            b = Builder()
+            b.add_deme("a", epochs=[dict(start_size=1)])
+            b.data["migrations"] = [data]
+            with pytest.raises(TypeError):
+                b.resolve()
+
+        # missing required migration field: 'rate' (asymmetric)
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)])
+        b.data["migrations"] = [dict(source="a", dest="b")]
+        with pytest.raises(KeyError):
+            b.resolve()
+
+        # missing required migration field: 'rate' (symmetric)
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)])
+        b.data["migrations"] = [dict(demes=["a", "b"])]
+        with pytest.raises(KeyError):
+            b.resolve()
+
+        # unable to determine if symmetric or asymmetric
+        for migration in [
+            dict(source="a", rate=0.1),
+            dict(dest="a", rate=0.1),
+            dict(demes=["a", "b"], dest="a", rate=0.1),
+            dict(demes=["a", "b"], source="a", rate=0.1),
+        ]:
+            b = Builder()
+            b.add_deme("a", epochs=[dict(start_size=1)])
+            b.add_deme("b", epochs=[dict(start_size=1)])
+            b.data["migrations"] = [migration]
+            with pytest.raises(KeyError):
+                b.resolve()
+
+        # no demes participating in migration
+        b = Builder()
+        b.add_deme("X", epochs=[dict(start_size=100)])
+        b.add_migration(demes=[], rate=0)
+        with self.assertRaises(ValueError):
+            b.resolve()
+
+        # only one deme participating in migration
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=100)])
+        b.add_migration(demes=["a"], rate=0.1)
+        with self.assertRaises(ValueError):
+            b.resolve()
+
+        # source and dest aren't in the graph
+        b = Builder()
+        b.add_deme("X", epochs=[dict(start_size=100)])
+        b.add_migration(source="a", dest="b", rate=0.1)
+        with self.assertRaises(ValueError):
+            b.resolve()
+
+        # dest not in graph
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=100)])
+        b.add_migration(source="a", dest="b", rate=0.1)
+        with self.assertRaises(ValueError):
+            b.resolve()
+
+        # source not in graph
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=100)])
+        b.add_migration(source="b", dest="a", rate=0.1)
+        with self.assertRaises(ValueError):
+            b.resolve()
+
+    def test_bad_migration_time(self):
+        b = Builder()
+        b.add_deme("deme1", epochs=[dict(start_size=1000, end_time=0)])
+        b.add_deme("deme2", epochs=[dict(end_time=100, start_size=1000)])
+        b.add_migration(
+            source="deme1", dest="deme2", rate=0.01, start_time=1000, end_time=0
+        )
+        with self.assertRaises(ValueError):
+            b.resolve()
+
+    def test_overlapping_migrations(self):
+        b1 = Builder()
+        b1.add_deme("A", epochs=[dict(start_size=1)])
+        b1.add_deme("B", epochs=[dict(start_size=1)])
+        b1.add_migration(source="A", dest="B", rate=0.01)
+
+        b2 = copy.deepcopy(b1)
+        b2.add_migration(source="A", dest="B", start_time=10, rate=0.02)
+        with self.assertRaises(ValueError):
+            b2.resolve()
+
+        b2 = copy.deepcopy(b1)
+        b2.add_migration(demes=["A", "B"], rate=0.02)
+        with self.assertRaises(ValueError):
+            b2.resolve()
+
+        b2 = copy.deepcopy(b1)
+        b2.add_migration(demes=["A", "B"], rate=0.02, end_time=100)
+        with self.assertRaises(ValueError):
+            b2.resolve()
+
+        b2 = copy.deepcopy(b1)
+        b2.add_migration(source="B", dest="A", rate=0.03, start_time=100, end_time=10)
+        b2.add_migration(source="B", dest="A", rate=0.04, start_time=50)
+        with self.assertRaises(ValueError):
+            b2.resolve()
+
+        b2 = copy.deepcopy(b1)
+        b2.add_migration(source="B", dest="A", rate=0.03, start_time=5)
+        b2.add_migration(source="B", dest="A", rate=0.05, start_time=10)
+        with self.assertRaises(ValueError):
+            b2.resolve()
+
+        b2 = copy.deepcopy(b1)
+        b2.add_migration(source="B", dest="A", rate=0.01, start_time=10, end_time=5)
+        b2.resolve()
+
+    def test_bad_pulses(self):
+        # pulses is not a list
+        for data in (None, {}, "string", 0, 1e-5):
+            b = Builder()
+            b.add_deme("a", epochs=[dict(start_size=1)])
+            b.data["pulses"] = data
+            with pytest.raises(TypeError):
+                b.resolve()
+
+        # pulse is not a dict
+        for data in (None, [], "string", 0, 1e-5):
+            b = Builder()
+            b.add_deme("a", epochs=[dict(start_size=1)])
+            b.data["pulses"] = [data]
+            with pytest.raises(TypeError):
+                b.resolve()
+
+        # dest not in graph
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=100, end_time=0)])
+        b.add_pulse(source="a", dest="b", proportion=0.1, time=10)
+        with self.assertRaises(ValueError):
+            b.resolve()
+
+        # source not in graph
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=100, end_time=0)])
+        b.add_pulse(source="b", dest="a", proportion=0.1, time=10)
+        with self.assertRaises(ValueError):
+            b.resolve()
+
+        for field in ("source", "dest", "time", "proportion"):
+            b = Builder()
+            b.add_deme("a", epochs=[dict(start_size=1)])
+            b.add_deme("b", epochs=[dict(start_size=1)])
+            b.add_pulse(source="a", dest="b", proportion=0.1, time=100)
+            del b.data["pulses"][0][field]
+            with pytest.raises(KeyError):
+                b.resolve()
+
+    def test_bad_pulse_time(self):
+        b = Builder()
+        b.add_deme("deme1", epochs=[dict(start_size=1000, end_time=0)])
+        b.add_deme("deme2", epochs=[dict(end_time=100, start_size=1000)])
+        b.add_pulse(source="deme1", dest="deme2", proportion=0.1, time=10)
+        with self.assertRaises(ValueError):
+            b.resolve()
+
+    def test_pulse_same_time(self):
+        b1 = Builder()
+        for j in range(4):
+            b1.add_deme(f"d{j}", epochs=[dict(start_size=1000)])
+
+        T = 100  # time of pulses
+
+        # Warn for duplicate pulses
+        b2 = copy.deepcopy(b1)
+        b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
+        b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
+        with pytest.warns(UserWarning):
+            b2.resolve()
+
+        # Warn for: d0 -> d1; d1 -> d2.
+        b2 = copy.deepcopy(b1)
+        b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
+        b2.add_pulse(source="d1", dest="d2", time=T, proportion=0.1)
+        with pytest.warns(UserWarning):
+            b2.resolve()
+
+        # Warn for: d0 -> d2; d1 -> d2.
+        b2 = copy.deepcopy(b1)
+        b2.add_pulse(source="d0", dest="d2", time=T, proportion=0.1)
+        b2.add_pulse(source="d1", dest="d2", time=T, proportion=0.1)
+        with pytest.warns(UserWarning):
+            b2.resolve()
+
+        # Shouldn't warn for: d0 -> d1; d0 -> d2.
+        b2 = copy.deepcopy(b1)
+        b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
+        b2.add_pulse(source="d0", dest="d2", time=T, proportion=0.1)
+        with pytest.warns(None) as record:
+            b2.resolve()
+        assert len(record) == 0
+
+        # Shouldn't warn for: d0 -> d1; d2 -> d3.
+        b2 = copy.deepcopy(b1)
+        b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
+        b2.add_pulse(source="d2", dest="d3", time=T, proportion=0.1)
+        with pytest.warns(None) as record:
+            b2.resolve()
+        assert len(record) == 0
+
+        # Different pulse times shouldn't warn for: d0 -> d1; d1 -> d2.
+        b2 = copy.deepcopy(b1)
+        b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
+        b2.add_pulse(source="d1", dest="d2", time=2 * T, proportion=0.1)
+        with pytest.warns(None) as record:
+            b2.resolve()
+        assert len(record) == 0
+
+        # Different pulse times shouldn't warn for: d0 -> d2; d1 -> d2.
+        b2 = copy.deepcopy(b1)
+        b2.add_pulse(source="d0", dest="d2", time=T, proportion=0.1)
+        b2.add_pulse(source="d1", dest="d2", time=2 * T, proportion=0.1)
+        with pytest.warns(None) as record:
+            b2.resolve()
+        assert len(record) == 0
 
 
 class TestGraphToDict(unittest.TestCase):
     def test_finite_start_time(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme("ancestral", epochs=[Epoch(start_size=100)])
-        dg.deme(
+        b = Builder()
+        b.add_deme("ancestral", epochs=[dict(start_size=100)])
+        b.add_deme(
             "a",
             start_time=100,
             ancestors=["ancestral"],
-            epochs=[Epoch(start_size=100, end_time=0)],
+            epochs=[dict(start_size=100, end_time=0)],
         )
-        d = dg.asdict()
-        self.assertTrue(d["demes"][1]["start_time"] == dg["a"].start_time == 100)
+        g = b.resolve()
+        d = g.asdict()
+        self.assertTrue(d["demes"][1]["start_time"] == g["a"].start_time == 100)
 
     def test_deme_selfing_rate(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme("a", epochs=[Epoch(start_size=100, selfing_rate=0.1, end_time=0)])
-        d = dg.asdict()
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=100, selfing_rate=0.1)])
+        d = b.resolve().asdict()
         self.assertTrue(d["demes"][0]["epochs"][0]["selfing_rate"] == 0.1)
 
     def test_deme_cloning_rate(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme("a", epochs=[Epoch(start_size=100, cloning_rate=0.1, end_time=0)])
-        d = dg.asdict()
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=100, cloning_rate=0.1)])
+        d = b.resolve().asdict()
         self.assertTrue(d["demes"][0]["epochs"][0]["cloning_rate"] == 0.1)
-        d = dg.asdict_simplified()
+        d = b.resolve().asdict_simplified()
         self.assertTrue(d["demes"][0]["epochs"][0]["cloning_rate"] == 0.1)
-        dg.deme("b", epochs=[Epoch(start_size=200, end_time=0)])
-        d = dg.asdict_simplified()
+
+        b.add_deme("b", epochs=[dict(start_size=200, end_time=0)])
+        d = b.resolve().asdict_simplified()
         self.assertTrue("cloning_rate" not in d["demes"][1])
-        dg.deme(
+
+        b.add_deme(
             "c",
             epochs=[
-                Epoch(start_size=1, end_time=100, cloning_rate=0.3),
-                Epoch(start_size=2, end_time=0),
+                dict(start_size=1, end_time=100, cloning_rate=0.3),
+                dict(start_size=2),
             ],
         )
-        d = dg.asdict_simplified()
+        d = b.resolve().asdict_simplified()
         self.assertTrue(d["demes"][2]["epochs"][0]["cloning_rate"] == 0.3)
-        self.assertTrue("cloning_rate" not in d["demes"][2]["epochs"][1])
+        self.assertTrue("cloning_rate" not in d["demes"][2]["epochs"][1], msg=f"{d}")
 
     def test_fill_nonstandard_size_function(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme(
+        b = Builder()
+        b.add_deme(
             "a",
             epochs=[
-                Epoch(start_size=1, end_time=10),
-                Epoch(end_size=10, size_function="linear", end_time=0),
+                dict(start_size=1, end_time=10),
+                dict(end_size=10, size_function="linear"),
             ],
         )
-        d = dg.asdict()
+        d = b.resolve().asdict()
         self.assertTrue(d["demes"][0]["epochs"][-1]["size_function"] == "linear")
 
     def test_fill_epoch_selfing_rates(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme(
+        b = Builder()
+        b.add_deme(
             "a",
-            defaults={"selfing_rate": 0.3},
+            defaults={"epoch": {"selfing_rate": 0.3}},
             epochs=[
-                Epoch(start_size=10, end_time=10, selfing_rate=0.2),
-                Epoch(end_size=20, end_time=0, selfing_rate=0.1),
+                dict(start_size=10, end_time=10, selfing_rate=0.2),
+                dict(end_size=20, selfing_rate=0.1),
             ],
         )
-        d = dg.asdict()
+        d = b.resolve().asdict()
         self.assertTrue(d["demes"][0]["epochs"][0]["selfing_rate"] == 0.2)
         self.assertTrue(d["demes"][0]["epochs"][1]["selfing_rate"] == 0.1)
 
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme(
+        b = Builder()
+        b.add_deme(
             "a",
             epochs=[
-                Epoch(start_size=10, end_time=10),
-                Epoch(end_size=20, end_time=0, selfing_rate=0.1),
+                dict(start_size=10, end_time=10),
+                dict(end_size=20, selfing_rate=0.1),
             ],
         )
-        d = dg.asdict()
+        d = b.resolve().asdict_simplified()
         self.assertTrue("selfing_rate" not in d["demes"][0]["epochs"][0])
         self.assertTrue(d["demes"][0]["epochs"][1]["selfing_rate"] == 0.1)
 
     def test_fill_epoch_cloning_rates(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme(
+        b = Builder()
+        b.add_deme(
             "a",
-            defaults={"cloning_rate": 0.2},
+            defaults={"epoch": {"cloning_rate": 0.2}},
             epochs=[
-                Epoch(start_size=10, end_time=10),
-                Epoch(end_size=20, end_time=0, cloning_rate=0.1),
+                dict(start_size=10, end_time=10),
+                dict(end_size=20, cloning_rate=0.1),
             ],
         )
-        d = dg.asdict()
+        d = b.resolve().asdict()
         self.assertTrue(d["demes"][0]["epochs"][0]["cloning_rate"] == 0.2)
         self.assertTrue(d["demes"][0]["epochs"][1]["cloning_rate"] == 0.1)
 
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme(
+        b = Builder()
+        b.add_deme(
             "a",
             epochs=[
-                Epoch(start_size=10, end_time=10),
-                Epoch(end_size=20, end_time=0, cloning_rate=0.1),
+                dict(start_size=10, end_time=10),
+                dict(end_size=20, cloning_rate=0.1),
             ],
         )
-        d = dg.asdict()
+        d = b.resolve().asdict()
         self.assertTrue(d["demes"][0]["epochs"][1]["cloning_rate"] == 0.1)
 
     def test_fill_description(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme(
-            "a", description="described", epochs=[Epoch(start_size=100, end_time=0)]
-        )
-        d = dg.asdict()
-        self.assertTrue(d["demes"][0]["description"] == dg["a"].description)
+        b = Builder(description="toplevel-description")
+        b.add_deme("a", description="deme-description", epochs=[dict(start_size=100)])
+        g = b.resolve()
+        d = g.asdict()
+        self.assertTrue(d["description"] == g.description)
+        self.assertTrue(d["demes"][0]["description"] == g["a"].description)
 
     def test_fill_migration_bounds(self):
-        dg = demes.Graph(description="a", time_units="generations")
-        dg.deme("a", epochs=[Epoch(start_size=100, end_time=0)])
-        dg.deme("b", epochs=[Epoch(start_size=100, end_time=0)])
-        dg.migration(source="a", dest="b", rate=0.01, start_time=20, end_time=10)
-        d = dg.asdict()
-        self.assertTrue(d["migrations"]["asymmetric"][0]["start_time"] == 20)
-        self.assertTrue(d["migrations"]["asymmetric"][0]["end_time"] == 10)
-
-    def test_bad_custom_attributes(self):
-        g = demes.Graph(description="a", time_units="generations")
-        with self.assertRaises(TypeError):
-            g.asdict_simplified(custom_attributes="inbreeding")
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=100, end_time=0)])
+        b.add_deme("b", epochs=[dict(start_size=100, end_time=0)])
+        b.add_migration(source="a", dest="b", rate=0.01, start_time=20, end_time=10)
+        d = b.resolve().asdict()
+        self.assertTrue(d["migrations"][0]["start_time"] == 20)
+        self.assertTrue(d["migrations"][0]["end_time"] == 10)
 
     def test_multiple_symmetric_migrations(self):
-        g = demes.Graph(description="descr", time_units="generations")
-        g.deme("a", epochs=[Epoch(start_size=100, end_time=0)])
-        g.deme("b", epochs=[Epoch(start_size=200, end_time=0)])
-        g.deme("c", epochs=[Epoch(start_size=300, end_time=0)])
-        g.symmetric_migration(demes=["a", "b", "c"], rate=0.01)
-        d = g.asdict_simplified()
-        self.assertTrue(len(d["migrations"]["symmetric"]) == 1)
-        self.assertTrue("asymmetric" not in d["migrations"])
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=100, end_time=0)])
+        b.add_deme("b", epochs=[dict(start_size=200, end_time=0)])
+        b.add_deme("c", epochs=[dict(start_size=300, end_time=0)])
+        b.add_migration(demes=["a", "b", "c"], rate=0.01)
+        d = b.resolve().asdict_simplified()
+        self.assertTrue(len(d["migrations"]) == 1)
 
-        g.deme("d", epochs=[Epoch(start_size=400, end_time=0)])
-        g.symmetric_migration(demes=["a", "d"], rate=0.01)
-        d = g.asdict_simplified()
-        self.assertTrue(len(d["migrations"]["symmetric"]) == 2)
-        self.assertTrue(len(d["migrations"]["symmetric"][0]["demes"]) == 3)
-        self.assertTrue(len(d["migrations"]["symmetric"][1]["demes"]) == 2)
-        self.assertTrue("d" not in d["migrations"]["symmetric"][0]["demes"])
-        self.assertTrue("asymmetric" not in d["migrations"])
+        b.add_deme("d", epochs=[dict(start_size=400, end_time=0)])
+        b.add_migration(demes=["a", "d"], rate=0.01)
+        d = b.resolve().asdict_simplified()
+        self.assertTrue(len(d["migrations"]) == 2)
+        self.assertTrue(len(d["migrations"][0]["demes"]) == 3)
+        self.assertTrue(len(d["migrations"][1]["demes"]) == 2)
+        self.assertTrue("d" not in d["migrations"][0]["demes"])
 
     def test_mix_sym_asym_migrations(self):
-        g = demes.Graph(description="a", time_units="generations")
-        g.deme("a", epochs=[Epoch(start_size=1, end_time=0)])
-        g.deme("b", epochs=[Epoch(start_size=1, end_time=0)])
-        g.deme("c", epochs=[Epoch(start_size=1, end_time=0)])
-        g.deme("d", epochs=[Epoch(start_size=1, end_time=0)])
-        g.symmetric_migration(demes=["a", "b"], rate=0.01)
-        g.symmetric_migration(demes=["b", "c"], rate=0.01)
-        g.symmetric_migration(demes=["a", "c", "d"], rate=0.01)
-        g.migration(source="b", dest="d", rate=0.01)
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1, end_time=0)])
+        b.add_deme("b", epochs=[dict(start_size=1, end_time=0)])
+        b.add_deme("c", epochs=[dict(start_size=1, end_time=0)])
+        b.add_deme("d", epochs=[dict(start_size=1, end_time=0)])
+        b.add_migration(demes=["a", "b"], rate=0.01)
+        b.add_migration(demes=["b", "c"], rate=0.01)
+        b.add_migration(demes=["a", "c", "d"], rate=0.01)
+        b.add_migration(source="b", dest="d", rate=0.01)
+        g = b.resolve()
         d = g.asdict()
-        self.assertTrue(len(d["migrations"]["asymmetric"]) == 2 + 2 + 6 + 1)
+        self.assertTrue(len(d["migrations"]) == 4)
         d = g.asdict_simplified()
         self.assertTrue(
-            {"source": "b", "dest": "d", "rate": 0.01} in d["migrations"]["asymmetric"]
+            {"source": "b", "dest": "d", "rate": 0.01} == d["migrations"][3]
         )
-        self.assertTrue(len(d["migrations"]["symmetric"]) == 3)
-        self.assertTrue(len(d["migrations"]["symmetric"][0]["demes"]) == 3)
-        self.assertTrue(len(d["migrations"]["symmetric"][1]["demes"]) == 2)
-        self.assertTrue(len(d["migrations"]["symmetric"][2]["demes"]) == 2)
+        self.assertTrue(len(d["migrations"][0]["demes"]) == 2)
+        self.assertTrue(len(d["migrations"][1]["demes"]) == 2)
+        self.assertTrue(len(d["migrations"][2]["demes"]) == 3)
+
+
+class TestBuilder:
+    def test_properties(self):
+        b = Builder()
+        assert hasattr(b, "data")
+        assert isinstance(b.data, typing.MutableMapping)
+
+    @hyp.settings(deadline=None, suppress_health_check=[hyp.HealthCheck.too_slow])
+    @hyp.given(tests.graphs())
+    def test_back_and_forth(self, graph):
+        b = Builder.fromdict(graph.asdict())
+        g = b.resolve()
+        assert g.isclose(graph)
+
+        b = Builder.fromdict(graph.asdict_simplified())
+        g = b.resolve()
+        assert g.isclose(graph)

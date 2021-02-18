@@ -69,22 +69,20 @@ def epochs_lists(draw, start_time=math.inf, max_epochs=5):
     assert max_epochs >= 2
     times = draw(
         st.lists(
-            st.floats(min_value=0, max_value=start_time),
+            st.floats(min_value=0, max_value=start_time, exclude_max=True),
             unique=True,
-            min_size=2,
+            min_size=1,
             max_size=max_epochs,
         )
     )
     times.sort(reverse=True)
-    if start_time != times[0]:
-        times.insert(0, start_time)
     epochs = []
 
-    for end_time in times[1:]:
+    for i, end_time in enumerate(times):
         start_size = draw(
             st.floats(min_value=0, exclude_min=True, allow_infinity=False)
         )
-        if math.isinf(start_time):
+        if i == 0 and math.isinf(start_time):
             end_size = start_size
         else:
             end_size = draw(
@@ -94,8 +92,7 @@ def epochs_lists(draw, start_time=math.inf, max_epochs=5):
         selfing_rate = draw(st.floats(min_value=0, max_value=1))
 
         epochs.append(
-            demes.Epoch(
-                start_time=start_time,
+            dict(
                 end_time=end_time,
                 start_size=start_size,
                 end_size=end_size,
@@ -103,7 +100,6 @@ def epochs_lists(draw, start_time=math.inf, max_epochs=5):
                 selfing_rate=selfing_rate,
             )
         )
-        start_time = end_time
 
     return epochs
 
@@ -130,7 +126,7 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
         time_units = "generations"
     else:
         time_units = draw(yaml_strings())
-    g = demes.Graph(
+    b = demes.Builder(
         description=draw(yaml_strings()),
         generation_time=generation_time,
         time_units=time_units,
@@ -141,18 +137,21 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
         ancestors = []
         proportions = []
         start_time = math.inf
-        if len(g.demes) > 0:
+        n_demes = 0 if "demes" not in b.data else len(b.data["demes"])
+        if n_demes > 0:
             # draw indices into demes list to use as ancestors
             anc_idx = draw(
                 st.lists(
-                    st.integers(min_value=0, max_value=len(g.demes) - 1),
+                    st.integers(min_value=0, max_value=n_demes - 1),
                     unique=True,
-                    max_size=len(g.demes),
+                    max_size=n_demes,
                 )
             )
             if len(anc_idx) > 0:
-                time_hi = min(g.demes[j].start_time for j in anc_idx)
-                time_lo = max(g.demes[j].end_time for j in anc_idx)
+                time_hi = min(b.data["demes"][j]["start_time"] for j in anc_idx)
+                time_lo = max(
+                    b.data["demes"][j]["epochs"][-1]["end_time"] for j in anc_idx
+                )
                 if time_lo < time_hi and time_lo < 1e308:
                     # The proposed ancestors exist at the same time.
                     # Draw a start time and the ancestry proportions.
@@ -165,7 +164,7 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
                             exclude_min=time_lo == 0,
                         )
                     )
-                    ancestors = [g.demes[j].id for j in anc_idx]
+                    ancestors = [b.data["demes"][j]["id"] for j in anc_idx]
                     if len(ancestors) == 1:
                         proportions = [1.0]
                     else:
@@ -178,7 +177,7 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
                         )
                         psum = sum(proportions)
                         proportions = [p / psum for p in proportions]
-        g.deme(
+        b.add_deme(
             id=id,
             description=draw(st.none() | yaml_strings()),
             ancestors=ancestors,
@@ -189,12 +188,18 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
 
     n_interactions = draw(st.integers(min_value=0, max_value=max_interactions))
     n_tries = 100
-    for j in range(len(g.demes) - 1):
-        for k in range(j + 1, len(g.demes)):
-            dj = g.demes[j].id
-            dk = g.demes[k].id
-            time_lo = max(g[dj].end_time, g[dk].end_time)
-            time_hi = min(g[dj].start_time, g[dk].start_time)
+    n_demes = len(b.data["demes"])
+    for j in range(n_demes - 1):
+        for k in range(j + 1, n_demes):
+            dj = b.data["demes"][j]["id"]
+            dk = b.data["demes"][k]["id"]
+            time_lo = max(
+                b.data["demes"][j]["epochs"][-1]["end_time"],
+                b.data["demes"][k]["epochs"][-1]["end_time"],
+            )
+            time_hi = min(
+                b.data["demes"][j]["start_time"], b.data["demes"][k]["start_time"]
+            )
             if time_hi - time_lo < 1e308:
                 # Demes j and k don't exist at the same time,
                 # or the interval is too small to draw a floating
@@ -230,7 +235,7 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
                 if no_overlap:
                     migration_intervals[(dj, dk)].append([max(times), min(times)])
                     successes += 1
-                    g.migration(
+                    b.add_migration(
                         source=source,
                         dest=dest,
                         start_time=max(times),
@@ -257,7 +262,7 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
                         exclude_max=True,
                     )
                 )
-                g.pulse(
+                b.add_pulse(
                     source=source,
                     dest=dest,
                     time=time,
@@ -272,4 +277,4 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
         if n_interactions <= 0:
             break
 
-    return g
+    return b.resolve()

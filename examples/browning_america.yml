@@ -51,7 +51,6 @@ demes:
       end_size: 54664
       end_time: 0
 migrations:
-  symmetric:
   - demes: [AFR, OOA]
     rate: 15e-5
   - demes: [AFR, EUR]

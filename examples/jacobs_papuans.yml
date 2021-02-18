@@ -89,7 +89,6 @@ demes:
     - start_size: 6962.0
       end_time: 0
 migrations:
-  symmetric:
   - demes: [YRI, Ghost]
     rate: 0.000179
     start_time: 1659.0
