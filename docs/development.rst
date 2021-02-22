@@ -89,7 +89,7 @@ manually from the top-level folder of the sources.
 
  .. code-block:: sh
 
-    python -m pytest -v tests --cov=demes
+    python -m pytest -v tests --cov=demes --cov-report=term-missing
 
 This will produce lots of output, indicating which tests passed, and which
 failed (if any). There may also be warnings. Any warnings that are triggered

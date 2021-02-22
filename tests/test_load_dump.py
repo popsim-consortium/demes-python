@@ -11,7 +11,6 @@ import hypothesis as hyp
 import numpy as np
 
 import demes
-from demes import Epoch
 import tests
 
 
@@ -27,7 +26,7 @@ def jacobs_papuans():
     N_ghost = 8516
     T_Eu_bottleneck = 1659
 
-    g = demes.Graph(
+    b = demes.Builder(
         description="Jacobs et al. (2019) archaic admixture into Papuans",
         doi=[
             "https://doi.org/10.1016/j.cell.2019.02.035",
@@ -35,131 +34,133 @@ def jacobs_papuans():
         ],
         time_units="generations",
     )
-    g.deme("ancestral_hominin", epochs=[Epoch(end_time=20225, start_size=32671)])
-    g.deme(
+    b.add_deme("ancestral_hominin", epochs=[dict(end_time=20225, start_size=32671)])
+    b.add_deme(
         "archaic",
         ancestors=["ancestral_hominin"],
-        epochs=[Epoch(end_time=15090, start_size=N_archaic)],
+        epochs=[dict(end_time=15090, start_size=N_archaic)],
     )
 
-    g.deme(
+    b.add_deme(
         "Den1",
         ancestors=["archaic"],
-        epochs=[Epoch(end_time=12500, start_size=N_DeniAnc)],
+        epochs=[dict(end_time=12500, start_size=N_DeniAnc)],
     )
-    g.deme(
+    b.add_deme(
         "Den2",
         ancestors=["Den1"],
-        epochs=[Epoch(end_time=9750, start_size=N_DeniAnc)],
+        epochs=[dict(end_time=9750, start_size=N_DeniAnc)],
     )
     # Altai Denisovan (sampling lineage)
-    g.deme("DenAltai", ancestors=["Den2"], epochs=[Epoch(start_size=5083, end_time=0)])
-    # Introgressing Denisovan lineages 1 and 2
-    g.deme(
-        "DenI1", ancestors=["Den2"], epochs=[Epoch(start_size=N_archaic, end_time=0)]
+    b.add_deme(
+        "DenAltai", ancestors=["Den2"], epochs=[dict(start_size=5083, end_time=0)]
     )
-    g.deme(
-        "DenI2", ancestors=["Den1"], epochs=[Epoch(start_size=N_archaic, end_time=0)]
+    # Introgressing Denisovan lineages 1 and 2
+    b.add_deme(
+        "DenI1", ancestors=["Den2"], epochs=[dict(start_size=N_archaic, end_time=0)]
+    )
+    b.add_deme(
+        "DenI2", ancestors=["Den1"], epochs=[dict(start_size=N_archaic, end_time=0)]
     )
 
-    g.deme(
+    b.add_deme(
         "Nea",
         ancestors=["archaic"],
-        epochs=[Epoch(end_time=3375, start_size=N_archaic)],
+        epochs=[dict(end_time=3375, start_size=N_archaic)],
     )
     # Altai Neanderthal (sampling lineage)
-    g.deme("NeaAltai", ancestors=["Nea"], epochs=[Epoch(start_size=826, end_time=0)])
+    b.add_deme("NeaAltai", ancestors=["Nea"], epochs=[dict(start_size=826, end_time=0)])
     # Introgressing Neanderthal lineage
-    g.deme(
-        "NeaI", ancestors=["Nea"], epochs=[Epoch(end_time=883, start_size=N_archaic)]
+    b.add_deme(
+        "NeaI", ancestors=["Nea"], epochs=[dict(end_time=883, start_size=N_archaic)]
     )
 
-    g.deme(
+    b.add_deme(
         "AMH",
         ancestors=["ancestral_hominin"],
-        epochs=[Epoch(end_time=2218, start_size=41563)],
+        epochs=[dict(end_time=2218, start_size=41563)],
     )
-    g.deme("Africa", ancestors=["AMH"], epochs=[Epoch(start_size=48433, end_time=0)])
-    g.deme(
+    b.add_deme("Africa", ancestors=["AMH"], epochs=[dict(start_size=48433, end_time=0)])
+    b.add_deme(
         "Ghost1",
         ancestors=["AMH"],
         epochs=[
             # bottleneck
-            demes.Epoch(end_time=2119, start_size=1394),
-            demes.Epoch(end_time=1784, start_size=N_ghost),
+            dict(end_time=2119, start_size=1394),
+            dict(end_time=1784, start_size=N_ghost),
         ],
     )
-    g.deme(
+    b.add_deme(
         "Ghost2",
         ancestors=["Ghost1"],
-        epochs=[Epoch(end_time=1758, start_size=N_ghost)],
+        epochs=[dict(end_time=1758, start_size=N_ghost)],
     )
-    g.deme(
-        "Ghost3", ancestors=["Ghost2"], epochs=[Epoch(start_size=N_ghost, end_time=0)]
+    b.add_deme(
+        "Ghost3", ancestors=["Ghost2"], epochs=[dict(start_size=N_ghost, end_time=0)]
     )
-    g.deme(
+    b.add_deme(
         "Papua",
         ancestors=["Ghost1"],
         # bottleneck
         epochs=[
-            demes.Epoch(end_time=1685, start_size=243),
-            demes.Epoch(end_time=0, start_size=8834),
+            dict(end_time=1685, start_size=243),
+            dict(end_time=0, start_size=8834),
         ],
     )
-    g.deme(
+    b.add_deme(
         "Eurasia",
         ancestors=["Ghost2"],
         # bottleneck
         epochs=[
-            demes.Epoch(end_time=T_Eu_bottleneck, start_size=2231),
-            demes.Epoch(end_time=1293, start_size=12971),
+            dict(end_time=T_Eu_bottleneck, start_size=2231),
+            dict(end_time=1293, start_size=12971),
         ],
     )
-    g.deme(
+    b.add_deme(
         "WestEurasia",
         ancestors=["Eurasia"],
-        epochs=[Epoch(start_size=6962, end_time=0)],
+        epochs=[dict(start_size=6962, end_time=0)],
     )
-    g.deme(
-        "EastAsia", ancestors=["Eurasia"], epochs=[Epoch(start_size=9025, end_time=0)]
+    b.add_deme(
+        "EastAsia", ancestors=["Eurasia"], epochs=[dict(start_size=9025, end_time=0)]
     )
 
-    g.symmetric_migration(
+    b.add_migration(
         demes=["Africa", "Ghost3"], rate=1.79e-4, start_time=T_Eu_bottleneck
     )
-    g.symmetric_migration(demes=["Ghost3", "WestEurasia"], rate=4.42e-4)
-    g.symmetric_migration(demes=["WestEurasia", "EastAsia"], rate=3.14e-5)
-    g.symmetric_migration(demes=["EastAsia", "Papua"], rate=5.72e-5)
-    g.symmetric_migration(
+    b.add_migration(demes=["Ghost3", "WestEurasia"], rate=4.42e-4)
+    b.add_migration(demes=["WestEurasia", "EastAsia"], rate=3.14e-5)
+    b.add_migration(demes=["EastAsia", "Papua"], rate=5.72e-5)
+    b.add_migration(
         demes=["Eurasia", "Papua"], rate=5.72e-4, start_time=T_Eu_bottleneck
     )
-    g.symmetric_migration(
+    b.add_migration(
         demes=["Ghost3", "Eurasia"], rate=4.42e-4, start_time=T_Eu_bottleneck
     )
 
-    g.pulse(source="NeaI", dest="EastAsia", proportion=0.002, time=883)
-    g.pulse(source="NeaI", dest="Papua", proportion=0.002, time=1412)
-    g.pulse(source="NeaI", dest="Eurasia", proportion=0.011, time=1566)
-    g.pulse(source="NeaI", dest="Ghost1", proportion=0.024, time=1853)
+    b.add_pulse(source="NeaI", dest="EastAsia", proportion=0.002, time=883)
+    b.add_pulse(source="NeaI", dest="Papua", proportion=0.002, time=1412)
+    b.add_pulse(source="NeaI", dest="Eurasia", proportion=0.011, time=1566)
+    b.add_pulse(source="NeaI", dest="Ghost1", proportion=0.024, time=1853)
 
     m_Den_Papuan = 0.04
     p = 0.55  # S10.i p. 31
     T_Den1_Papuan_mig = 29.8e3 / generation_time
     T_Den2_Papuan_mig = 45.7e3 / generation_time
-    g.pulse(
+    b.add_pulse(
         source="DenI1",
         dest="Papua",
         proportion=p * m_Den_Papuan,
         time=T_Den1_Papuan_mig,
     )
-    g.pulse(
+    b.add_pulse(
         source="DenI2",
         dest="Papua",
         proportion=(1 - p) * m_Den_Papuan,
         time=T_Den2_Papuan_mig,
     )
 
-    return g
+    return b.resolve()
 
 
 class TestLoadAndDump:
@@ -184,8 +185,9 @@ class TestLoadAndDump:
                     demes.dump(g, tmpfile, format="not a format", simplified=simplified)
 
     def test_bad_filename_param(self):
-        g = demes.Graph(description="test", time_units="generations")
-        g.deme("A", epochs=[Epoch(start_size=1000, end_time=0)])
+        b = demes.Builder()
+        b.add_deme("A", epochs=[dict(start_size=1000, end_time=0)])
+        g = b.resolve()
 
         class F:
             pass
@@ -206,20 +208,21 @@ class TestLoadAndDump:
                 demes.load(bad_file)
 
     def check_dumps_simple(self, *, format, simplified):
-        g = demes.Graph(
+        b1 = demes.Builder(
             description="some very concise descr",
             time_units="years",
             generation_time=42,
         )
         for id, N in zip("ABCD", [100, 200, 300, 400]):
-            g.deme(id, epochs=[Epoch(start_size=N, end_time=0)])
-        string = demes.dumps(g, format=format, simplified=simplified)
+            b1.add_deme(id, epochs=[dict(start_size=N, end_time=0)])
+        g1 = b1.resolve()
+        string = demes.dumps(g1, format=format, simplified=simplified)
         assert "description" in string
-        assert g.description in string
+        assert g1.description in string
         assert "time_units" in string
-        assert g.time_units in string
+        assert g1.time_units in string
         assert "generation_time" in string
-        assert str(g.generation_time) in string
+        assert str(g1.generation_time) in string
         assert "demes" in string
         assert "A" in string
         assert "B" in string
@@ -240,17 +243,19 @@ class TestLoadAndDump:
             assert "selfing_rate" not in string
             assert "cloning_rate" not in string
 
-        g1 = copy.deepcopy(g)
-        g1.deme("E", epochs=[Epoch(start_size=100, selfing_rate=0.1, end_time=0)])
-        string = demes.dumps(g1, format=format, simplified=simplified)
+        b2 = copy.deepcopy(b1)
+        b2.add_deme("E", epochs=[dict(start_size=100, selfing_rate=0.1)])
+        g2 = b2.resolve()
+        string = demes.dumps(g2, format=format, simplified=simplified)
         assert "selfing_rate" in string
         assert "0.1" in string
         if simplified:
             assert "cloning_rate" not in string
 
-        g1 = copy.deepcopy(g)
-        g1.deme("E", epochs=[Epoch(start_size=100, cloning_rate=0.1, end_time=0)])
-        string = demes.dumps(g1, format=format, simplified=simplified)
+        b2 = copy.deepcopy(b1)
+        b2.add_deme("E", epochs=[dict(start_size=100, cloning_rate=0.1)])
+        g2 = b2.resolve()
+        string = demes.dumps(g2, format=format, simplified=simplified)
         if simplified:
             assert "selfing_rate" not in string
         assert "cloning_rate" in string
@@ -273,11 +278,6 @@ class TestLoadAndDump:
             assert "dest" in string
             assert pulse.dest in string
         assert "migrations" in string
-        if simplified:
-            assert "asymmetric" not in string
-            assert "symmetric" in string
-        else:
-            assert "asymmetric" in string
 
     def test_dumps_yaml(self):
         for simplified in [True, False]:
@@ -412,13 +412,14 @@ class TestLoadAndDump:
         assert n > 1
 
     def check_dump_and_load_simple(self, *, format, simplified):
-        g1 = demes.Graph(
+        b1 = demes.Builder(
             description="some very concise description",
             time_units="years",
             generation_time=42,
         )
         for id, N in zip("ABCD", [100, 200, 300, 400]):
-            g1.deme(id, epochs=[Epoch(start_size=N, end_time=0)])
+            b1.add_deme(id, epochs=[dict(start_size=N, end_time=0)])
+        g1 = b1.resolve()
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpfile = pathlib.Path(tmpdir) / "temp.txt"
             demes.dump(g1, tmpfile, format=format, simplified=simplified)
@@ -520,81 +521,81 @@ class TestLoadAndDump:
             NOMINAL = 10000
             HUGE = 100000
 
-        g = demes.Graph(description="test", time_units="generations")
-        g.deme("ancestral", epochs=[demes.Epoch(start_size=100)])
-        g.deme(
+        b = demes.Builder()
+        b.add_deme("ancestral", epochs=[dict(start_size=100)])
+        b.add_deme(
             "A",
             start_time=600,
             ancestors=["ancestral"],
             epochs=[
-                demes.Epoch(end_time=500, start_size=Ne.INITIAL),
-                demes.Epoch(end_time=400, start_size=Ne.BOTTLENECK),
-                demes.Epoch(end_time=300, start_size=Ne.NOMINAL),
-                demes.Epoch(end_time=200, start_size=Ne.HUGE),
+                dict(end_time=500, start_size=Ne.INITIAL),
+                dict(end_time=400, start_size=Ne.BOTTLENECK),
+                dict(end_time=300, start_size=Ne.NOMINAL),
+                dict(end_time=200, start_size=Ne.HUGE),
             ],
         )
-        self.check_dump_load_roundtrip(g)
+        self.check_dump_load_roundtrip(b.resolve())
 
         N = np.array([Ne.INITIAL, Ne.BOTTLENECK, Ne.NOMINAL, Ne.HUGE], dtype=np.int32)
         T = np.array([600, 500, 400, 300, 200], dtype=np.int64)
-        g.deme(
+        b.add_deme(
             "B",
             start_time=T[0],
             ancestors=["ancestral"],
             epochs=[
-                demes.Epoch(end_time=T[1], start_size=N[0]),
-                demes.Epoch(end_time=T[2], start_size=N[1]),
-                demes.Epoch(end_time=T[3], start_size=N[2]),
-                demes.Epoch(end_time=T[4], start_size=N[3]),
+                dict(end_time=T[1], start_size=N[0]),
+                dict(end_time=T[2], start_size=N[1]),
+                dict(end_time=T[3], start_size=N[2]),
+                dict(end_time=T[4], start_size=N[3]),
             ],
         )
-        self.check_dump_load_roundtrip(g)
+        self.check_dump_load_roundtrip(b.resolve())
 
     def test_float_subclass(self):
         # Check that subclasses of float are round-trippable.
         generation_time = np.array([1], dtype=np.float64)
         N = np.array([1000, 500, 10000, 100000], dtype=np.float64)
         T = np.array([600, 500, 400, 300, 200], dtype=np.float32)
-        g = demes.Graph(
+        b = demes.Builder(
             description="test", time_units="years", generation_time=generation_time[0]
         )
-        g.deme("ancestral", epochs=[demes.Epoch(start_size=100)])
-        g.deme(
+        b.add_deme("ancestral", epochs=[dict(start_size=100)])
+        b.add_deme(
             "A",
             start_time=T[0],
             ancestors=["ancestral"],
             epochs=[
-                demes.Epoch(end_time=T[1], start_size=N[0]),
-                demes.Epoch(end_time=T[2], start_size=N[1]),
-                demes.Epoch(end_time=T[3], start_size=N[2]),
-                demes.Epoch(end_time=T[4], start_size=N[3]),
+                dict(end_time=T[1], start_size=N[0]),
+                dict(end_time=T[2], start_size=N[1]),
+                dict(end_time=T[3], start_size=N[2]),
+                dict(end_time=T[4], start_size=N[3]),
             ],
         )
-        self.check_dump_load_roundtrip(g)
+        self.check_dump_load_roundtrip(b.resolve())
 
-        g.deme("B", epochs=[Epoch(start_size=N[0], end_time=0)])
-        g.deme(
+        b.add_deme("B", epochs=[dict(start_size=N[0], end_time=0)])
+        b.add_deme(
             "C",
             ancestors=["A", "B"],
             proportions=[fractions.Fraction(1, 3), fractions.Fraction(2, 3)],
             start_time=T[1],
-            epochs=[Epoch(start_size=N[0], end_time=0)],
+            epochs=[dict(start_size=N[0], end_time=0)],
         )
-        self.check_dump_load_roundtrip(g)
+        self.check_dump_load_roundtrip(b.resolve())
 
-        g.pulse(
+        b.add_pulse(
             source="A",
             dest="B",
             time=T[1],
             proportion=decimal.Decimal("0.0022"),
         )
-        self.check_dump_load_roundtrip(g)
+        self.check_dump_load_roundtrip(b.resolve())
 
-        g.migration(
+        b.add_migration(
             source="A",
             dest="B",
             start_time=T[1],
             end_time=T[2],
             rate=decimal.Decimal("0.000012345"),
         )
-        self.check_dump_load_roundtrip(g)
+        self.check_dump_load_roundtrip(b.resolve())

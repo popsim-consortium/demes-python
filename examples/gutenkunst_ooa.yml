@@ -47,7 +47,6 @@ demes:
       end_size: 54090
       end_time: 0
 migrations:
-  symmetric:
   - demes: [YRI, OOA]
     rate: 25e-5
   - demes: [YRI, CEU]
