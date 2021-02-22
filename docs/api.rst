@@ -112,3 +112,15 @@ API Reference
 
 .. autoclass:: demes.Pulse
     :members:
+
+.. autoclass:: demes.Split
+    :members:
+
+.. autoclass:: demes.Branch
+    :members:
+
+.. autoclass:: demes.Merge
+    :members:
+
+.. autoclass:: demes.Admix
+    :members:
