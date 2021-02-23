@@ -27,6 +27,9 @@ jobs:
       matrix:
         os: [ubuntu-18.04, windows-2019, macos-10.15]
         python-version: [3.6, 3.9]
+    env:
+      OS: ${{ matrix.os }}
+      PYTHON: ${{ matrix.python-version }}
 
     steps:
       - name: checkout
@@ -49,4 +52,12 @@ jobs:
 
       - name: run pytest
         run: |
-          python -m pytest --cov=demes --cov-report=term-missing -v tests
+          python -m pytest \
+            --cov=demes --cov-report=term-missing --cov-report=xml -v tests
+
+      - name: upload coverage report to codecov
+        uses: codecov/codecov-action@v1
+        with:
+          fail_ci_if_error: true
+          env_vars: OS,PYTHON
+          verbose: true
