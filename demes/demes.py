@@ -1309,10 +1309,10 @@ class Graph:
             comparisons. See documentation for :func:`math.isclose`.
         """
 
-        def assert_sorted_eq(aa, bb, *, rel_tol, abs_tol, name, key=None):
+        def assert_sorted_eq(aa, bb, *, rel_tol, abs_tol, name):
             # Order-agnostic equality check.
             assert len(aa) == len(bb)
-            for (a, b) in zip(sorted(aa, key=key), sorted(bb, key=key)):
+            for (a, b) in zip(sorted(aa), sorted(bb)):
                 try:
                     a.assert_close(b, rel_tol=rel_tol, abs_tol=abs_tol)
                 except AssertionError as e:
@@ -1330,15 +1330,35 @@ class Graph:
         assert_sorted_eq(
             self.demes, other.demes, rel_tol=rel_tol, abs_tol=abs_tol, name="demes"
         )
+        # Compare asymmetric and symmetric migrations separately.
         assert_sorted_eq(
-            self.migrations,
-            other.migrations,
+            [m for m in self.migrations if isinstance(m, AsymmetricMigration)],
+            [m for m in other.migrations if isinstance(m, AsymmetricMigration)],
             rel_tol=rel_tol,
             abs_tol=abs_tol,
-            name="migrations",
-            # Sort using class name first (asymmetric versus symmetric)
-            # then using attributes of the migration objects.
-            key=lambda obj: (obj.__class__.__name__, obj),
+            name="asymmetric migrations",
+        )
+        # Symmetric migrations are special, in the sense that they contain lists
+        # of demes, and we must first sort the list of demes before sorting the
+        # list of SymmetricMigration objects.
+        self_migrations_sym = []
+        other_migrations_sym = []
+        for m in self.migrations:
+            if isinstance(m, SymmetricMigration):
+                m = copy.deepcopy(m)
+                m.demes.sort()
+                self_migrations_sym.append(m)
+        for m in other.migrations:
+            if isinstance(m, SymmetricMigration):
+                m = copy.deepcopy(m)
+                m.demes.sort()
+                other_migrations_sym.append(m)
+        assert_sorted_eq(
+            self_migrations_sym,
+            other_migrations_sym,
+            rel_tol=rel_tol,
+            abs_tol=abs_tol,
+            name="symmetric migrations",
         )
         assert_sorted_eq(
             self.pulses,
