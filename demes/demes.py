@@ -1,4 +1,4 @@
-from typing import List, Union, Optional, Dict, Mapping, MutableMapping, Any
+from typing import List, Union, Optional, Dict, Mapping, MutableMapping, Any, Set
 import itertools
 import math
 import numbers
@@ -1652,12 +1652,25 @@ class Graph:
         self.pulses.append(pulse)
         return pulse
 
-    @property
-    def successors(self):
+    def successors(self) -> Dict[ID, List[ID]]:
         """
-        Lists of successors for all demes in the graph.
+        Returns the successors (child demes) for all demes in the graph.
+        If ``graph`` is a :class:`Graph`, a `NetworkX <https://networkx.org/>`_
+        digraph of successors can be obtained as follows.
+
+        .. code::
+
+            import networkx as nx
+            succ = nx.from_dict_of_lists(graph.successors(), create_using=nx.DiGraph)
+
+        .. warning::
+
+            The successors do not include information about migrations or pulses.
+
+        :return: A NetworkX compatible dict-of-lists graph of the demes' successors.
+        :rtype: dict of lists
         """
-        succ = {}
+        succ: Dict[ID, List[ID]] = {}
         for deme_info in self.demes:
             succ.setdefault(deme_info.id, [])
             if deme_info.ancestors is not None:
@@ -1666,12 +1679,25 @@ class Graph:
                     succ[a].append(deme_info.id)
         return succ
 
-    @property
-    def predecessors(self):
+    def predecessors(self) -> Dict[ID, List[ID]]:
         """
-        Lists of predecessors (ancestors) for all demes in the graph.
+        Returns the predecessors (ancestors) for all demes in the graph.
+        If ``graph`` is a :class:`Graph`, a `NetworkX <https://networkx.org/>`_
+        digraph of predecessors can be obtained as follows.
+
+        .. code::
+
+            import networkx as nx
+            pred = nx.from_dict_of_lists(graph.predecessors(), create_using=nx.DiGraph)
+
+        .. warning::
+
+            The predecessors do not include information about migrations or pulses.
+
+        :return: A NetworkX compatible dict-of-lists graph of the demes' predecessors.
+        :rtype: dict of lists
         """
-        pred = {}
+        pred: Dict[ID, List[ID]] = {}
         for deme_info in self.demes:
             pred.setdefault(deme_info.id, [])
             if deme_info.ancestors is not None:
@@ -1679,26 +1705,38 @@ class Graph:
                     pred[deme_info.id].append(a)
         return pred
 
-    def list_demographic_events(self):
+    def discrete_demographic_events(self) -> Dict[str, List[Any]]:
         """
-        Loop through successors/predecessors to generate a list of splits, branches,
-        mergers, and admixtures. If a deme has more than one predecessor,
-        then it is a merger or an admixture event, which we differentiate by end and
+        Classify each discrete demographic event as one of the following:
+        :class:`Pulse`, :class:`Split`, :class:`Branch`, :class:`Merge`,
+        or :class:`Admix`.
+        If a deme has more than one ancestor, then that deme is created by a
+        merger or an admixture event, which are differentiated by end and
         start times of those demes. If a deme has a single predecessor, we check
-        whether it is a branch (start time != predecessor's end time), or split.
+        whether it is created by a branch (start time != predecessor's end time),
+        or split.
 
-        Returns a dictionary containing all discrete demographic events, including
-        pulses that are listed as a Graph attribute.
+        .. note::
+
+            By definition, the discrete demographic events do not include
+            migrations, as they are continuous events.
+
+        :return: A dictionary of lists of discrete demographic events.
+            The following keys are defined: "pulses", "splits", "branches",
+            "mergers", "admixtures", and their values are the corresponding
+            lists of :class:`Pulse`, :class:`Split`, :class:`Branch`,
+            :class:`Merge`, and :class:`Admix` objects.
+        :rtype: dict of lists
         """
-        demo_events = {
+        demo_events: Dict[str, List[Any]] = {
             "pulses": self.pulses,
             "splits": [],
             "branches": [],
             "mergers": [],
             "admixtures": [],
         }
-        splits_to_add = {}
-        for c, p in self.predecessors.items():
+        splits_to_add: Dict[ID, Set[ID]] = {}
+        for c, p in self.predecessors().items():
             if len(p) == 0:
                 continue
             elif len(p) == 1:

@@ -2061,6 +2061,219 @@ class TestGraph(unittest.TestCase):
         g4 = b4.resolve()
         self.assertFalse(g3.isclose(g4))
 
+    def test_successors_predecessors(self):
+        # single population
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        g = b.resolve()
+        assert g.successors() == {"a": []}
+        assert g.predecessors() == {"a": []}
+
+        # successive branching
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a")
+        b.add_deme("b", ancestors=["a"], start_time=200)
+        b.add_deme("c", ancestors=["b"], start_time=100)
+        g = b.resolve()
+        assert g.successors() == {"a": ["b"], "b": ["c"], "c": []}
+        assert g.predecessors() == {"a": [], "b": ["a"], "c": ["b"]}
+
+        # two successors
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a")
+        b.add_deme("b", ancestors=["a"], start_time=100)
+        b.add_deme("c", ancestors=["a"], start_time=100)
+        g = b.resolve()
+        assert g.successors() == {"a": ["b", "c"], "b": [], "c": []}
+        assert g.predecessors() == {"a": [], "b": ["a"], "c": ["a"]}
+
+        # two predecessors
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a")
+        b.add_deme("b")
+        b.add_deme(
+            "c", ancestors=["a", "b"], proportions=[1 / 2, 1 / 2], start_time=100
+        )
+        g = b.resolve()
+        assert g.successors() == {"a": ["c"], "b": ["c"], "c": []}
+        assert g.predecessors() == {"a": [], "b": [], "c": ["a", "b"]}
+
+        # K3,3 graph (aka the utility graph)
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        ancestors = ["a", "b", "c"]
+        children = ["x", "y", "z"]
+        for id in ancestors:
+            b.add_deme(id)
+        for id in children:
+            b.add_deme(
+                id,
+                ancestors=ancestors,
+                proportions=[1 / 3, 1 / 3, 1 / 3],
+                start_time=100,
+            )
+        g = b.resolve()
+        assert g.successors() == {
+            "a": children,
+            "b": children,
+            "c": children,
+            "x": [],
+            "y": [],
+            "z": [],
+        }
+        assert g.predecessors() == {
+            "a": [],
+            "b": [],
+            "c": [],
+            "x": ancestors,
+            "y": ancestors,
+            "z": ancestors,
+        }
+
+        # pulses don't contribute
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a")
+        b.add_deme("b")
+        b.add_pulse(source="a", dest="b", proportion=0.1, time=100)
+        g = b.resolve()
+        assert g.successors() == {"a": [], "b": []}
+        assert g.predecessors() == {"a": [], "b": []}
+
+        # migrations don't contribute
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a")
+        b.add_deme("b")
+        b.add_migration(source="a", dest="b", rate=0.1)
+        g = b.resolve()
+        assert g.successors() == {"a": [], "b": []}
+        assert g.predecessors() == {"a": [], "b": []}
+
+    def dfsorted(self, objlist):
+        """
+        Return a copy of objlist that is sorted depth first. So lists nested
+        within each object are first sorted, then the outer list of objects
+        is sorted.
+        """
+        assert isinstance(objlist, list)
+        objlist = copy.deepcopy(objlist)
+        for obj in objlist:
+            # This function will break if we ever change to using slotted classes,
+            # because the __dict__ attribute won't be populated.
+            assert not hasattr(obj, "__slots__")
+            for name, attr in obj.__dict__.items():
+                if isinstance(attr, list):
+                    setattr(obj, name, sorted(attr))
+        objlist.sort()
+        return objlist
+
+    def test_discrete_demographic_events(self):
+        # unrelated populations
+        b = Builder()
+        for id in "abcde":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        g = b.resolve()
+        de = g.discrete_demographic_events()
+        assert len(de) == 5
+        for event in ("pulses", "splits", "branches", "mergers", "admixtures"):
+            assert len(de[event]) == 0
+
+        # pulse events
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)])
+        b.add_pulse(source="a", dest="b", time=100, proportion=0.1)
+        b.add_pulse(source="a", dest="b", time=200, proportion=0.2)
+        g = b.resolve()
+        de = g.discrete_demographic_events()
+        assert len(de) == 5
+        for event in ("splits", "branches", "mergers", "admixtures"):
+            assert len(de[event]) == 0
+        assert self.dfsorted(de["pulses"]) == self.dfsorted(
+            [
+                Pulse(source="a", dest="b", proportion=0.1, time=100),
+                Pulse(source="a", dest="b", proportion=0.2, time=200),
+            ]
+        )
+
+        # split event
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a", epochs=[dict(end_time=100)])
+        b.add_deme("b", ancestors=["a"])
+        b.add_deme("c", ancestors=["a"])
+        g = b.resolve()
+        de = g.discrete_demographic_events()
+        assert len(de) == 5
+        for event in ("pulses", "branches", "mergers", "admixtures"):
+            assert len(de[event]) == 0
+        assert self.dfsorted(de["splits"]) == self.dfsorted(
+            [Split(parent="a", children=["b", "c"], time=100)]
+        )
+
+        # successive "splitting" (but with only one child)
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a", epochs=[dict(end_time=200)])
+        b.add_deme("b", ancestors=["a"], start_time=200, epochs=[dict(end_time=100)])
+        b.add_deme("c", ancestors=["b"], start_time=100)
+        g = b.resolve()
+        de = g.discrete_demographic_events()
+        assert len(de) == 5
+        for event in ("pulses", "branches", "mergers", "admixtures"):
+            assert len(de[event]) == 0
+        assert self.dfsorted(de["splits"]) == self.dfsorted(
+            [
+                Split(parent="a", children=["b"], time=200),
+                Split(parent="b", children=["c"], time=100),
+            ]
+        )
+
+        # successive branches
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a")
+        b.add_deme("b", ancestors=["a"], start_time=200)
+        b.add_deme("c", ancestors=["b"], start_time=100)
+        g = b.resolve()
+        de = g.discrete_demographic_events()
+        assert len(de) == 5
+        for event in ("pulses", "splits", "mergers", "admixtures"):
+            assert len(de[event]) == 0
+        assert self.dfsorted(de["branches"]) == self.dfsorted(
+            [
+                Branch(parent="a", child="b", time=200),
+                Branch(parent="b", child="c", time=100),
+            ]
+        )
+
+        # merger event
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a", epochs=[dict(end_time=100)])
+        b.add_deme("b", epochs=[dict(end_time=100)])
+        b.add_deme(
+            "c", ancestors=["a", "b"], proportions=[1 / 2, 1 / 2], start_time=100
+        )
+        g = b.resolve()
+        de = g.discrete_demographic_events()
+        assert len(de) == 5
+        for event in ("pulses", "splits", "branches", "admixtures"):
+            assert len(de[event]) == 0
+        assert self.dfsorted(de["mergers"]) == self.dfsorted(
+            [Merge(parents=["a", "b"], child="c", proportions=[1 / 2, 1 / 2], time=100)]
+        )
+
+        # admixture event
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a")
+        b.add_deme("b", epochs=[dict(end_time=100)])
+        b.add_deme(
+            "c", ancestors=["a", "b"], proportions=[1 / 2, 1 / 2], start_time=100
+        )
+        g = b.resolve()
+        de = g.discrete_demographic_events()
+        assert len(de) == 5
+        for event in ("pulses", "splits", "branches", "mergers"):
+            assert len(de[event]) == 0
+        assert self.dfsorted(de["admixtures"]) == self.dfsorted(
+            [Admix(parents=["a", "b"], child="c", proportions=[1 / 2, 1 / 2], time=100)]
+        )
+
 
 class TestGraphResolution(unittest.TestCase):
     def test_basic_resolution(self):
