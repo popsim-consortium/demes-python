@@ -1963,6 +1963,24 @@ class TestGraph(unittest.TestCase):
         g4 = b4.resolve()
         self.assertTrue(g3.isclose(g4))
 
+        # Order of symmetric migrations shouldn't matter, and neither should
+        # the order of the demes lists within the migration objects.
+        b3 = demes.Builder(defaults=dict(epoch=dict(start_size=1)))
+        b3.add_deme("a")
+        b3.add_deme("b")
+        b3.add_deme("aa")
+        b3.add_migration(demes=["a", "b"], rate=0.1)
+        b3.add_migration(demes=["b", "aa"], rate=0.1)
+        g3 = b3.resolve()
+        b4 = demes.Builder(defaults=dict(epoch=dict(start_size=1)))
+        b4.add_deme("a")
+        b4.add_deme("b")
+        b4.add_deme("aa")
+        b4.add_migration(demes=["aa", "b"], rate=0.1)
+        b4.add_migration(demes=["b", "a"], rate=0.1)
+        g4 = b4.resolve()
+        g3.assert_close(g4)
+
         #
         # Check inequalities
         #
@@ -2060,6 +2078,19 @@ class TestGraph(unittest.TestCase):
         g3 = b3.resolve()
         g4 = b4.resolve()
         self.assertFalse(g3.isclose(g4))
+
+        # symmetric migrations are not equivalent to asymmetric migrations
+        b1 = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b1.add_deme("a")
+        b1.add_deme("b")
+        b1.add_migration(source="a", dest="b", rate=0.1)
+        b2 = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b2.add_deme("a")
+        b2.add_deme("b")
+        b2.add_migration(demes=["a", "b"], rate=0.1)
+        g1 = b1.resolve()
+        g2 = b2.resolve()
+        assert not g1.isclose(g2)
 
     def test_successors_predecessors(self):
         # single population
