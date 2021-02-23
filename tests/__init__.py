@@ -1,5 +1,6 @@
 import math
 
+import numpy as np
 import hypothesis as hyp
 import hypothesis.strategies as st
 
@@ -152,8 +153,17 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
                 time_lo = max(
                     b.data["demes"][j]["epochs"][-1]["end_time"] for j in anc_idx
                 )
-                if time_lo < time_hi and time_lo < 1e308:
-                    # The proposed ancestors exist at the same time.
+                # If time_hi > time_lo, the proposed ancestors exist
+                # at the same time. So we draw a number for the deme's
+                # start_time, which must be in the half-open interval
+                # [time_lo, time_hi), with the further constraint that the
+                # start_time cannot be 0.
+                # However, there may not be any floating point numbers between
+                # 0 and time_hi even if time_hi > 0, so we check that time_hi
+                # is greater than the smallest positive number.
+                if (time_lo > 0 and time_hi > time_lo) or (
+                    time_lo == 0 and time_hi > np.finfo(float).tiny
+                ):
                     # Draw a start time and the ancestry proportions.
                     start_time = draw(
                         st.floats(
@@ -200,12 +210,16 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
             time_hi = min(
                 b.data["demes"][j]["start_time"], b.data["demes"][k]["start_time"]
             )
-            if time_hi - time_lo < 1e308:
-                # Demes j and k don't exist at the same time,
-                # or the interval is too small to draw a floating
-                # point number within the interval.
-                continue
             # Draw asymmetric migrations.
+            #
+            # If time_hi > time_lo, then demes j and k exist at the same time
+            # during the half-open interval [time_lo, time_hi).
+            #
+            # We wish to draw a migration start_time and end_time on this
+            # interval, and in the worst case (smallest interval) we will
+            # draw start_time=time_hi, end_time=time_lo, which is valid.
+            if time_hi <= time_lo:
+                continue
             n = draw(st.integers(min_value=0, max_value=n_interactions))
             successes = 0
             migration_intervals = {(dj, dk): [], (dk, dj): []}
@@ -247,7 +261,16 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
             n_interactions -= successes
             if n_interactions <= 0:
                 break
+
             # Draw pulses.
+            #
+            # We wish to draw a time for the pulse. This must be in the open
+            # interval (time_lo, time_hi) to ensure the pulse doesn't happen
+            # at any deme's start_time or end_time, which would be invalid.
+            # So we check there is at least one floating point number between
+            # time_lo and time_hi.
+            if time_hi <= np.nextafter(time_lo, np.inf, dtype=float):
+                continue
             n = draw(st.integers(min_value=0, max_value=n_interactions))
             n_interactions -= n
             for _ in range(n):
