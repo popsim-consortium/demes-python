@@ -1941,36 +1941,31 @@ class Graph:
             insert_defaults(migration_data, migration_defaults)
             if "rate" not in migration_data:
                 raise KeyError(f"migration[{i}]: required field 'rate' not found")
+            demes = migration_data.pop("demes", None)
+            source = migration_data.pop("source", None)
+            dest = migration_data.pop("dest", None)
             if not (
                 # symmetric
-                (
-                    "demes" in migration_data
-                    and "source" not in migration_data
-                    and "dest" not in migration_data
-                )
+                (demes is not None and source is None and dest is None)
                 # asymmetric
-                or (
-                    "demes" not in migration_data
-                    and "source" in migration_data
-                    and "dest" in migration_data
-                )
+                or (demes is None and source is not None and dest is not None)
             ):
                 raise KeyError(
                     f"migration[{i}]: must be symmetric (specify 'demes' list) "
                     "*or* asymmetric (specify both 'source' and 'dest')."
                 )
             try:
-                if "demes" in migration_data:
+                if demes is not None:
                     graph._add_symmetric_migration(
-                        demes=migration_data.pop("demes"),
+                        demes=demes,
                         rate=migration_data.pop("rate"),
                         start_time=migration_data.pop("start_time", None),
                         end_time=migration_data.pop("end_time", None),
                     )
                 else:
                     graph._add_asymmetric_migration(
-                        source=migration_data.pop("source"),
-                        dest=migration_data.pop("dest"),
+                        source=source,
+                        dest=dest,
                         rate=migration_data.pop("rate"),
                         start_time=migration_data.pop("start_time", None),
                         end_time=migration_data.pop("end_time", None),
@@ -2193,10 +2188,13 @@ class Builder:
     def add_migration(
         self,
         *,
-        rate: float,
-        demes: list = None,
-        source: str = None,
-        dest: str = None,
+        rate: float = None,
+        # We use a special NO_DEFAULT value here, to distinguish between the user
+        # not specifying anything, and specifying the value None (which may be
+        # necessary to override a 'defaults' value set in the data dictionary).
+        demes: list = NO_DEFAULT,  # type: ignore
+        source: str = NO_DEFAULT,  # type: ignore
+        dest: str = NO_DEFAULT,  # type: ignore
         start_time: float = None,
         end_time: float = None,
     ):
@@ -2221,12 +2219,14 @@ class Builder:
             If ``None``, the end time is defined by the latest time at which
             the demes coexist.
         """
-        migration: MutableMapping[str, Any] = dict(rate=rate)
-        if demes is not None:
+        migration: MutableMapping[str, Any] = dict()
+        if rate is not None:
+            migration["rate"] = rate
+        if demes is not NO_DEFAULT:
             migration["demes"] = demes
-        if source is not None:
+        if source is not NO_DEFAULT:
             migration["source"] = source
-        if dest is not None:
+        if dest is not NO_DEFAULT:
             migration["dest"] = dest
         if start_time is not None:
             migration["start_time"] = start_time
@@ -2237,7 +2237,14 @@ class Builder:
             self.data["migrations"] = []
         self.data["migrations"].append(migration)
 
-    def add_pulse(self, *, source: str, dest: str, proportion: float, time: float):
+    def add_pulse(
+        self,
+        *,
+        source: str = None,
+        dest: str = None,
+        proportion: float = None,
+        time: float = None,
+    ):
         """
         Add a pulse of migration at a fixed time.
         Source and destination demes follow the forwards-in-time convention.
@@ -2249,12 +2256,16 @@ class Builder:
             of individuals from the source deme.
         :param float time: The time at which migrations occur.
         """
-        pulse = dict(
-            source=source,
-            dest=dest,
-            proportion=proportion,
-            time=time,
-        )
+        pulse: MutableMapping[str, Any] = dict()
+        if source is not None:
+            pulse["source"] = source
+        if dest is not None:
+            pulse["dest"] = dest
+        if proportion is not None:
+            pulse["proportion"] = proportion
+        if time is not None:
+            pulse["time"] = time
+
         if "pulses" not in self.data:
             self.data["pulses"] = []
         self.data["pulses"].append(pulse)
