@@ -2612,7 +2612,7 @@ class TestGraphResolution(unittest.TestCase):
         with self.assertRaises(ValueError):
             b2.resolve()
 
-    def test_proportions_default(self):
+    def test_proportions(self):
         b1 = Builder()
         b1.add_deme("a", epochs=[dict(start_size=100, end_time=50)])
         b1.add_deme("b", epochs=[dict(start_size=100, end_time=50)])
@@ -2997,6 +2997,578 @@ class TestGraphResolution(unittest.TestCase):
         with pytest.warns(None) as record:
             b2.resolve()
         assert len(record) == 0
+
+    def test_toplevel_defaults_deme(self):
+        # description
+        b = Builder(defaults=dict(deme=dict(description="Demey MacDemeFace")))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)], description="deme bee")
+        g = b.resolve()
+        assert g["a"].description == "Demey MacDemeFace"
+        assert g["b"].description == "deme bee"
+
+        # start_time
+        b = Builder(defaults=dict(deme=dict(start_time=100)))
+        b.add_deme("a", epochs=[dict(start_size=1)], start_time=math.inf)
+        b.add_deme("b", epochs=[dict(start_size=1)], ancestors=["a"])
+        g = b.resolve()
+        assert math.isinf(g["a"].start_time)
+        assert g["b"].start_time == 100
+
+        # ancestors
+        b = Builder(defaults=dict(deme=dict(ancestors=["a"])))
+        b.add_deme("a", epochs=[dict(start_size=1)], ancestors=[])
+        b.add_deme("b", epochs=[dict(start_size=1)], start_time=100)
+        g = b.resolve()
+        assert g["a"].ancestors == []
+        assert g["b"].ancestors == ["a"]
+
+        # proportions
+        b = Builder(defaults=dict(deme=dict(proportions=[0.1, 0.9])))
+        b.add_deme("a", epochs=[dict(start_size=1)], proportions=[])
+        b.add_deme("b", epochs=[dict(start_size=1)], proportions=[])
+        b.add_deme(
+            "c", epochs=[dict(start_size=1)], ancestors=["a", "b"], start_time=100
+        )
+        g = b.resolve()
+        assert g["a"].proportions == g["b"].proportions == []
+        assert g["c"].proportions == [0.1, 0.9]
+
+        # proportions and ancestors
+        b = Builder(
+            defaults=dict(
+                deme=dict(ancestors=["a", "b", "c"], proportions=[0.1, 0.7, 0.2])
+            )
+        )
+        for id in "abc":
+            b.add_deme(id, epochs=[dict(start_size=1)], ancestors=[], proportions=[])
+        for id in "xyz":
+            b.add_deme(id, epochs=[dict(start_size=1)], start_time=100)
+        g = b.resolve()
+        assert g["a"].ancestors == g["b"].ancestors == g["c"].ancestors == []
+        assert g["a"].proportions == g["b"].proportions == g["c"].proportions == []
+        assert (
+            g["x"].ancestors == g["y"].ancestors == g["z"].ancestors == ["a", "b", "c"]
+        )
+        assert (
+            g["x"].proportions
+            == g["y"].proportions
+            == g["z"].proportions
+            == [0.1, 0.7, 0.2]
+        )
+
+    def test_toplevel_defaults_migration(self):
+        # rate
+        b = Builder(defaults=dict(migration=dict(rate=0.1)))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)])
+        b.add_migration(source="a", dest="b", start_time=300, end_time=200)
+        b.add_migration(source="a", dest="b", start_time=200, end_time=100, rate=0.2)
+        b.add_migration(demes=["a", "b"], start_time=30, end_time=20)
+        b.add_migration(demes=["a", "b"], start_time=20, end_time=10, rate=0.2)
+        g = b.resolve()
+        assert g.migrations[0].rate == 0.1
+        assert g.migrations[1].rate == 0.2
+        assert g.migrations[2].rate == 0.1
+        assert g.migrations[3].rate == 0.2
+
+        # start_time
+        b = Builder(defaults=dict(migration=dict(start_time=100)))
+        for id in "abcd":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        b.add_migration(source="a", dest="b", end_time=90, rate=0.1)
+        b.add_migration(source="b", dest="a", start_time=90, end_time=80, rate=0.1)
+        b.add_migration(demes=["c", "d"], end_time=90, rate=0.1)
+        b.add_migration(demes=["c", "d"], start_time=90, end_time=80, rate=0.1)
+        g = b.resolve()
+        assert g.migrations[0].start_time == 100
+        assert g.migrations[1].start_time == 90
+        assert g.migrations[2].start_time == 100
+        assert g.migrations[3].start_time == 90
+
+        # end_time
+        b = Builder(defaults=dict(migration=dict(end_time=100)))
+        for id in "abcd":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        b.add_migration(source="a", dest="b", start_time=200, rate=0.1)
+        b.add_migration(source="a", dest="b", start_time=100, end_time=50, rate=0.1)
+        b.add_migration(demes=["c", "d"], start_time=200, rate=0.1)
+        b.add_migration(demes=["c", "d"], start_time=100, end_time=50, rate=0.1)
+        g = b.resolve()
+        assert g.migrations[0].end_time == 100
+        assert g.migrations[1].end_time == 50
+        assert g.migrations[2].end_time == 100
+        assert g.migrations[3].end_time == 50
+
+        # source
+        b = Builder(defaults=dict(migration=dict(source="a")))
+        for id in "abcd":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        for id in "bcd":
+            b.add_migration(dest=id, rate=0.1)
+        b.add_migration(source="d", dest="a", rate=0.2)
+        g = b.resolve()
+        assert (
+            g.migrations[0].source
+            == g.migrations[1].source
+            == g.migrations[2].source
+            == "a"
+        )
+        assert g.migrations[3].source == "d"
+        # source still defaults to "a", but we want symmetric migration
+        for id in "xyz":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        b.add_migration(source=None, demes=["x", "y", "z"], rate=0.1)
+        g = b.resolve()
+        assert isinstance(g.migrations[4], SymmetricMigration)
+        assert g.migrations[4].demes == ["x", "y", "z"]
+
+        # dest
+        b = Builder(defaults=dict(migration=dict(dest="a")))
+        for id in "abcd":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        for id in "bcd":
+            b.add_migration(source=id, rate=0.1)
+        b.add_migration(source="a", dest="d", rate=0.2)
+        g = b.resolve()
+        assert (
+            g.migrations[0].dest == g.migrations[1].dest == g.migrations[2].dest == "a"
+        )
+        assert g.migrations[3].dest == "d"
+        # dest still defaults to "a", but we want symmetric migration
+        for id in "xyz":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        b.add_migration(dest=None, demes=["x", "y", "z"], rate=0.1)
+        g = b.resolve()
+        assert isinstance(g.migrations[4], SymmetricMigration)
+        assert g.migrations[4].demes == ["x", "y", "z"]
+
+        # demes
+        b = Builder(defaults=dict(migration=dict(demes=["a", "b", "c"])))
+        for id in "abc":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        b.add_migration(start_time=200, end_time=100, rate=0.1)
+        b.add_migration(demes=["a", "b"], start_time=100, end_time=0, rate=0.2)
+        g = b.resolve()
+        assert g.migrations[0].demes == ["a", "b", "c"]
+        assert g.migrations[1].demes == ["a", "b"]
+        # demes still defaults to ["a", "b", "c"], but we want asymmetric migration
+        for id in "xy":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        b.add_migration(demes=None, source="x", dest="y", rate=0.3)
+        g = b.resolve()
+        assert isinstance(g.migrations[2], AsymmetricMigration)
+        assert g.migrations[2].source == "x"
+        assert g.migrations[2].dest == "y"
+
+    def test_toplevel_defaults_pulse(self):
+        # source
+        b = Builder(defaults=dict(pulse=dict(source="a")))
+        for id in "abcd":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        for id in "bcd":
+            b.add_pulse(dest=id, proportion=0.1, time=100)
+        b.add_pulse(source="d", dest="a", proportion=0.2, time=200)
+        g = b.resolve()
+        assert g.pulses[0].source == g.pulses[1].source == g.pulses[2].source == "a"
+        assert g.pulses[3].source == "d"
+
+        # dest
+        b = Builder(defaults=dict(pulse=dict(dest="a")))
+        for id in "abcd":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        for id in "bcd":
+            b.add_pulse(source=id, proportion=0.1, time=100)
+        b.add_pulse(dest="d", source="a", proportion=0.2, time=200)
+        g = b.resolve()
+        assert g.pulses[0].dest == g.pulses[1].dest == g.pulses[2].dest == "a"
+        assert g.pulses[3].dest == "d"
+
+        # time
+        b = Builder(defaults=dict(pulse=dict(time=100)))
+        for id in "abcd":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        for id in "bcd":
+            b.add_pulse(source="a", dest=id, proportion=0.1)
+        b.add_pulse(source="d", dest="a", proportion=0.2, time=50)
+        g = b.resolve()
+        assert g.pulses[0].time == g.pulses[1].time == g.pulses[2].time == 100
+        assert g.pulses[3].time == 50
+
+        # proportion
+        b = Builder(defaults=dict(pulse=dict(proportion=0.1)))
+        for id in "abcd":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        for id in "bcd":
+            b.add_pulse(source="a", dest=id, time=100)
+        b.add_pulse(source="d", dest="a", time=50, proportion=0.2)
+        g = b.resolve()
+        assert (
+            g.pulses[0].proportion
+            == g.pulses[1].proportion
+            == g.pulses[2].proportion
+            == 0.1
+        )
+        assert g.pulses[3].proportion == 0.2
+
+    # Test toplevel epoch defaults, including overrides.
+    def test_toplevel_defaults_epoch(self):
+        # start_size
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        for id in "abc":
+            b.add_deme(id)
+        b.add_deme("d", epochs=[dict(start_size=2)])
+        b.add_deme(
+            "e",
+            epochs=[
+                dict(end_time=100),
+                dict(end_time=50, end_size=99),
+                dict(start_size=3),
+            ],
+        )
+        b.add_deme(
+            "f",
+            defaults=dict(epoch=dict(start_size=4)),
+            epochs=[
+                dict(end_time=100),
+                dict(end_time=50, end_size=99),
+                dict(start_size=5, end_size=99),
+            ],
+        )
+        g = b.resolve()
+        assert (
+            g["a"].epochs[0].start_size
+            == g["b"].epochs[0].start_size
+            == g["c"].epochs[0].start_size
+            == 1
+        )
+        assert g["d"].epochs[0].start_size == 2
+        assert g["e"].epochs[0].start_size == 1
+        assert g["e"].epochs[1].start_size == 1
+        assert g["e"].epochs[2].start_size == 3
+        assert g["f"].epochs[0].start_size == 4
+        assert g["f"].epochs[1].start_size == 4
+        assert g["f"].epochs[2].start_size == 5
+
+        # end_size
+        b = Builder(defaults=dict(epoch=dict(end_size=1)))
+        for id in "abc":
+            b.add_deme(id)
+        b.add_deme("d", epochs=[dict(end_size=2)])
+        b.add_deme(
+            "e",
+            epochs=[
+                dict(end_time=100),
+                dict(end_time=50, start_size=99),
+                dict(end_size=3),
+            ],
+        )
+        b.add_deme(
+            "f",
+            defaults=dict(epoch=dict(end_size=4)),
+            epochs=[
+                dict(end_time=100),
+                dict(end_time=50, start_size=99),
+                dict(start_size=99, end_size=5),
+            ],
+        )
+        g = b.resolve()
+        assert (
+            g["a"].epochs[0].end_size
+            == g["b"].epochs[0].end_size
+            == g["c"].epochs[0].end_size
+            == 1
+        )
+        assert g["d"].epochs[0].end_size == 2
+        assert g["e"].epochs[0].end_size == 1
+        assert g["e"].epochs[1].end_size == 1
+        assert g["e"].epochs[2].end_size == 3
+        assert g["f"].epochs[0].end_size == 4
+        assert g["f"].epochs[1].end_size == 4
+        assert g["f"].epochs[2].end_size == 5
+
+        # end_time
+        b = Builder(defaults=dict(epoch=dict(end_time=100)))
+        for id in "abc":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        b.add_deme(
+            "d",
+            ancestors=["a", "b", "c"],
+            proportions=[0.2, 0.3, 0.5],
+            start_time=100,
+            epochs=[dict(start_size=1, end_time=50), dict(start_size=2, end_time=0)],
+        )
+        b.add_deme(
+            "e",
+            defaults=dict(epoch=dict(end_time=50)),  # this is silly
+            ancestors=["a", "b", "c"],
+            proportions=[0.2, 0.3, 0.5],
+            start_time=100,
+            epochs=[dict(start_size=1), dict(start_size=2, end_time=10)],
+        )
+        g = b.resolve()
+        assert g["a"].end_time == g["b"].end_time == g["c"].end_time == 100
+        assert g["d"].end_time == 0
+        assert g["d"].epochs[0].end_time == 50
+        assert g["d"].epochs[1].end_time == 0
+        assert g["e"].end_time == 10
+        assert g["e"].epochs[0].end_time == 50
+        assert g["e"].epochs[1].end_time == 10
+
+        # selfing_rate
+        b = Builder(defaults=dict(epoch=dict(selfing_rate=0.1)))
+        for id in "abc":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        b.add_deme(
+            "d",
+            ancestors=["a", "b", "c"],
+            proportions=[0.2, 0.3, 0.5],
+            start_time=100,
+            epochs=[
+                dict(start_size=1, end_time=50),
+                dict(start_size=1, selfing_rate=0),
+            ],
+        )
+        b.add_deme(
+            "e",
+            defaults=dict(epoch=dict(selfing_rate=0.2)),
+            ancestors=["a", "b", "c"],
+            proportions=[0.2, 0.3, 0.5],
+            start_time=100,
+            epochs=[
+                dict(start_size=1, end_time=90),
+                dict(start_size=1, end_time=50),
+                dict(start_size=1, selfing_rate=0.3),
+            ],
+        )
+        g = b.resolve()
+        assert (
+            g["a"].epochs[0].selfing_rate
+            == g["b"].epochs[0].selfing_rate
+            == g["c"].epochs[0].selfing_rate
+            == 0.1
+        )
+        assert g["d"].epochs[0].selfing_rate == 0.1
+        assert g["d"].epochs[1].selfing_rate == 0
+        assert g["e"].epochs[0].selfing_rate == 0.2
+        assert g["e"].epochs[1].selfing_rate == 0.2
+        assert g["e"].epochs[2].selfing_rate == 0.3
+
+        # cloning_rate
+        b = Builder(defaults=dict(epoch=dict(cloning_rate=0.1)))
+        for id in "abc":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        b.add_deme(
+            "d",
+            ancestors=["a", "b", "c"],
+            proportions=[0.2, 0.3, 0.5],
+            start_time=100,
+            epochs=[
+                dict(start_size=1, end_time=50),
+                dict(start_size=1, cloning_rate=0),
+            ],
+        )
+        b.add_deme(
+            "e",
+            defaults=dict(epoch=dict(cloning_rate=0.2)),
+            ancestors=["a", "b", "c"],
+            proportions=[0.2, 0.3, 0.5],
+            start_time=100,
+            epochs=[
+                dict(start_size=1, end_time=90),
+                dict(start_size=1, end_time=50),
+                dict(start_size=1, cloning_rate=0.3),
+            ],
+        )
+        g = b.resolve()
+        assert (
+            g["a"].epochs[0].cloning_rate
+            == g["b"].epochs[0].cloning_rate
+            == g["c"].epochs[0].cloning_rate
+            == 0.1
+        )
+        assert g["d"].epochs[0].cloning_rate == 0.1
+        assert g["d"].epochs[1].cloning_rate == 0
+        assert g["e"].epochs[0].cloning_rate == 0.2
+        assert g["e"].epochs[1].cloning_rate == 0.2
+        assert g["e"].epochs[2].cloning_rate == 0.3
+
+        # size_function
+        b = Builder(defaults=dict(epoch=dict(size_function="constant")))
+        for id in "abc":
+            b.add_deme(id, epochs=[dict(start_size=1)])
+        b.add_deme(
+            "d",
+            ancestors=["a", "b", "c"],
+            proportions=[0.2, 0.3, 0.5],
+            start_time=100,
+            epochs=[
+                dict(start_size=1, end_time=50),
+                dict(start_size=1, end_size=100, size_function="exponential"),
+            ],
+        )
+        b.add_deme(
+            "e",
+            defaults=dict(epoch=dict(size_function="exponential")),
+            ancestors=["a", "b", "c"],
+            proportions=[0.2, 0.3, 0.5],
+            start_time=100,
+            epochs=[
+                dict(start_size=1, end_time=90, size_function="constant"),
+                dict(start_size=1, end_size=100, end_time=50),
+                dict(start_size=100, end_size=50, end_time=10),
+                dict(start_size=100, end_size=50, size_function="N(t) = 5 * t"),
+            ],
+        )
+        g = b.resolve()
+        assert (
+            g["a"].epochs[0].size_function
+            == g["b"].epochs[0].size_function
+            == g["c"].epochs[0].size_function
+            == "constant"
+        )
+        assert g["d"].epochs[0].size_function == "constant"
+        assert g["d"].epochs[1].size_function == "exponential"
+        assert g["e"].epochs[0].size_function == "constant"
+        assert g["e"].epochs[1].size_function == "exponential"
+        assert g["e"].epochs[2].size_function == "exponential"
+        assert g["e"].epochs[3].size_function == "N(t) = 5 * t"
+
+    # Test demelevel epoch defaults, including overrides.
+    # Comared with the test_toplevel_defaults_epoch() method, these tests
+    # consider only the cases where there are no toplevel epoch defaults.
+    def test_demelevel_defaults_epoch(self):
+        # start_size
+        b = Builder()
+        b.add_deme(
+            "a",
+            defaults=dict(epoch=dict(start_size=1)),
+        )
+        b.add_deme(
+            "b",
+            defaults=dict(epoch=dict(start_size=1)),
+            epochs=[
+                dict(end_time=90),
+                dict(end_size=100, end_time=50),
+                dict(start_size=100, end_size=50),
+            ],
+        )
+        g = b.resolve()
+        assert g["a"].epochs[0].start_size == 1
+        assert g["b"].epochs[0].start_size == 1
+        assert g["b"].epochs[1].start_size == 1
+        assert g["b"].epochs[2].start_size == 100
+
+        # end_size
+        b = Builder()
+        b.add_deme(
+            "a",
+            defaults=dict(epoch=dict(end_size=1)),
+        )
+        b.add_deme(
+            "b",
+            defaults=dict(epoch=dict(end_size=1)),
+            epochs=[
+                dict(end_time=90),
+                dict(start_size=100, end_time=50),
+                dict(start_size=1, end_size=100),
+            ],
+        )
+        g = b.resolve()
+        assert g["a"].epochs[0].end_size == 1
+        assert g["b"].epochs[0].end_size == 1
+        assert g["b"].epochs[1].end_size == 1
+        assert g["b"].epochs[2].end_size == 100
+
+        # end_time
+        b = Builder()
+        b.add_deme(
+            "a", defaults=dict(epoch=dict(end_time=10)), epochs=[dict(start_size=1)]
+        )
+        b.add_deme(
+            "b",
+            defaults=dict(epoch=dict(end_time=10)),  # this is silly
+            epochs=[
+                dict(start_size=1, end_time=90),
+                dict(start_size=2, end_time=50),
+                dict(start_size=3),
+            ],
+        )
+        g = b.resolve()
+        assert g["a"].end_time == 10
+        assert g["a"].epochs[0].end_time == 10
+        assert g["b"].end_time == 10
+        assert g["b"].epochs[0].end_time == 90
+        assert g["b"].epochs[1].end_time == 50
+        assert g["b"].epochs[2].end_time == 10
+
+        # selfing_rate
+        b = Builder()
+        b.add_deme(
+            "a",
+            defaults=dict(epoch=dict(selfing_rate=0.1)),
+            epochs=[dict(start_size=1)],
+        )
+        b.add_deme(
+            "b",
+            defaults=dict(epoch=dict(selfing_rate=0.1)),
+            epochs=[
+                dict(start_size=1, end_time=90),
+                dict(start_size=1, end_time=50),
+                dict(start_size=1, selfing_rate=0.2),
+            ],
+        )
+        g = b.resolve()
+        assert g["a"].epochs[0].selfing_rate == 0.1
+        assert g["b"].epochs[0].selfing_rate == 0.1
+        assert g["b"].epochs[1].selfing_rate == 0.1
+        assert g["b"].epochs[2].selfing_rate == 0.2
+
+        # cloning_rate
+        b = Builder()
+        b.add_deme(
+            "a",
+            defaults=dict(epoch=dict(cloning_rate=0.1)),
+            epochs=[dict(start_size=1)],
+        )
+        b.add_deme(
+            "b",
+            defaults=dict(epoch=dict(cloning_rate=0.1)),
+            epochs=[
+                dict(start_size=1, end_time=90),
+                dict(start_size=1, end_time=50),
+                dict(start_size=1, cloning_rate=0.2),
+            ],
+        )
+        g = b.resolve()
+        assert g["a"].epochs[0].cloning_rate == 0.1
+        assert g["b"].epochs[0].cloning_rate == 0.1
+        assert g["b"].epochs[1].cloning_rate == 0.1
+        assert g["b"].epochs[2].cloning_rate == 0.2
+
+        # size_function
+        b = Builder()
+        b.add_deme(
+            "a",
+            defaults=dict(epoch=dict(size_function="constant")),
+            epochs=[dict(start_size=1)],
+        )
+        b.add_deme(
+            "b",
+            defaults=dict(epoch=dict(size_function="exponential")),
+            epochs=[
+                dict(start_size=1, end_time=90, size_function="constant"),
+                dict(start_size=1, end_size=100, end_time=50),
+                dict(start_size=100, end_size=50, end_time=10),
+                dict(start_size=100, end_size=50, size_function="N(t) = 5 * t"),
+            ],
+        )
+        g = b.resolve()
+        assert g["a"].epochs[0].size_function == "constant"
+        assert g["b"].epochs[0].size_function == "constant"
+        assert g["b"].epochs[1].size_function == "exponential"
+        assert g["b"].epochs[2].size_function == "exponential"
+        assert g["b"].epochs[3].size_function == "N(t) = 5 * t"
 
 
 class TestGraphToDict(unittest.TestCase):
