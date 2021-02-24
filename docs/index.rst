@@ -18,6 +18,7 @@ Welcome to demes' documentation!
    convert
    schema
    development
+   changelog
 
 
 Indices and tables

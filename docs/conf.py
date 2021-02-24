@@ -36,7 +36,7 @@ author = "PopSim Consortium"
 release = demes.__version__
 # Remove trailing git hash stuff.
 release = release.split("+")[0]
-version = release[:3]
+version = release
 
 # -- General configuration ---------------------------------------------------
 
