@@ -124,3 +124,9 @@ new function will include a docstring).
 We strongly encourage contributions that improve the ``demes`` documentation,
 such as fixing typos and grammatical errors, or making the documentation
 clearer and/or more accessible.
+
+
+Releasing a new version
+-----------------------
+
+.. include:: release.rst
