@@ -13,6 +13,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          # Fetch the history for all tags and branches
+          # so that the correct version string can be constructed
+          # by setuptools_scm.
+          fetch-depth: 0
       - uses: actions/setup-python@v2
         with:
           python-version: 3.8
