@@ -1858,8 +1858,10 @@ class TestGraph(unittest.TestCase):
         dg1_copy = copy.deepcopy(dg1)
         dg2 = dg1.in_generations()
         # in_generations() shouldn't modify the original
+        dg1_copy.assert_close(dg1)
         self.assertEqual(dg1.asdict(), dg1_copy.asdict())
         # but clearly dg2 should now differ
+        assert not dg1.isclose(dg2)
         self.assertNotEqual(dg1.asdict(), dg2.asdict())
 
         # Alternate implementation, which recurses the object hierarchy.
@@ -1887,14 +1889,19 @@ class TestGraph(unittest.TestCase):
             divide_time_attrs(dg)
             return dg
 
+        dg2.assert_close(in_generations2(dg1))
         self.assertEqual(in_generations2(dg1).asdict(), dg2.asdict())
+
         # in_generations2() shouldn't modify the original
+        dg1.assert_close(dg1_copy)
         self.assertEqual(dg1.asdict(), dg1_copy.asdict())
 
         # in_generations() should be idempotent
         dg3 = dg2.in_generations()
+        dg2.assert_close(dg3)
         self.assertEqual(dg2.asdict(), dg3.asdict())
         dg3 = in_generations2(dg2)
+        dg2.assert_close(dg3)
         self.assertEqual(dg2.asdict(), dg3.asdict())
 
     def test_in_generations(self):

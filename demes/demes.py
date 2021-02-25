@@ -992,6 +992,7 @@ class Deme:
 
     :ivar str id: A string identifier for the deme.
     :ivar str description: A description of the deme. May be ``None``.
+    :ivar float start_time: The time at which the deme begins to exist.
     :ivar ancestors: List of string identifiers for the deme's ancestors.
         This may be ``None``, indicating the deme has no ancestors.
     :vartype ancestors: list of str
@@ -1010,6 +1011,7 @@ class Deme:
             [attr.validators.instance_of(str), nonzero_len]
         )
     )
+    start_time: Time = attr.ib(validator=[int_or_float, positive])
     ancestors: List[ID] = attr.ib(
         validator=attr.validators.deep_iterable(
             member_validator=attr.validators.and_(
@@ -1030,7 +1032,6 @@ class Deme:
             iterable_validator=attr.validators.instance_of(list),
         )
     )
-    start_time: Time = attr.ib(validator=[int_or_float, positive])
 
     @ancestors.validator
     def _check_ancestors(self, _attribute, _value):
@@ -1145,6 +1146,9 @@ class Deme:
             self.__class__ is other.__class__
         ), f"Failed as other deme is not instance of {self.__class__} type."
         assert self.id == other.id
+        assert math.isclose(
+            self.start_time, other.start_time, rel_tol=rel_tol, abs_tol=abs_tol
+        ), f"Failed for start_time {self.start_time} != {other.start_time} (other)."
         assert isclose_deme_proportions(
             self.ancestors,
             self.proportions,
@@ -1810,6 +1814,7 @@ class Graph:
         if generation_time is not None:
             graph.generation_time = None
             for deme in graph.demes:
+                deme.start_time /= generation_time
                 for epoch in deme.epochs:
                     epoch.start_time /= generation_time
                     epoch.end_time /= generation_time
@@ -2024,7 +2029,6 @@ class Graph:
         data = attr.asdict(self, filter=filt, value_serializer=coerce_numbers)
         # translate to spec data model
         for deme in data["demes"]:
-            deme["start_time"] = deme["epochs"][0]["start_time"]
             for epoch in deme["epochs"]:
                 del epoch["start_time"]
                 if epoch["selfing_rate"] == 0:
