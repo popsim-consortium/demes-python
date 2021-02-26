@@ -45,6 +45,7 @@ version = release
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
     "sphinx.ext.todo",
     "sphinx.ext.viewcode",
     "sphinx_issues",
@@ -76,3 +77,7 @@ html_static_path = ["_static"]
 
 # Github repo, for sphinx_issues
 issues_github_path = "popsim-consortium/demes-python"
+
+intersphinx_mapping = {
+    "spec": ("https://popsim-consortium.github.io/demes-spec-docs/main/", None)
+}

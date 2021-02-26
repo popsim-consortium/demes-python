@@ -12,11 +12,9 @@ Welcome to demes' documentation!
 
    introduction
    installation
-   tutorial
-   gallery
+   quickstart
    api
    convert
-   schema
    development
    changelog
 
