@@ -1,57 +1,42 @@
-description: The Gutenkunst et al. (2009) three-population model of human history. Time
-  is given in years in the past. Choices to make, 1) which ends of the epochs should
-  start and end times describe, 2) once that's decided, initial and final sizes should
-  correspond to start and end time, resp. Currently, I'm looking backward in time, so
-  start time is more recent and end time is the epoch interval end point farther in the
-  past.
+description: The Gutenkunst et al. (2009) OOA model.
 doi:
-  - https://doi.org/10.1371/journal.pgen.1000695
+- https://doi.org/10.1371/journal.pgen.1000695
 time_units: years
 generation_time: 25
+
 demes:
-  - id: ancestral
-    description: Equilibrium/root population
-    epochs:
-    - end_time: 220e3
-      start_size: 7300
-  - id: AMH
-    description: Anatomically modern humans
-    ancestors: [ancestral]
-    epochs:
-    - end_time: 140e3
-      start_size: 12300
-  - id: OOA
-    description: Bottleneck out-of-Africa population
-    ancestors: [AMH]
-    epochs:
-    - end_time: 21.2e3
-      start_size: 2100
-  - id: YRI
-    description: Yoruba in Ibadan, Nigeria
-    ancestors: [AMH]
-    epochs:
-    - start_size: 12300
-      end_time: 0
-  - id: CEU
-    description: Utah Residents (CEPH) with Northern and Western European Ancestry
-    ancestors: [OOA]
-    epochs:
-    - start_size: 1000
-      end_size: 29725
-      end_time: 0
-  - id: CHB
-    description: Han Chinese in Beijing, China
-    ancestors: [OOA]
-    epochs:
-    - start_size: 510
-      end_size: 54090
-      end_time: 0
+- id: ancestral
+  description: Equilibrium/root population
+  epochs:
+  - {end_time: 220e3, start_size: 7300}
+- id: AMH
+  description: Anatomically modern humans
+  ancestors: [ancestral]
+  epochs:
+  - {end_time: 140e3, start_size: 12300}
+- id: OOA
+  description: Bottleneck out-of-Africa population
+  ancestors: [AMH]
+  epochs:
+  - {end_time: 21.2e3, start_size: 2100}
+- id: YRI
+  description: Yoruba in Ibadan, Nigeria
+  ancestors: [AMH]
+  epochs:
+  - start_size: 12300
+- id: CEU
+  description: Utah Residents (CEPH) with Northern and Western European Ancestry
+  ancestors: [OOA]
+  epochs:
+  - {start_size: 1000, end_size: 29725}
+- id: CHB
+  description: Han Chinese in Beijing, China
+  ancestors: [OOA]
+  epochs:
+  - {start_size: 510, end_size: 54090}
+
 migrations:
-  - demes: [YRI, OOA]
-    rate: 25e-5
-  - demes: [YRI, CEU]
-    rate: 3e-5
-  - demes: [YRI, CHB]
-    rate: 1.9e-5
-  - demes: [CEU, CHB]
-    rate: 9.6e-5
+- {demes: [YRI, OOA], rate: 25e-5}
+- {demes: [YRI, CEU], rate: 3e-5}
+- {demes: [YRI, CHB], rate: 1.9e-5}
+- {demes: [CEU, CHB], rate: 9.6e-5}

@@ -34,27 +34,21 @@ simulation engine that supports ``demes`` input.
 For example, the following YAML file implements a simple two-epoch demographic
 history for a single deme, where the deme doubles in size 100 generations ago:
 
-.. literalinclude:: tutorial_examples/two_epoch.yaml
+.. literalinclude:: ../examples/two_epoch.yml
    :language: yaml
-   :linenos:
 
-The :ref:`tutorial <sec_tutorial_yaml_demography>` describes in detail all the
-components of a YAML demographic model and how to specify more complex
-scenarios, and more illustrative examples can be found in the
-:ref:`Gallery <sec_gallery>`.
+The `Demes Specification <https://popsim-consortium.github.io/demes-spec-docs/>`_
+documents in detail the components of a YAML demographic model and how to
+write more complex scenarios. Illustrative examples can be found in the
+`Gallery <https://popsim-consortium.github.io/demes-spec-docs/main/gallery.html>`_.
 
 Getting started
 ---------------
 
-- To get ``demes`` up and running, see the
-  :ref:`Installation section <sec_installation>`
-- In the :ref:`Tutorial section <sec_tutorial>`, you can find an introduction
-  to writing demographic models using YAML, along with some bite-sized examples
-  (:ref:`demographic models in YAML <sec_tutorial_yaml_demography>`), 
-  manipulating and working with demography objects within python
-  (:ref:`Python API <sec_tutorial_python_api>`), and adding features and
-  attributes to demographic models, populations, or population epochs
-  (:ref:`deme attributes <sec_tutorial_attributes>`).
-- For examples of demographic models defined using ``demes``, head to the
-  :ref:`Gallery <sec_gallery>`.
+Install the ``demes`` python package using ``pip``.
 
+.. code-block:: sh
+
+   pip install demes
+
+Then head over to the :ref:`Quickstart <sec_quickstart>` documentation.

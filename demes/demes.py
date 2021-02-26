@@ -2103,7 +2103,7 @@ class Builder:
 
     :ivar dict data: The data dictionary of the graph's current state.
         The objects nested within this dictionary follow Demes' data model,
-        as described in the :ref:`schema <sec_schema>`.
+        as described in the :ref:`spec:sec_spec`.
 
         .. note::
             Users may freely modify the data dictionary, as long as the data
@@ -2290,8 +2290,7 @@ class Builder:
 
         :param MutableMapping data: The data dictionary to initialise the
             graph's state. The objects nested within this dictionary must
-            follow Demes' data model, as described in the
-            :ref:`schema <sec_schema>`.
+            follow Demes' data model, as described in the :ref:`spec:sec_spec`.
         """
         builder = cls()
         builder.data = data
