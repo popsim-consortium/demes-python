@@ -320,16 +320,17 @@ def from_msprime(
             for k in range(num_pops):
                 if j == k:
                     continue
-                if prev_mm[j, k] != msp_mm[j, k] and msp_mm[j, k] != 0:
-                    # new Migration
-                    m = demes.AsymmetricMigration(
-                        source=name[j],
-                        dest=name[k],
-                        start_time=ddb_epoch.end_time,
-                        end_time=ddb_epoch.start_time,
-                        rate=msp_mm[j, k],
-                    )
-                    migrations[(j, k)].append(m)
+                if prev_mm[j, k] != msp_mm[j, k]:
+                    if msp_mm[j, k] != 0:
+                        # new Migration
+                        m = demes.AsymmetricMigration(
+                            source=name[j],
+                            dest=name[k],
+                            start_time=ddb_epoch.end_time,
+                            end_time=ddb_epoch.start_time,
+                            rate=msp_mm[j, k],
+                        )
+                        migrations[(j, k)].append(m)
                 else:
                     # extend time span of existing Migration
                     if (j, k) in migrations:
