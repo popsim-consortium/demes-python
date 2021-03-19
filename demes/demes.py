@@ -498,7 +498,7 @@ class Pulse:
         validator=[attr.validators.instance_of(str), valid_deme_name]
     )
     dest: Name = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_name])
-    time: Time = attr.ib(validator=[int_or_float, non_negative, finite])
+    time: Time = attr.ib(validator=[int_or_float, positive, finite])
     proportion: Proportion = attr.ib(validator=[int_or_float, unit_interval])
 
     def __attrs_post_init__(self):
@@ -1656,6 +1656,14 @@ class Graph:
             if deme_name not in self:
                 raise ValueError(f"{deme_name} not in graph")
         self._check_time_intersection(source, dest, time)
+        if time == self[dest].end_time:
+            raise ValueError(
+                f"invalid pulse at time={time}, which is dest={dest}'s end_time"
+            )
+        if time == self[source].start_time:
+            raise ValueError(
+                f"invalid pulse at time={time}, which is source={source}'s start_time"
+            )
 
         # Check for models that have multiple pulses defined at the same time.
         # E.g. chains of pulses like: deme0 -> deme1; deme1 -> deme2,

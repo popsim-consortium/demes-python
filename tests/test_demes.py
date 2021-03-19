@@ -599,7 +599,7 @@ class TestPulse(unittest.TestCase):
             with self.assertRaises(TypeError):
                 Pulse(source="a", dest="b", time=time, proportion=0.1)
 
-        for time in (-10000, -1, -1e-9, math.inf):
+        for time in (-10000, -1, -1e-9, 0, math.inf):
             with self.assertRaises(ValueError):
                 Pulse(source="a", dest="b", time=time, proportion=0.1)
 
@@ -2948,6 +2948,23 @@ class TestGraphResolution(unittest.TestCase):
         b.add_pulse(source="deme1", dest="deme2", proportion=0.1, time=10)
         with self.assertRaises(ValueError):
             b.resolve()
+
+        b = Builder(defaults=dict(epoch=dict(start_size=100)))
+        b.add_deme("A")
+        b.add_deme("B", start_time=100, ancestors=["A"], epochs=[dict(end_time=50)])
+        g = b.resolve()
+
+        # Can't have pulse at the dest deme's end_time.
+        b2 = copy.deepcopy(b)
+        b2.add_pulse(source="A", dest="B", time=g["B"].end_time, proportion=0.1)
+        with self.assertRaises(ValueError):
+            b2.resolve()
+
+        # Can't have pulse at the source deme's start_time.
+        b2 = copy.deepcopy(b)
+        b2.add_pulse(source="B", dest="A", time=g["B"].start_time, proportion=0.1)
+        with self.assertRaises(ValueError):
+            b2.resolve()
 
     def test_pulse_same_time(self):
         b1 = Builder()
