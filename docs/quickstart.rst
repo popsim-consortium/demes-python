@@ -35,7 +35,7 @@ present in the graph.
 
     print("Is there a deme labeled CEU in the graph?", "CEU" in ooa_graph)
     print("Is there a deme labeled JPT in the graph?", "JPT" in ooa_graph)
-    print("Which demes are present?", [deme.id for deme in ooa_graph.demes])
+    print("Which demes are present?", [deme.name for deme in ooa_graph.demes])
 
 Or look in more detail at a single deme.
 

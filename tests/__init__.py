@@ -8,11 +8,11 @@ import demes
 
 
 @st.composite
-def deme_ids(draw, max_length=20):
-    id = draw(st.text(min_size=1, max_size=max_length))
-    # IDs must be valid Python identifiers.
-    hyp.assume(id.isidentifier())
-    return id
+def deme_names(draw, max_length=20):
+    name = draw(st.text(min_size=1, max_size=max_length))
+    # Names must be valid Python identifiers.
+    hyp.assume(name.isidentifier())
+    return name
 
 
 @st.composite
@@ -134,7 +134,7 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
         doi=draw(st.lists(yaml_strings(), max_size=3)),
     )
 
-    for id in draw(st.sets(deme_ids(), min_size=1, max_size=max_demes)):
+    for deme_name in draw(st.sets(deme_names(), min_size=1, max_size=max_demes)):
         ancestors = []
         proportions = []
         start_time = math.inf
@@ -174,7 +174,7 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
                             exclude_min=time_lo == 0,
                         )
                     )
-                    ancestors = [b.data["demes"][j]["id"] for j in anc_idx]
+                    ancestors = [b.data["demes"][j]["name"] for j in anc_idx]
                     if len(ancestors) == 1:
                         proportions = [1.0]
                     else:
@@ -188,7 +188,7 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
                         psum = sum(proportions)
                         proportions = [p / psum for p in proportions]
         b.add_deme(
-            id=id,
+            name=deme_name,
             description=draw(st.none() | yaml_strings()),
             ancestors=ancestors,
             proportions=proportions,
@@ -201,8 +201,8 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
     n_demes = len(b.data["demes"])
     for j in range(n_demes - 1):
         for k in range(j + 1, n_demes):
-            dj = b.data["demes"][j]["id"]
-            dk = b.data["demes"][k]["id"]
+            dj = b.data["demes"][j]["name"]
+            dk = b.data["demes"][k]["name"]
             time_lo = max(
                 b.data["demes"][j]["epochs"][-1]["end_time"],
                 b.data["demes"][k]["epochs"][-1]["end_time"],

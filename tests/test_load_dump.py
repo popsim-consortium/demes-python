@@ -213,8 +213,8 @@ class TestLoadAndDump:
             time_units="years",
             generation_time=42,
         )
-        for id, N in zip("ABCD", [100, 200, 300, 400]):
-            b1.add_deme(id, epochs=[dict(start_size=N, end_time=0)])
+        for name, N in zip("ABCD", [100, 200, 300, 400]):
+            b1.add_deme(name, epochs=[dict(start_size=N, end_time=0)])
         g1 = b1.resolve()
         string = demes.dumps(g1, format=format, simplified=simplified)
         assert "description" in string
@@ -270,7 +270,7 @@ class TestLoadAndDump:
         assert g.time_units in string
         assert "demes" in string
         for deme in g.demes:
-            assert f"{deme.id}" in string
+            assert f"{deme.name}" in string
         assert "pulses" in string
         for pulse in g.pulses:
             assert "source" in string
@@ -321,7 +321,7 @@ class TestLoadAndDump:
                 "generation_time": 123,
                 "demes": [
                     {
-                        "id": "A",
+                        "name": "A",
                         "epochs": [
                         {
                             "start_size": 100,
@@ -330,7 +330,7 @@ class TestLoadAndDump:
                         ]
                     },
                     {
-                        "id": "B",
+                        "name": "B",
                         "epochs": [
                         {
                             "start_size": 100,
@@ -339,7 +339,7 @@ class TestLoadAndDump:
                         ]
                     },
                     {
-                        "id": "C",
+                        "name": "C",
                         "ancestors": [ "A", "B" ],
                         "proportions": [ 0.1, 0.9 ],
                         "start_time": 500,
@@ -358,7 +358,7 @@ class TestLoadAndDump:
         assert g.description == "foo"
         assert g.time_units == "years"
         assert g.generation_time == 123
-        assert [deme.id for deme in g.demes] == ["A", "B", "C"]
+        assert [deme.name for deme in g.demes] == ["A", "B", "C"]
         assert g["C"].start_time == 500
         assert g["C"].ancestors == ["A", "B"]
         assert g["C"].proportions == [0.1, 0.9]
@@ -370,15 +370,15 @@ class TestLoadAndDump:
             time_units: years
             generation_time: 123
             demes:
-                -   id: A
+                -   name: A
                     epochs:
                         -   start_size: 100
                             end_time: 0
-                -   id: B
+                -   name: B
                     epochs:
                         -   start_size: 100
                             end_time: 0
-                -   id: C
+                -   name: C
                     start_time: 500
                     epochs:
                         -   start_size: 100
@@ -391,7 +391,7 @@ class TestLoadAndDump:
         assert g.description == "foo"
         assert g.time_units == "years"
         assert g.generation_time == 123
-        assert [deme.id for deme in g.demes] == ["A", "B", "C"]
+        assert [deme.name for deme in g.demes] == ["A", "B", "C"]
         assert g["C"].start_time == 500
         assert g["C"].ancestors == ["A", "B"]
         assert g["C"].proportions == [0.1, 0.9]
@@ -417,8 +417,8 @@ class TestLoadAndDump:
             time_units="years",
             generation_time=42,
         )
-        for id, N in zip("ABCD", [100, 200, 300, 400]):
-            b1.add_deme(id, epochs=[dict(start_size=N, end_time=0)])
+        for name, N in zip("ABCD", [100, 200, 300, 400]):
+            b1.add_deme(name, epochs=[dict(start_size=N, end_time=0)])
         g1 = b1.resolve()
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpfile = pathlib.Path(tmpdir) / "temp.txt"

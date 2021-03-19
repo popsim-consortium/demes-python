@@ -4,14 +4,14 @@ time_units: generations
 defaults:
   epoch: {selfing_rate: 0.05}
 demes:
-- id: root
+- name: root
   description: Root population
   defaults:
     epoch: {selfing_rate: 0.1}
   epochs:
   - start_size: 1e3
     end_time: 1000
-- id: pop1
+- name: pop1
   description: Population with epochs and changing selfing rates
   ancestors: [root]
   defaults:
@@ -24,7 +24,7 @@ demes:
   - start_size: 1e4
     end_time: 0
     selfing_rate: 0.5
-- id: pop2
+- name: pop2
   description: Population with epochs and changing selfing rates
   ancestors: [root]
   epochs:

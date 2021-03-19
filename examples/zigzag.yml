@@ -4,7 +4,7 @@ doi:
 time_units: generations
 generation_time: 30
 demes: 
-  - id: generic
+  - name: generic
     description: All epochs wrapped into the same population, so that epoch intervals
       do not overlap, and they tile the entire existence of the population (all time,
       in this case).

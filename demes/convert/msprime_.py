@@ -29,7 +29,7 @@ def to_msprime(graph: demes.Graph):
     population_configurations = []
     demographic_events = []
     migration_matrix = [[0.0] * len(graph.demes) for _ in range(len(graph.demes))]
-    pop_id = {deme.id: j for j, deme in enumerate(graph.demes)}
+    pop_id = {deme.name: j for j, deme in enumerate(graph.demes)}
 
     def growth_rate(epoch: demes.Epoch) -> float:
         initial_size = epoch.end_size
@@ -76,7 +76,7 @@ def to_msprime(graph: demes.Graph):
                 demographic_events.append(
                     msprime.MassMigration(
                         time=deme.epochs[0].start_time,
-                        source=pop_id[deme.id],
+                        source=pop_id[deme.name],
                         dest=pop_id[ancestor],
                         proportion=p,
                     )
@@ -90,7 +90,7 @@ def to_msprime(graph: demes.Graph):
                         time=epoch.end_time,
                         initial_size=epoch.end_size,
                         growth_rate=growth_rate(epoch),
-                        population_id=pop_id[deme.id],
+                        population_id=pop_id[deme.name],
                     )
                 )
             if epoch == deme.epochs[0] and not math.isinf(epoch.start_time):
@@ -101,7 +101,7 @@ def to_msprime(graph: demes.Graph):
                         time=epoch.start_time,
                         initial_size=Ne_invalid,
                         growth_rate=0,
-                        population_id=pop_id[deme.id],
+                        population_id=pop_id[deme.name],
                     )
                 )
 
@@ -221,7 +221,7 @@ def from_msprime(
     # up the correct `Epoch`s, `Migration`s, and `Pulse`s outside of the graph.
     gtmp: Mapping[str, dict] = {"demes": {}}
 
-    # List of epoch dicts, keyed by deme id.
+    # List of epoch dicts, keyed by deme name.
     epochs: Mapping[str, List[dict]] = collections.defaultdict(list)
     # List of deme.Migration, keyed by (source, dest) indexes
     migrations: Mapping[
@@ -299,10 +299,10 @@ def from_msprime(
             if name[j] not in gtmp["demes"]:
                 continue
 
-            deme_id = name[j]
-            if deme_id not in epochs:
-                epochs[deme_id].append(gtmp["demes"][deme_id]["epochs"][0])
-            last_epoch = epochs[deme_id][-1]
+            deme_name = name[j]
+            if deme_name not in epochs:
+                epochs[deme_name].append(gtmp["demes"][deme_name]["epochs"][0])
+            last_epoch = epochs[deme_name][-1]
             last_epoch["end_time"] = ddb_epoch.start_time
             if last_epoch.get("start_time") == ddb_epoch.end_time:
                 last_epoch["start_size"] = pop.end_size
@@ -310,7 +310,7 @@ def from_msprime(
 
             if name[j] in pop_param_changes:
                 # Add new epoch, to be fixed in the next ddb_epoch iteration.
-                epochs[deme_id].append(
+                epochs[deme_name].append(
                     dict(start_time=ddb_epoch.start_time, end_time=0, start_size=1)
                 )
 
@@ -339,11 +339,11 @@ def from_msprime(
                             m.end_time = ddb_epoch.start_time
         prev_mm = msp_mm
 
-    for deme_id in epochs.keys():
-        epoch = epochs[deme_id][0]
+    for deme_name in epochs.keys():
+        epoch = epochs[deme_name][0]
         start_time = epoch.get("start_time")
         if start_time is None or math.isinf(start_time):
-            epochs[deme_id][0] = dict(
+            epochs[deme_name][0] = dict(
                 start_time=start_time,
                 end_time=epoch["end_time"],
                 start_size=epoch["end_size"],
@@ -357,19 +357,19 @@ def from_msprime(
         time_units="generations",
     )
 
-    for deme_id, deme_dict in gtmp["demes"].items():
+    for deme_name, deme_dict in gtmp["demes"].items():
         b.add_deme(
-            deme_id,
+            deme_name,
             ancestors=deme_dict["ancestors"],
             proportions=deme_dict["proportions"],
-            start_time=epochs[deme_id][0]["start_time"],
+            start_time=epochs[deme_name][0]["start_time"],
             epochs=[
                 dict(
                     end_time=epoch["end_time"],
                     start_size=epoch["start_size"],
                     end_size=epoch["end_size"],
                 )
-                for epoch in epochs[deme_id]
+                for epoch in epochs[deme_name]
             ],
         )
 

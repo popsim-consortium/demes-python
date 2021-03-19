@@ -24,7 +24,7 @@ def to_stdpopsim(graph: demes.Graph) -> stdpopsim.DemographicModel:
         ],
         generation_time=1,
         populations=[
-            stdpopsim.Population(deme.id, deme.description) for deme in graph.demes
+            stdpopsim.Population(deme.name, deme.description) for deme in graph.demes
         ],
         population_configurations=pc,
         demographic_events=de,
