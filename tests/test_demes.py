@@ -467,7 +467,7 @@ class TestMigration(unittest.TestCase):
                     demes=["a", "b"], start_time=10, end_time=0, rate=rate
                 )
 
-        for rate in (-10000, -1, -1e-9, math.inf):
+        for rate in (-10000, -1, -1e-9, 1.2, 100, math.inf):
             with self.assertRaises(ValueError):
                 AsymmetricMigration(
                     source="a", dest="b", start_time=10, end_time=0, rate=rate
@@ -2900,6 +2900,44 @@ class TestGraphResolution(unittest.TestCase):
         b2 = copy.deepcopy(b1)
         b2.add_migration(source="B", dest="A", rate=0.01, start_time=10, end_time=5)
         b2.resolve()
+
+    def test_bad_migration_rates_sum(self):
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("A")
+        b.add_deme("B")
+        b.add_deme("C")
+        b.add_migration(source="B", dest="A", rate=0.5)
+        b.add_migration(source="C", dest="A", rate=0.5)
+        # rates into A sum to 1.0, which is fine
+        b.resolve()
+
+        b.add_deme("D")
+        b.add_migration(source="D", dest="A", rate=1e-9)
+        with pytest.raises(ValueError, match="sum of migration rates"):
+            b.resolve()
+
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("A")
+        b.add_deme("B")
+        b.add_deme("C")
+        b.add_migration(source="C", dest="A", rate=0.6, start_time=100, end_time=50)
+        b.add_migration(source="B", dest="A", rate=0.6, start_time=200, end_time=100)
+        # migration time intervals don't intersect, so this is fine
+        b.resolve()
+
+        b.add_deme("D")
+        b.add_migration(source="D", dest="A", rate=0.6, start_time=60, end_time=20)
+        with pytest.raises(ValueError, match="sum of migration rates"):
+            b.resolve()
+
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("A")
+        b.add_deme("B")
+        b.add_deme("C")
+        b.add_migration(demes=["A", "B"], rate=0.6, start_time=100)
+        b.add_migration(source="C", dest="A", rate=0.6)
+        with pytest.raises(ValueError, match="sum of migration rates"):
+            b.resolve()
 
     def test_bad_pulses(self):
         # pulses is not a list

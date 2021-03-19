@@ -314,7 +314,7 @@ class Migration:
 
     start_time: Time = attr.ib(validator=[int_or_float, non_negative])
     end_time: Time = attr.ib(validator=[int_or_float, non_negative, finite])
-    rate: Rate = attr.ib(validator=[int_or_float, non_negative, finite])
+    rate: Rate = attr.ib(validator=[int_or_float, unit_interval])
 
     def __attrs_post_init__(self):
         if not (self.start_time > self.end_time):
@@ -1696,6 +1696,53 @@ class Graph:
         self.pulses.append(pulse)
         return pulse
 
+    def _migration_matrices(self):
+        """
+        Return a list of migration matrices, and a list of end times that
+        partition them. The start time for the first matrix is inf.
+        """
+        uniq_times = set(migration.start_time for migration in self.migrations)
+        uniq_times.update(migration.end_time for migration in self.migrations)
+        end_times = sorted(uniq_times, reverse=True)[1:]
+        n = len(self.demes)
+        mm_list = [[[0] * n for _ in range(n)] for _ in range(len(end_times))]
+        deme_id = {deme.name: j for j, deme in enumerate(self.demes)}
+        for migration in self.migrations:
+            start_time = math.inf
+            for k, end_time in enumerate(end_times):
+                if start_time <= migration.end_time:
+                    break
+                if end_time < migration.start_time:
+                    if isinstance(migration, AsymmetricMigration):
+                        source_id = deme_id[migration.source]
+                        dest_id = deme_id[migration.dest]
+                        mm_list[k][dest_id][source_id] = migration.rate
+                    else:
+                        for source, dest in itertools.permutations(migration.demes, 2):
+                            source_id = deme_id[source]
+                            dest_id = deme_id[dest]
+                            mm_list[k][dest_id][source_id] = migration.rate
+                start_time = end_time
+        return mm_list, end_times
+
+    def _check_migration_rates(self):
+        """
+        Check that the sum of migration ingress rates doesn't exceed 1 for any
+        deme in any interval of time.
+        """
+        start_time = math.inf
+        mm_list, end_times = self._migration_matrices()
+        for migration_matrix, end_time in zip(mm_list, end_times):
+            for j, row in enumerate(migration_matrix):
+                row_sum = sum(row)
+                if row_sum > 1 and not math.isclose(row_sum, 1):
+                    name = self.demes[j].name
+                    raise ValueError(
+                        f"sum of migration rates into deme {name} is greater "
+                        f"than 1 during interval ({start_time}, {end_time}]"
+                    )
+            start_time = end_time
+
     def successors(self) -> Dict[Name, List[Name]]:
         """
         Returns the successors (child demes) for all demes in the graph.
@@ -1998,6 +2045,8 @@ class Graph:
             except (TypeError, ValueError) as e:
                 raise e.__class__(f"migration[{i}]: invalid migration") from e
             check_empty(migration_data, f"migration[{i}]")
+
+        graph._check_migration_rates()
 
         check_defaults(
             pulse_defaults, ["source", "dest", "time", "proportion"], "defaults: pulse"
