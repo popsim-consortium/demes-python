@@ -9,7 +9,7 @@ import warnings
 import attr
 
 Number = Union[int, float]
-ID = str
+Name = str
 Time = Number
 Size = Number
 Rate = float
@@ -56,34 +56,34 @@ def nonzero_len(self, attribute, value):
             raise ValueError(f"{attribute.name} must have non-zero length")
 
 
-def valid_deme_id(self, attribute, value):
+def valid_deme_name(self, attribute, value):
     if not value.isidentifier():
         raise ValueError(
-            "Invalid deme ID `{self.id}`. IDs must be valid python identifiers. "
-            "We recommend choosing a deme ID that starts with a letter or "
+            "Invalid deme name `{self.name}`. Names must be valid python identifiers. "
+            "We recommend choosing a name that starts with a letter or "
             "underscore, and is followed by one or more letters, numbers, "
             "or underscores."
         )
 
 
 def isclose_deme_proportions(
-    a_ids: List[ID],
+    a_names: List[Name],
     a_proportions: List[Proportion],
-    b_ids: List[ID],
+    b_names: List[Name],
     b_proportions: List[Proportion],
     *,
     rel_tol=_ISCLOSE_REL_TOL,
     abs_tol=_ISCLOSE_ABS_TOL,
 ) -> bool:
     """
-    Returns true if (a_ids, a_proportions) and (b_ids, b_proportions)
-    are semantically equivalent. The order of ids is ignored, and proportions
+    Returns true if (a_names, a_proportions) and (b_names, b_proportions)
+    are semantically equivalent. The order of names is ignored, and proportions
     are checked for numerical closeness.
     """
-    if len(a_ids) != len(b_ids) or len(a_proportions) != len(b_proportions):
+    if len(a_names) != len(b_names) or len(a_proportions) != len(b_proportions):
         return False
-    a = sorted(zip(a_ids, a_proportions), key=operator.itemgetter(0))
-    b = sorted(zip(b_ids, b_proportions), key=operator.itemgetter(0))
+    a = sorted(zip(a_names, a_proportions), key=operator.itemgetter(0))
+    b = sorted(zip(b_names, b_proportions), key=operator.itemgetter(0))
     for (a_id, a_proportion), (b_id, b_proportion) in zip(a, b):
         if a_id != b_id or not math.isclose(
             a_proportion, b_proportion, rel_tol=rel_tol, abs_tol=abs_tol
@@ -392,10 +392,10 @@ class SymmetricMigration(Migration):
     :ivar demes: The list of demes for symmetric migration.
     """
 
-    demes: List[ID] = attr.ib(
+    demes: List[Name] = attr.ib(
         validator=attr.validators.deep_iterable(
             member_validator=attr.validators.and_(
-                attr.validators.instance_of(str), valid_deme_id
+                attr.validators.instance_of(str), valid_deme_name
             ),
             iterable_validator=attr.validators.instance_of(list),
         ),
@@ -441,8 +441,10 @@ class AsymmetricMigration(Migration):
     :ivar dest: The destination deme for asymmetric migration.
     """
 
-    source: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
-    dest: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    source: Name = attr.ib(
+        validator=[attr.validators.instance_of(str), valid_deme_name]
+    )
+    dest: Name = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_name])
 
     def __attrs_post_init__(self):
         super().__attrs_post_init__()
@@ -492,8 +494,10 @@ class Pulse:
         the source deme.
     """
 
-    source: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
-    dest: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    source: Name = attr.ib(
+        validator=[attr.validators.instance_of(str), valid_deme_name]
+    )
+    dest: Name = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_name])
     time: Time = attr.ib(validator=[int_or_float, non_negative, finite])
     proportion: Proportion = attr.ib(validator=[int_or_float, unit_interval])
 
@@ -579,12 +583,14 @@ class Split:
     :ivar time: The split time.
     """
 
-    parent: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
-    children: List[ID] = attr.ib(
+    parent: Name = attr.ib(
+        validator=[attr.validators.instance_of(str), valid_deme_name]
+    )
+    children: List[Name] = attr.ib(
         validator=attr.validators.and_(
             attr.validators.deep_iterable(
                 member_validator=attr.validators.and_(
-                    attr.validators.instance_of(str), valid_deme_id
+                    attr.validators.instance_of(str), valid_deme_name
                 ),
                 iterable_validator=attr.validators.instance_of(list),
             ),
@@ -673,8 +679,10 @@ class Branch:
     :ivar time: The branch time.
     """
 
-    parent: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
-    child: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    parent: Name = attr.ib(
+        validator=[attr.validators.instance_of(str), valid_deme_name]
+    )
+    child: Name = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_name])
     time: Time = attr.ib(validator=[int_or_float, non_negative, finite])
 
     def __attrs_post_init__(self):
@@ -755,10 +763,10 @@ class Merge:
     :ivar time: The merge time.
     """
 
-    parents: List[ID] = attr.ib(
+    parents: List[Name] = attr.ib(
         validator=attr.validators.deep_iterable(
             member_validator=attr.validators.and_(
-                attr.validators.instance_of(str), valid_deme_id
+                attr.validators.instance_of(str), valid_deme_name
             ),
             iterable_validator=attr.validators.instance_of(list),
         )
@@ -769,7 +777,7 @@ class Merge:
             iterable_validator=attr.validators.instance_of(list),
         )
     )
-    child: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    child: Name = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_name])
     time: Time = attr.ib(validator=[int_or_float, non_negative, finite])
 
     @proportions.validator
@@ -875,10 +883,10 @@ class Admix:
     :ivar time: The admixture time.
     """
 
-    parents: List[ID] = attr.ib(
+    parents: List[Name] = attr.ib(
         validator=attr.validators.deep_iterable(
             member_validator=attr.validators.and_(
-                attr.validators.instance_of(str), valid_deme_id
+                attr.validators.instance_of(str), valid_deme_name
             ),
             iterable_validator=attr.validators.instance_of(list),
         )
@@ -889,7 +897,7 @@ class Admix:
             iterable_validator=attr.validators.instance_of(list),
         )
     )
-    child: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    child: Name = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_name])
     time: Time = attr.ib(validator=[int_or_float, non_negative, finite])
 
     @proportions.validator
@@ -990,7 +998,7 @@ class Deme:
     """
     A collection of individuals that are exchangeable at any fixed time.
 
-    :ivar str id: A string identifier for the deme.
+    :ivar str name: A conscise string that identifies the deme.
     :ivar str description: A description of the deme. May be ``None``.
     :ivar float start_time: The time at which the deme begins to exist.
     :ivar ancestors: List of string identifiers for the deme's ancestors.
@@ -1005,17 +1013,17 @@ class Deme:
     :vartype epochs: list of :class:`.Epoch`
     """
 
-    id: ID = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_id])
+    name: Name = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_name])
     description: Optional[str] = attr.ib(
         validator=attr.validators.optional(
             [attr.validators.instance_of(str), nonzero_len]
         )
     )
     start_time: Time = attr.ib(validator=[int_or_float, positive])
-    ancestors: List[ID] = attr.ib(
+    ancestors: List[Name] = attr.ib(
         validator=attr.validators.deep_iterable(
             member_validator=attr.validators.and_(
-                attr.validators.instance_of(str), valid_deme_id
+                attr.validators.instance_of(str), valid_deme_name
             ),
             iterable_validator=attr.validators.instance_of(list),
         )
@@ -1036,14 +1044,16 @@ class Deme:
     @ancestors.validator
     def _check_ancestors(self, _attribute, _value):
         if len(set(self.ancestors)) != len(self.ancestors):
-            raise ValueError(f"deme {self.id}: duplicate ancestors in {self.ancestors}")
-        if self.id in self.ancestors:
-            raise ValueError(f"deme {self.id}: deme cannot be its own ancestor")
+            raise ValueError(
+                f"deme {self.name}: duplicate ancestors in {self.ancestors}"
+            )
+        if self.name in self.ancestors:
+            raise ValueError(f"deme {self.name}: deme cannot be its own ancestor")
 
     @proportions.validator
     def _check_proportions(self, attribute, _value):
         if len(self.proportions) > 0 and not math.isclose(sum(self.proportions), 1.0):
-            raise ValueError(f"deme {self.id}: ancestry proportions must sum to 1.0")
+            raise ValueError(f"deme {self.name}: ancestry proportions must sum to 1.0")
         for proportion in self.proportions:
             unit_interval(self, attribute, proportion)
             positive(self, attribute, proportion)
@@ -1055,7 +1065,7 @@ class Deme:
             if i > 0:
                 if self.epochs[i - 1].end_time != epoch.start_time:
                     raise ValueError(
-                        f"deme {self.id}: "
+                        f"deme {self.name}: "
                         f"epoch[{i}].start_time != epoch[{i}-1].end_time"
                     )
 
@@ -1064,7 +1074,7 @@ class Deme:
         # after the validators have confirmed that these are indeed lists.
         if len(self.ancestors) != len(self.proportions):
             raise ValueError(
-                f"deme {self.id}: ancestors and proportions have different lengths"
+                f"deme {self.name}: ancestors and proportions have different lengths"
             )
 
     def _add_epoch(
@@ -1082,7 +1092,7 @@ class Deme:
             # The first epoch is special.
             if start_size is None and end_size is None:
                 raise KeyError(
-                    f"deme {self.id}: first epoch must have start_size or end_size"
+                    f"deme {self.name}: first epoch must have start_size or end_size"
                 )
             if start_size is None:
                 start_size = end_size
@@ -1116,7 +1126,7 @@ class Deme:
             )
         except (TypeError, ValueError) as e:
             raise e.__class__(
-                f"deme {self.id}: epoch[{len(self.epochs)}]: invalid epoch"
+                f"deme {self.name}: epoch[{len(self.epochs)}]: invalid epoch"
             ) from e
         self.epochs.append(epoch)
 
@@ -1131,7 +1141,7 @@ class Deme:
         Raises AssertionError if the object is not equal to ``other``,
         up to a numerical tolerance.
         Compares values of the following objects:
-        ``id``, ``ancestors``, ``proportions``, epochs.
+        ``name``, ``ancestors``, ``proportions``, epochs.
 
         :param other: The deme to compare against.
         :type other: :class:`.Deme`
@@ -1145,7 +1155,7 @@ class Deme:
         assert (
             self.__class__ is other.__class__
         ), f"Failed as other deme is not instance of {self.__class__} type."
-        assert self.id == other.id
+        assert self.name == other.name
         assert math.isclose(
             self.start_time, other.start_time, rel_tol=rel_tol, abs_tol=abs_tol
         ), f"Failed for start_time {self.start_time} != {other.start_time} (other)."
@@ -1267,24 +1277,24 @@ class Graph:
     pulses: List[Pulse] = attr.ib(factory=list, init=False)
 
     def __attrs_post_init__(self):
-        self._deme_map: Dict[ID, Deme] = dict()
+        self._deme_map: Dict[Name, Deme] = dict()
 
         if self.time_units != "generations" and self.generation_time is None:
             raise ValueError(
                 'if time_units!="generations", generation_time must be specified'
             )
 
-    def __getitem__(self, deme_id):
+    def __getitem__(self, deme_name):
         """
-        Return the :class:`.Deme` with the specified id.
+        Return the :class:`.Deme` with the specified name.
         """
-        return self._deme_map[deme_id]
+        return self._deme_map[deme_name]
 
-    def __contains__(self, deme_id):
+    def __contains__(self, deme_name):
         """
-        Check if the graph contains a deme with the specified id.
+        Check if the graph contains a deme with the specified name.
         """
-        return deme_id in self._deme_map
+        return deme_name in self._deme_map
 
     def assert_close(
         self,
@@ -1322,7 +1332,7 @@ class Graph:
                 except AssertionError as e:
                     if isinstance(a, Deme) and isinstance(b, Deme):
                         raise AssertionError(
-                            f"Failed for {name} {a.id} and {b.id}"
+                            f"Failed for {name} {a.name} and {b.name}"
                         ) from e
                     raise AssertionError(f"Failed for {name}") from e
 
@@ -1410,7 +1420,7 @@ class Graph:
     def _add_deme(
         self,
         *,
-        id,
+        name,
         description=None,
         ancestors=None,
         proportions=None,
@@ -1419,7 +1429,7 @@ class Graph:
         """
         Add a deme to the graph.
 
-        :param str id: A string identifier for the deme.
+        :param str name: A string identifier for the deme.
         :param ancestors: List of string identifiers for the deme's ancestors.
             This may be ``None``, indicating the deme has no ancestors.
             If the deme has multiple ancestors, the ``proportions`` parameter
@@ -1443,19 +1453,21 @@ class Graph:
         :rtype: :class:`.Deme`
         """
         # some basic deme property checks
-        if id in self:
-            raise ValueError(f"deme[{len(self.demes)}] {id}: field 'id' must be unique")
+        if name in self:
+            raise ValueError(
+                f"deme[{len(self.demes)}] {name}: field 'name' must be unique"
+            )
         if ancestors is None:
             ancestors = []
         if not isinstance(ancestors, list):
             raise TypeError(
-                f"deme[{len(self.demes)}] {id}: field 'ancestors' must be "
-                "a list of deme IDs"
+                f"deme[{len(self.demes)}] {name}: field 'ancestors' must be "
+                "a list of deme names"
             )
         for ancestor in ancestors:
             if ancestor not in self:
                 raise ValueError(
-                    f"deme[{len(self.demes)}] {id}: ancestor deme '{ancestor}' "
+                    f"deme[{len(self.demes)}] {name}: ancestor deme '{ancestor}' "
                     "not found. Note: ancestor demes must be specified before "
                     "their children."
                 )
@@ -1470,7 +1482,7 @@ class Graph:
             if len(ancestors) > 0:
                 if len(ancestors) > 1:
                     raise ValueError(
-                        f"deme[{len(self.demes)}] {id}: "
+                        f"deme[{len(self.demes)}] {name}: "
                         "field 'start_time' not found, "
                         "but is required for demes with multiple ancestors"
                     )
@@ -1480,7 +1492,7 @@ class Graph:
 
         if len(ancestors) == 0 and not math.isinf(start_time):
             raise ValueError(
-                f"deme[{len(self.demes)}] {id}: field 'ancestors' not found, "
+                f"deme[{len(self.demes)}] {name}: field 'ancestors' not found, "
                 "but is required for demes with a finite 'start_time'"
             )
 
@@ -1489,20 +1501,20 @@ class Graph:
             anc = self[ancestor]
             if not (anc.start_time > start_time >= anc.end_time):
                 raise ValueError(
-                    f"deme[{len(self.demes)}] {id}: start_time={start_time} is "
+                    f"deme[{len(self.demes)}] {name}: start_time={start_time} is "
                     "outside the interval of existence for ancestor "
                     f"'{ancestor}' ({anc.start_time}, {anc.end_time}]"
                 )
 
         deme = Deme(
-            id=id,
+            name=name,
             description=description,
             ancestors=ancestors,
             proportions=proportions,
             start_time=start_time,
             epochs=[],
         )
-        self._deme_map[deme.id] = deme
+        self._deme_map[deme.name] = deme
         self.demes.append(deme)
         return deme
 
@@ -1515,9 +1527,9 @@ class Graph:
             if not (time_lo <= time <= time_hi):
                 raise ValueError(
                     f"{time} not in interval [{time_lo}, {time_hi}], "
-                    f"as defined by the time-intersection of {deme1.id} "
+                    f"as defined by the time-intersection of {deme1.name} "
                     f"(start_time={deme1.start_time}, end_time={deme1.end_time}) "
-                    f"and {deme2.id} (start_time={deme2.start_time}, "
+                    f"and {deme2.name} (start_time={deme2.start_time}, "
                     f"end_time={deme2.end_time})."
                 )
         return time_lo, time_hi
@@ -1550,7 +1562,7 @@ class Graph:
         """
         Add continuous symmetric migrations between all pairs of demes in a list.
 
-        :param demes: list of deme IDs. Migration is symmetric between all
+        :param demes: list of deme names. Migration is symmetric between all
             pairs of demes in this list.
         :param rate: The rate of migration per generation.
         :param start_time: The time at which the migration rate is enabled.
@@ -1559,11 +1571,11 @@ class Graph:
         :rtype: list of :class:`.SymmetricMigration`
         """
         if not isinstance(demes, list) or len(demes) < 2:
-            raise ValueError("must specify a list of two or more deme IDs")
+            raise ValueError("must specify a list of two or more deme names")
         if start_time is None:
-            start_time = min(self[deme_id].start_time for deme_id in demes)
+            start_time = min(self[deme_name].start_time for deme_name in demes)
         if end_time is None:
-            end_time = max(self[deme_id].end_time for deme_id in demes)
+            end_time = max(self[deme_name].end_time for deme_name in demes)
         for source, dest in itertools.permutations(demes, 2):
             self._check_time_intersection(source, dest, start_time)
             self._check_time_intersection(source, dest, end_time)
@@ -1588,8 +1600,8 @@ class Graph:
         so that the migration rate refers to the movement of individuals from
         the ``source`` deme to the ``dest`` deme.
 
-        :param source: The ID of the source deme.
-        :param dest: The ID of the destination deme.
+        :param source: The name of the source deme.
+        :param dest: The name of the destination deme.
         :param rate: The rate of migration per generation.
         :param start_time: The time at which the migration rate is enabled.
             If ``None``, the start time is defined by the earliest time at
@@ -1600,9 +1612,9 @@ class Graph:
         :return: Newly created migration.
         :rtype: :class:`.AsymmetricMigration`
         """
-        for deme_id in (source, dest):
-            if deme_id not in self:
-                raise ValueError(f"{deme_id} not in graph")
+        for deme_name in (source, dest):
+            if deme_name not in self:
+                raise ValueError(f"{deme_name} not in graph")
         time_lo, time_hi = self._check_time_intersection(source, dest, start_time)
         if start_time is None:
             start_time = time_hi
@@ -1631,8 +1643,8 @@ class Graph:
         Add a pulse of migration at a fixed time.
         Source and destination demes follow the forwards-in-time convention.
 
-        :param source: The ID of the source deme.
-        :param dest: The ID of the destination deme.
+        :param source: The Name of the source deme.
+        :param dest: The Name of the destination deme.
         :param proportion: At the instant after migration, this is the expected
             proportion of individuals in the destination deme made up of individuals
             from the source deme.
@@ -1640,9 +1652,9 @@ class Graph:
         :return: Newly created pulse.
         :rtype: :class:`.Pulse`
         """
-        for deme_id in (source, dest):
-            if deme_id not in self:
-                raise ValueError(f"{deme_id} not in graph")
+        for deme_name in (source, dest):
+            if deme_name not in self:
+                raise ValueError(f"{deme_name} not in graph")
         self._check_time_intersection(source, dest, time)
 
         # Check for models that have multiple pulses defined at the same time.
@@ -1676,7 +1688,7 @@ class Graph:
         self.pulses.append(pulse)
         return pulse
 
-    def successors(self) -> Dict[ID, List[ID]]:
+    def successors(self) -> Dict[Name, List[Name]]:
         """
         Returns the successors (child demes) for all demes in the graph.
         If ``graph`` is a :class:`Graph`, a `NetworkX <https://networkx.org/>`_
@@ -1694,16 +1706,16 @@ class Graph:
         :return: A NetworkX compatible dict-of-lists graph of the demes' successors.
         :rtype: dict of lists
         """
-        succ: Dict[ID, List[ID]] = {}
+        succ: Dict[Name, List[Name]] = {}
         for deme_info in self.demes:
-            succ.setdefault(deme_info.id, [])
+            succ.setdefault(deme_info.name, [])
             if deme_info.ancestors is not None:
                 for a in deme_info.ancestors:
                     succ.setdefault(a, [])
-                    succ[a].append(deme_info.id)
+                    succ[a].append(deme_info.name)
         return succ
 
-    def predecessors(self) -> Dict[ID, List[ID]]:
+    def predecessors(self) -> Dict[Name, List[Name]]:
         """
         Returns the predecessors (ancestors) for all demes in the graph.
         If ``graph`` is a :class:`Graph`, a `NetworkX <https://networkx.org/>`_
@@ -1721,12 +1733,12 @@ class Graph:
         :return: A NetworkX compatible dict-of-lists graph of the demes' predecessors.
         :rtype: dict of lists
         """
-        pred: Dict[ID, List[ID]] = {}
+        pred: Dict[Name, List[Name]] = {}
         for deme_info in self.demes:
-            pred.setdefault(deme_info.id, [])
+            pred.setdefault(deme_info.name, [])
             if deme_info.ancestors is not None:
                 for a in deme_info.ancestors:
-                    pred[deme_info.id].append(a)
+                    pred[deme_info.name].append(a)
         return pred
 
     def discrete_demographic_events(self) -> Dict[str, List[Any]]:
@@ -1759,7 +1771,7 @@ class Graph:
             "mergers": [],
             "admixtures": [],
         }
-        splits_to_add: Dict[ID, Set[ID]] = {}
+        splits_to_add: Dict[Name, Set[Name]] = {}
         for c, p in self.predecessors().items():
             if len(p) == 0:
                 continue
@@ -1863,10 +1875,10 @@ class Graph:
             pop_list(data, "demes", required_type=MutableMapping, scope="toplevel")
         ):
             insert_defaults(deme_data, deme_defaults)
-            if "id" not in deme_data:
-                raise KeyError("deme[{i}]: required field 'id' not found")
+            if "name" not in deme_data:
+                raise KeyError("deme[{i}]: required field 'name' not found")
             deme = graph._add_deme(
-                id=deme_data.pop("id"),
+                name=deme_data.pop("name"),
                 description=deme_data.pop("description", None),
                 start_time=deme_data.pop("start_time", None),
                 ancestors=deme_data.pop("ancestors", None),
@@ -1874,12 +1886,12 @@ class Graph:
             )
 
             local_defaults = pop_object(
-                deme_data, "defaults", {}, scope=f"deme[{i}] {deme.id}"
+                deme_data, "defaults", {}, scope=f"deme[{i}] {deme.name}"
             )
             local_epoch_defaults = pop_object(
-                local_defaults, "epoch", {}, scope=f"deme[{i}] {deme.id}: defaults"
+                local_defaults, "epoch", {}, scope=f"deme[{i}] {deme.name}: defaults"
             )
-            check_empty(local_defaults, f"deme[{i}] {deme.id}: defaults")
+            check_empty(local_defaults, f"deme[{i}] {deme.name}: defaults")
             epoch_defaults = global_epoch_defaults.copy()
             epoch_defaults.update(local_epoch_defaults)
 
@@ -1893,7 +1905,7 @@ class Graph:
                     "cloning_rate",
                     "size_function",
                 ],
-                f"deme[{i}] {deme.id}: defaults: epoch",
+                f"deme[{i}] {deme.name}: defaults: epoch",
             )
 
             if len(epoch_defaults) == 0 and "epochs" not in deme_data:
@@ -1901,7 +1913,7 @@ class Graph:
                 # or end_size are required for the first epoch. But we check
                 # here to provide a more informative error message.
                 raise KeyError(
-                    f"deme[{i}] {deme.id}: required field 'epochs' not found"
+                    f"deme[{i}] {deme.name}: required field 'epochs' not found"
                 )
 
             # There is always at least one epoch defined with the default values.
@@ -1910,7 +1922,7 @@ class Graph:
                 "epochs",
                 [{}],
                 required_type=MutableMapping,
-                scope=f"deme[{i}] {deme.id}",
+                scope=f"deme[{i}] {deme.name}",
             )
             for j, epoch_data in enumerate(epochs):
                 insert_defaults(epoch_data, epoch_defaults)
@@ -1919,7 +1931,7 @@ class Graph:
                         epoch_data["end_time"] = 0
                     else:
                         raise KeyError(
-                            f"deme[{i}] {deme.id}: epoch[{j}]: "
+                            f"deme[{i}] {deme.name}: epoch[{j}]: "
                             "required field 'end_time' not found"
                         )
                 deme._add_epoch(
@@ -1930,8 +1942,8 @@ class Graph:
                     selfing_rate=epoch_data.pop("selfing_rate", 0),
                     cloning_rate=epoch_data.pop("cloning_rate", 0),
                 )
-                check_empty(epoch_data, f"deme[{i}] {deme.id}: epoch[{j}]")
-            check_empty(deme_data, f"deme[{i}] {deme.id}")
+                check_empty(epoch_data, f"deme[{i}] {deme.name}: epoch[{j}]")
+            check_empty(deme_data, f"deme[{i}] {deme.name}")
 
         check_defaults(
             migration_defaults,
@@ -2076,8 +2088,8 @@ class Graph:
                 if len(demes) == 0:
                     demes = [migration["source"], migration["dest"]]
 
-                time_lo = min(self[deme_id].start_time for deme_id in demes)
-                time_hi = max(self[deme_id].end_time for deme_id in demes)
+                time_lo = min(self[deme_name].start_time for deme_name in demes)
+                time_hi = max(self[deme_name].end_time for deme_name in demes)
                 if migration["start_time"] == time_lo:
                     del migration["start_time"]
                 if migration["end_time"] == time_hi:
@@ -2145,7 +2157,7 @@ class Builder:
 
     def add_deme(
         self,
-        id: str,
+        name: str,
         *,
         description: str = None,
         ancestors: list = None,
@@ -2157,7 +2169,7 @@ class Builder:
         """
         Add a deme. Ancestor demes must be added before their children.
 
-        :param str id: A string identifier for the deme.
+        :param str name: A string identifier for the deme.
         :param str description: A description of the deme. May be ``None``.
         :param ancestors: List of string identifiers for the deme's ancestors.
             This may be ``None``, indicating the deme has no ancestors.
@@ -2171,7 +2183,7 @@ class Builder:
             parameters to be passed to the deme's DemeProxy.add_epoch() method
         :vartype epochs: list of dict
         """
-        deme: MutableMapping[str, Any] = dict(id=id)
+        deme: MutableMapping[str, Any] = dict(name=name)
         if description is not None:
             deme["description"] = description
         if ancestors is not None:
@@ -2209,12 +2221,12 @@ class Builder:
         so that the migration rate refers to the movement of individuals from
         the ``source`` deme to the ``dest`` deme.
 
-        :param demes: list of deme IDs. Migration is symmetric between all
+        :param demes: list of deme names. Migration is symmetric between all
             pairs of demes in this list. If not specified, migration will
             be asymmetric (and ``source`` and ``dest`` must be given).
         :vartype demes: list of str
-        :param str source: The ID of the source deme.
-        :param str dest: The ID of the destination deme.
+        :param str source: The Name of the source deme.
+        :param str dest: The Name of the destination deme.
         :param float rate: The rate of migration per generation.
         :param float start_time: The time at which the migration rate is enabled.
             If ``None``, the start time is defined by the earliest time at
@@ -2253,8 +2265,8 @@ class Builder:
         Add a pulse of migration at a fixed time.
         Source and destination demes follow the forwards-in-time convention.
 
-        :param str source: The ID of the source deme.
-        :param str dest: The ID of the destination deme.
+        :param str source: The Name of the source deme.
+        :param str dest: The Name of the destination deme.
         :param float proportion: At the instant after migration, this is the
             expected proportion of individuals in the destination deme made up
             of individuals from the source deme.

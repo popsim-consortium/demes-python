@@ -478,29 +478,33 @@ class TestMigration(unittest.TestCase):
                 )
 
     def test_bad_demes(self):
-        for id in (0, math.inf, 1e3, {}, []):
+        for name in (0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 AsymmetricMigration(
-                    source=id, dest="a", start_time=10, end_time=0, rate=0.1
+                    source=name, dest="a", start_time=10, end_time=0, rate=0.1
                 )
             with self.assertRaises(TypeError):
                 AsymmetricMigration(
-                    source="a", dest=id, start_time=10, end_time=0, rate=0.1
+                    source="a", dest=name, start_time=10, end_time=0, rate=0.1
                 )
             with self.assertRaises(TypeError):
-                SymmetricMigration(demes=["a", id], start_time=10, end_time=0, rate=0.1)
+                SymmetricMigration(
+                    demes=["a", name], start_time=10, end_time=0, rate=0.1
+                )
 
-        for id in ("a", "", "pop 1"):
+        for name in ("a", "", "pop 1"):
             with self.assertRaises(ValueError):
                 AsymmetricMigration(
-                    source=id, dest="a", start_time=10, end_time=0, rate=0.1
+                    source=name, dest="a", start_time=10, end_time=0, rate=0.1
                 )
             with self.assertRaises(ValueError):
                 AsymmetricMigration(
-                    source="a", dest=id, start_time=10, end_time=0, rate=0.1
+                    source="a", dest=name, start_time=10, end_time=0, rate=0.1
                 )
             with self.assertRaises(ValueError):
-                SymmetricMigration(demes=["a", id], start_time=10, end_time=0, rate=0.1)
+                SymmetricMigration(
+                    demes=["a", name], start_time=10, end_time=0, rate=0.1
+                )
 
         # need at least two demes for symmetric migration
         with self.assertRaises(ValueError):
@@ -609,17 +613,17 @@ class TestPulse(unittest.TestCase):
                 Pulse(source="a", dest="b", time=1, proportion=proportion)
 
     def test_bad_demes(self):
-        for id in (None, 0, math.inf, 1e3, {}, []):
+        for name in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
-                Pulse(source=id, dest="a", time=1, proportion=0.1)
+                Pulse(source=name, dest="a", time=1, proportion=0.1)
             with self.assertRaises(TypeError):
-                Pulse(source="a", dest=id, time=1, proportion=0.1)
+                Pulse(source="a", dest=name, time=1, proportion=0.1)
 
-        for id in ("a", "", "pop 1"):
+        for name in ("a", "", "pop 1"):
             with self.assertRaises(ValueError):
-                Pulse(source=id, dest="a", time=1, proportion=0.1)
+                Pulse(source=name, dest="a", time=1, proportion=0.1)
             with self.assertRaises(ValueError):
-                Pulse(source="a", dest=id, time=1, proportion=0.1)
+                Pulse(source="a", dest=name, time=1, proportion=0.1)
 
     def test_valid_pulse(self):
         Pulse(source="a", dest="b", time=1, proportion=1e-9)
@@ -667,25 +671,25 @@ class TestSplit(unittest.TestCase):
         for children in (None, "b", {"b": 1}, set("b"), ("b",)):
             with self.assertRaises(TypeError):
                 Split(parent="a", children=children, time=1)
-        for id in (None, 0, math.inf, 1e3, {}, []):
+        for name in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
-                Split(parent="a", children=[id], time=1)
+                Split(parent="a", children=[name], time=1)
 
         for children in (["a", "b"], ["b", "b"], []):
             with self.assertRaises(ValueError):
                 Split(parent="a", children=children, time=1)
-        for id in ("a", "", "pop 1"):
+        for name in ("a", "", "pop 1"):
             with self.assertRaises(ValueError):
-                Split(parent="a", children=[id], time=1)
+                Split(parent="a", children=[name], time=1)
 
     def test_bad_parent(self):
-        for id in (None, 0, math.inf, 1e3, {}, []):
+        for name in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
-                Split(parent=id, children=["b"], time=1)
+                Split(parent=name, children=["b"], time=1)
 
-        for id in ("a", "", "pop 1"):
+        for name in ("a", "", "pop 1"):
             with self.assertRaises(ValueError):
-                Split(parent=id, children=["a"], time=1)
+                Split(parent=name, children=["a"], time=1)
 
     def test_valid_split(self):
         Split(parent="a", children=["b", "c"], time=10)
@@ -725,22 +729,22 @@ class TestBranch(unittest.TestCase):
                 Branch(parent="a", child="b", time=time)
 
     def test_bad_child(self):
-        for id in (None, 0, math.inf, 1e3, {}, []):
+        for name in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
-                Branch(parent="a", child=id, time=1)
+                Branch(parent="a", child=name, time=1)
 
-        for id in ("a", "", "pop 1"):
+        for name in ("a", "", "pop 1"):
             with self.assertRaises(ValueError):
-                Branch(parent="a", child=id, time=1)
+                Branch(parent="a", child=name, time=1)
 
     def test_bad_parent(self):
-        for id in (None, 0, math.inf, 1e3, {}, []):
+        for name in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
-                Branch(parent=id, child="b", time=1)
+                Branch(parent=name, child="b", time=1)
 
-        for id in ("a", "", "pop 1"):
+        for name in ("a", "", "pop 1"):
             with self.assertRaises(ValueError):
-                Branch(parent=id, child="a", time=1)
+                Branch(parent=name, child="a", time=1)
 
     def test_valid_branch(self):
         Branch(parent="a", child="b", time=10)
@@ -771,29 +775,29 @@ class TestMerge(unittest.TestCase):
                 Merge(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=time)
 
     def test_bad_child(self):
-        for id in (None, 0, math.inf, 1e3, {}, []):
+        for name in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
-                Merge(parents=["a", "b"], proportions=[0.5, 0.5], child=id, time=1)
+                Merge(parents=["a", "b"], proportions=[0.5, 0.5], child=name, time=1)
 
-        for id in ("a", "b", "", "pop 1"):
+        for name in ("a", "b", "", "pop 1"):
             with self.assertRaises(ValueError):
-                Merge(parents=["a", "b"], proportions=[0.5, 0.5], child=id, time=1)
+                Merge(parents=["a", "b"], proportions=[0.5, 0.5], child=name, time=1)
 
     def test_bad_parents(self):
         for parents in (None, "b", {"b": 1}, set("b"), ("b", "b")):
             with self.assertRaises(TypeError):
                 Merge(parents=parents, proportions=[0.5, 0.5], child="c", time=1)
-        for id in (None, 0, math.inf, 1e3, {}, []):
+        for name in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
-                Merge(parents=["a", id], proportions=[0.5, 0.5], child="c", time=1)
+                Merge(parents=["a", name], proportions=[0.5, 0.5], child="c", time=1)
             with self.assertRaises(TypeError):
-                Merge(parents=[id, "a"], proportions=[0.5, 0.5], child="c", time=1)
+                Merge(parents=[name, "a"], proportions=[0.5, 0.5], child="c", time=1)
 
-        for id in ("a", "c", "", "pop 1"):
+        for name in ("a", "c", "", "pop 1"):
             with self.assertRaises(ValueError):
-                Merge(parents=["a", id], proportions=[0.5, 0.5], child="c", time=1)
+                Merge(parents=["a", name], proportions=[0.5, 0.5], child="c", time=1)
             with self.assertRaises(ValueError):
-                Merge(parents=[id, "a"], proportions=[0.5, 0.5], child="c", time=1)
+                Merge(parents=[name, "a"], proportions=[0.5, 0.5], child="c", time=1)
         with self.assertRaises(ValueError):
             Merge(parents=["a"], proportions=[1], child="b", time=1)
 
@@ -939,29 +943,29 @@ class TestAdmix(unittest.TestCase):
                 Admix(parents=["a", "b"], proportions=[0.5, 0.5], child="c", time=time)
 
     def test_bad_child(self):
-        for id in (None, 0, math.inf, 1e3, {}, []):
+        for name in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
-                Admix(parents=["a", "b"], proportions=[0.5, 0.5], child=id, time=1)
+                Admix(parents=["a", "b"], proportions=[0.5, 0.5], child=name, time=1)
 
-        for id in ("a", "b", "", "pop 1"):
+        for name in ("a", "b", "", "pop 1"):
             with self.assertRaises(ValueError):
-                Admix(parents=["a", "b"], proportions=[0.5, 0.5], child=id, time=1)
+                Admix(parents=["a", "b"], proportions=[0.5, 0.5], child=name, time=1)
 
     def test_bad_parents(self):
         for parents in (None, "b", {"b": 1}, set("b"), ("b", "b")):
             with self.assertRaises(TypeError):
                 Admix(parents=parents, proportions=[0.5, 0.5], child="c", time=1)
-        for id in (None, 0, math.inf, 1e3, {}, []):
+        for name in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
-                Admix(parents=["a", id], proportions=[0.5, 0.5], child="c", time=1)
+                Admix(parents=["a", name], proportions=[0.5, 0.5], child="c", time=1)
             with self.assertRaises(TypeError):
-                Admix(parents=[id, "a"], proportions=[0.5, 0.5], child="c", time=1)
+                Admix(parents=[name, "a"], proportions=[0.5, 0.5], child="c", time=1)
 
-        for id in ("a", "c", "", "pop 1"):
+        for name in ("a", "c", "", "pop 1"):
             with self.assertRaises(ValueError):
-                Admix(parents=["a", id], proportions=[0.5, 0.5], child="c", time=1)
+                Admix(parents=["a", name], proportions=[0.5, 0.5], child="c", time=1)
             with self.assertRaises(ValueError):
-                Admix(parents=[id, "a"], proportions=[0.5, 0.5], child="c", time=1)
+                Admix(parents=[name, "a"], proportions=[0.5, 0.5], child="c", time=1)
         with self.assertRaises(ValueError):
             Admix(parents=["a"], proportions=[1], child="b", time=1)
 
@@ -1105,7 +1109,7 @@ class TestAdmix(unittest.TestCase):
 class TestDeme(unittest.TestCase):
     def test_properties(self):
         deme = Deme(
-            id="a",
+            name="a",
             description="b",
             ancestors=["c"],
             proportions=[1],
@@ -1126,7 +1130,7 @@ class TestDeme(unittest.TestCase):
         self.assertEqual(deme.proportions[0], 1)
 
         deme = Deme(
-            id="a",
+            name="a",
             description="b",
             ancestors=["c"],
             proportions=[1],
@@ -1159,7 +1163,7 @@ class TestDeme(unittest.TestCase):
         self.assertEqual(deme.end_time, 1)
 
         deme = Deme(
-            id="a",
+            name="a",
             description=None,
             ancestors=["c"],
             proportions=[1],
@@ -1177,10 +1181,10 @@ class TestDeme(unittest.TestCase):
         self.assertEqual(deme.description, None)
 
     def test_bad_id(self):
-        for id in (None, 0, math.inf, 1e3, {}, []):
+        for name in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 Deme(
-                    id=id,
+                    name=name,
                     description="b",
                     ancestors=[],
                     proportions=[],
@@ -1195,10 +1199,10 @@ class TestDeme(unittest.TestCase):
                         )
                     ],
                 )
-        for id in ["", "501", "pop-1", "pop.2", "pop 3"]:
+        for name in ["", "501", "pop-1", "pop.2", "pop 3"]:
             with self.assertRaises(ValueError):
                 Deme(
-                    id=id,
+                    name=name,
                     description="b",
                     ancestors=[],
                     proportions=[],
@@ -1218,7 +1222,7 @@ class TestDeme(unittest.TestCase):
         for description in (0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 Deme(
-                    id="a",
+                    name="a",
                     description=description,
                     ancestors=[],
                     proportions=[],
@@ -1235,7 +1239,7 @@ class TestDeme(unittest.TestCase):
                 )
         with self.assertRaises(ValueError):
             Deme(
-                id="a",
+                name="a",
                 description="",
                 ancestors=[],
                 proportions=[],
@@ -1255,7 +1259,7 @@ class TestDeme(unittest.TestCase):
         for ancestors in (None, "c", {}):
             with self.assertRaises(TypeError):
                 Deme(
-                    id="a",
+                    name="a",
                     description="b",
                     ancestors=ancestors,
                     proportions=[1],
@@ -1270,12 +1274,12 @@ class TestDeme(unittest.TestCase):
                         )
                     ],
                 )
-        for id in (None, 0, math.inf, 1e3, {}, []):
+        for name in (None, 0, math.inf, 1e3, {}, []):
             with self.assertRaises(TypeError):
                 Deme(
-                    id="a",
+                    name="a",
                     description="b",
-                    ancestors=[id],
+                    ancestors=[name],
                     proportions=[1],
                     start_time=10,
                     epochs=[
@@ -1288,12 +1292,12 @@ class TestDeme(unittest.TestCase):
                         )
                     ],
                 )
-        for id in ["", "501", "pop-1", "pop.2", "pop 3"]:
+        for name in ["", "501", "pop-1", "pop.2", "pop 3"]:
             with self.assertRaises(ValueError):
                 Deme(
-                    id="a",
+                    name="a",
                     description="b",
-                    ancestors=[id],
+                    ancestors=[name],
                     proportions=[1],
                     start_time=10,
                     epochs=[
@@ -1309,7 +1313,7 @@ class TestDeme(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             Deme(
-                id="a",
+                name="a",
                 description="b",
                 ancestors=["a", "c"],
                 proportions=[0.5, 0.5],
@@ -1327,7 +1331,7 @@ class TestDeme(unittest.TestCase):
         with self.assertRaises(ValueError):
             # duplicate ancestors
             Deme(
-                id="a",
+                name="a",
                 description="test",
                 ancestors=["x", "x"],
                 proportions=[0.5, 0.5],
@@ -1347,7 +1351,7 @@ class TestDeme(unittest.TestCase):
         for proportions in (None, {}, 1e5, "proportions", math.nan):
             with self.assertRaises(TypeError):
                 Deme(
-                    id="a",
+                    name="a",
                     description="test",
                     ancestors=[],
                     proportions=proportions,
@@ -1365,7 +1369,7 @@ class TestDeme(unittest.TestCase):
         for proportion in (None, "inf", "100", {}, [], math.nan):
             with self.assertRaises(TypeError):
                 Deme(
-                    id="a",
+                    name="a",
                     description="test",
                     ancestors=["b"],
                     proportions=[proportion],
@@ -1389,7 +1393,7 @@ class TestDeme(unittest.TestCase):
         ):
             with self.assertRaises(ValueError):
                 Deme(
-                    id="a",
+                    name="a",
                     description="test",
                     ancestors=["x", "y"],
                     proportions=proportions,
@@ -1408,7 +1412,7 @@ class TestDeme(unittest.TestCase):
         for proportion in (-10000, -1, -1e-9, 1.2, 100, math.inf):
             with self.assertRaises(ValueError):
                 Deme(
-                    id="a",
+                    name="a",
                     description="test",
                     ancestors=["b", "c"],
                     proportions=[0.5, proportion],
@@ -1425,7 +1429,7 @@ class TestDeme(unittest.TestCase):
                 )
             with self.assertRaises(ValueError):
                 Deme(
-                    id="a",
+                    name="a",
                     description="test",
                     ancestors=["b", "c"],
                     proportions=[proportion, 0.5],
@@ -1445,7 +1449,7 @@ class TestDeme(unittest.TestCase):
         for time in (5, -1, math.inf):
             with self.assertRaises(ValueError):
                 Deme(
-                    id="a",
+                    name="a",
                     description="b",
                     ancestors=["c"],
                     proportions=[1],
@@ -1472,7 +1476,7 @@ class TestDeme(unittest.TestCase):
         for start_time, end_time in [(math.inf, 100), (200, 100)]:
             with self.assertRaises(ValueError):
                 Deme(
-                    id="a",
+                    name="a",
                     description="b",
                     ancestors=["c"],
                     proportions=[1],
@@ -1499,7 +1503,7 @@ class TestDeme(unittest.TestCase):
         for epochs in (None, {}, "Epoch"):
             with self.assertRaises(TypeError):
                 Deme(
-                    id="a",
+                    name="a",
                     description="b",
                     ancestors=["c"],
                     proportions=[1],
@@ -1510,7 +1514,7 @@ class TestDeme(unittest.TestCase):
     def test_time_span(self):
         for start_time, end_time in zip((math.inf, 100, 20), (0, 20, 0)):
             deme = Deme(
-                id="a",
+                name="a",
                 description="b",
                 ancestors=["c"],
                 proportions=[1],
@@ -1528,7 +1532,7 @@ class TestDeme(unittest.TestCase):
             self.assertEqual(deme.time_span, start_time - end_time)
         with self.assertRaises(ValueError):
             deme = Deme(
-                id="a",
+                name="a",
                 description="b",
                 ancestors=["c"],
                 proportions=[1],
@@ -1546,7 +1550,7 @@ class TestDeme(unittest.TestCase):
 
     def test_isclose(self):
         d1 = Deme(
-            id="a",
+            name="a",
             description="foo deme",
             ancestors=[],
             proportions=[],
@@ -1565,7 +1569,7 @@ class TestDeme(unittest.TestCase):
         self.assertTrue(
             d1.isclose(
                 Deme(
-                    id="a",
+                    name="a",
                     description="foo deme",
                     ancestors=[],
                     proportions=[],
@@ -1586,7 +1590,7 @@ class TestDeme(unittest.TestCase):
         self.assertTrue(
             d1.isclose(
                 Deme(
-                    id="a",
+                    name="a",
                     description="bar deme",
                     ancestors=[],
                     proportions=[],
@@ -1611,7 +1615,7 @@ class TestDeme(unittest.TestCase):
         self.assertFalse(
             d1.isclose(
                 Deme(
-                    id="b",
+                    name="b",
                     description="foo deme",
                     ancestors=[],
                     proportions=[],
@@ -1631,7 +1635,7 @@ class TestDeme(unittest.TestCase):
         self.assertFalse(
             d1.isclose(
                 Deme(
-                    id="a",
+                    name="a",
                     description="foo deme",
                     ancestors=["x"],
                     proportions=[1],
@@ -1651,7 +1655,7 @@ class TestDeme(unittest.TestCase):
         self.assertFalse(
             d1.isclose(
                 Deme(
-                    id="a",
+                    name="a",
                     description="foo deme",
                     ancestors=[],
                     proportions=[],
@@ -1671,7 +1675,7 @@ class TestDeme(unittest.TestCase):
         self.assertFalse(
             d1.isclose(
                 Deme(
-                    id="a",
+                    name="a",
                     description="foo deme",
                     ancestors=[],
                     proportions=[],
@@ -1692,7 +1696,7 @@ class TestDeme(unittest.TestCase):
         self.assertFalse(
             d1.isclose(
                 Deme(
-                    id="a",
+                    name="a",
                     description="foo deme",
                     ancestors=[],
                     proportions=[],
@@ -1712,7 +1716,7 @@ class TestDeme(unittest.TestCase):
         self.assertFalse(
             d1.isclose(
                 Deme(
-                    id="a",
+                    name="a",
                     description="foo deme",
                     ancestors=[],
                     proportions=[],
@@ -1733,7 +1737,7 @@ class TestDeme(unittest.TestCase):
         self.assertFalse(
             d1.isclose(
                 Deme(
-                    id="a",
+                    name="a",
                     description="foo deme",
                     ancestors=[],
                     proportions=[],
@@ -2140,11 +2144,11 @@ class TestGraph(unittest.TestCase):
         b = Builder(defaults=dict(epoch=dict(start_size=1)))
         ancestors = ["a", "b", "c"]
         children = ["x", "y", "z"]
-        for id in ancestors:
-            b.add_deme(id)
-        for id in children:
+        for name in ancestors:
+            b.add_deme(name)
+        for name in children:
             b.add_deme(
-                id,
+                name,
                 ancestors=ancestors,
                 proportions=[1 / 3, 1 / 3, 1 / 3],
                 start_time=100,
@@ -2206,8 +2210,8 @@ class TestGraph(unittest.TestCase):
     def test_discrete_demographic_events(self):
         # unrelated populations
         b = Builder()
-        for id in "abcde":
-            b.add_deme(id, epochs=[dict(start_size=1)])
+        for name in "abcde":
+            b.add_deme(name, epochs=[dict(start_size=1)])
         g = b.resolve()
         de = g.discrete_demographic_events()
         assert len(de) == 5
@@ -2482,10 +2486,10 @@ class TestGraphResolution(unittest.TestCase):
             with pytest.raises(TypeError):
                 b.resolve()
 
-        # deme has no id
+        # deme has no name
         b = Builder()
         b.add_deme("a", epochs=[dict(start_size=1)])
-        del b.data["demes"][0]["id"]
+        del b.data["demes"][0]["name"]
         with pytest.raises(KeyError):
             b.resolve()
 
@@ -3047,10 +3051,10 @@ class TestGraphResolution(unittest.TestCase):
                 deme=dict(ancestors=["a", "b", "c"], proportions=[0.1, 0.7, 0.2])
             )
         )
-        for id in "abc":
-            b.add_deme(id, epochs=[dict(start_size=1)], ancestors=[], proportions=[])
-        for id in "xyz":
-            b.add_deme(id, epochs=[dict(start_size=1)], start_time=100)
+        for name in "abc":
+            b.add_deme(name, epochs=[dict(start_size=1)], ancestors=[], proportions=[])
+        for name in "xyz":
+            b.add_deme(name, epochs=[dict(start_size=1)], start_time=100)
         g = b.resolve()
         assert g["a"].ancestors == g["b"].ancestors == g["c"].ancestors == []
         assert g["a"].proportions == g["b"].proportions == g["c"].proportions == []
@@ -3081,8 +3085,8 @@ class TestGraphResolution(unittest.TestCase):
 
         # start_time
         b = Builder(defaults=dict(migration=dict(start_time=100)))
-        for id in "abcd":
-            b.add_deme(id, epochs=[dict(start_size=1)])
+        for name in "abcd":
+            b.add_deme(name, epochs=[dict(start_size=1)])
         b.add_migration(source="a", dest="b", end_time=90, rate=0.1)
         b.add_migration(source="b", dest="a", start_time=90, end_time=80, rate=0.1)
         b.add_migration(demes=["c", "d"], end_time=90, rate=0.1)
@@ -3095,8 +3099,8 @@ class TestGraphResolution(unittest.TestCase):
 
         # end_time
         b = Builder(defaults=dict(migration=dict(end_time=100)))
-        for id in "abcd":
-            b.add_deme(id, epochs=[dict(start_size=1)])
+        for name in "abcd":
+            b.add_deme(name, epochs=[dict(start_size=1)])
         b.add_migration(source="a", dest="b", start_time=200, rate=0.1)
         b.add_migration(source="a", dest="b", start_time=100, end_time=50, rate=0.1)
         b.add_migration(demes=["c", "d"], start_time=200, rate=0.1)
@@ -3109,10 +3113,10 @@ class TestGraphResolution(unittest.TestCase):
 
         # source
         b = Builder(defaults=dict(migration=dict(source="a")))
-        for id in "abcd":
-            b.add_deme(id, epochs=[dict(start_size=1)])
-        for id in "bcd":
-            b.add_migration(dest=id, rate=0.1)
+        for name in "abcd":
+            b.add_deme(name, epochs=[dict(start_size=1)])
+        for name in "bcd":
+            b.add_migration(dest=name, rate=0.1)
         b.add_migration(source="d", dest="a", rate=0.2)
         g = b.resolve()
         assert (
@@ -3123,8 +3127,8 @@ class TestGraphResolution(unittest.TestCase):
         )
         assert g.migrations[3].source == "d"
         # source still defaults to "a", but we want symmetric migration
-        for id in "xyz":
-            b.add_deme(id, epochs=[dict(start_size=1)])
+        for name in "xyz":
+            b.add_deme(name, epochs=[dict(start_size=1)])
         b.add_migration(source=None, demes=["x", "y", "z"], rate=0.1)
         g = b.resolve()
         assert isinstance(g.migrations[4], SymmetricMigration)
@@ -3132,10 +3136,10 @@ class TestGraphResolution(unittest.TestCase):
 
         # dest
         b = Builder(defaults=dict(migration=dict(dest="a")))
-        for id in "abcd":
-            b.add_deme(id, epochs=[dict(start_size=1)])
-        for id in "bcd":
-            b.add_migration(source=id, rate=0.1)
+        for name in "abcd":
+            b.add_deme(name, epochs=[dict(start_size=1)])
+        for name in "bcd":
+            b.add_migration(source=name, rate=0.1)
         b.add_migration(source="a", dest="d", rate=0.2)
         g = b.resolve()
         assert (
@@ -3143,8 +3147,8 @@ class TestGraphResolution(unittest.TestCase):
         )
         assert g.migrations[3].dest == "d"
         # dest still defaults to "a", but we want symmetric migration
-        for id in "xyz":
-            b.add_deme(id, epochs=[dict(start_size=1)])
+        for name in "xyz":
+            b.add_deme(name, epochs=[dict(start_size=1)])
         b.add_migration(dest=None, demes=["x", "y", "z"], rate=0.1)
         g = b.resolve()
         assert isinstance(g.migrations[4], SymmetricMigration)
@@ -3152,16 +3156,16 @@ class TestGraphResolution(unittest.TestCase):
 
         # demes
         b = Builder(defaults=dict(migration=dict(demes=["a", "b", "c"])))
-        for id in "abc":
-            b.add_deme(id, epochs=[dict(start_size=1)])
+        for name in "abc":
+            b.add_deme(name, epochs=[dict(start_size=1)])
         b.add_migration(start_time=200, end_time=100, rate=0.1)
         b.add_migration(demes=["a", "b"], start_time=100, end_time=0, rate=0.2)
         g = b.resolve()
         assert g.migrations[0].demes == ["a", "b", "c"]
         assert g.migrations[1].demes == ["a", "b"]
         # demes still defaults to ["a", "b", "c"], but we want asymmetric migration
-        for id in "xy":
-            b.add_deme(id, epochs=[dict(start_size=1)])
+        for name in "xy":
+            b.add_deme(name, epochs=[dict(start_size=1)])
         b.add_migration(demes=None, source="x", dest="y", rate=0.3)
         g = b.resolve()
         assert isinstance(g.migrations[2], AsymmetricMigration)
@@ -3171,10 +3175,10 @@ class TestGraphResolution(unittest.TestCase):
     def test_toplevel_defaults_pulse(self):
         # source
         b = Builder(defaults=dict(pulse=dict(source="a")))
-        for id in "abcd":
-            b.add_deme(id, epochs=[dict(start_size=1)])
-        for id in "bcd":
-            b.add_pulse(dest=id, proportion=0.1, time=100)
+        for name in "abcd":
+            b.add_deme(name, epochs=[dict(start_size=1)])
+        for name in "bcd":
+            b.add_pulse(dest=name, proportion=0.1, time=100)
         b.add_pulse(source="d", dest="a", proportion=0.2, time=200)
         g = b.resolve()
         assert g.pulses[0].source == g.pulses[1].source == g.pulses[2].source == "a"
@@ -3182,10 +3186,10 @@ class TestGraphResolution(unittest.TestCase):
 
         # dest
         b = Builder(defaults=dict(pulse=dict(dest="a")))
-        for id in "abcd":
-            b.add_deme(id, epochs=[dict(start_size=1)])
-        for id in "bcd":
-            b.add_pulse(source=id, proportion=0.1, time=100)
+        for name in "abcd":
+            b.add_deme(name, epochs=[dict(start_size=1)])
+        for name in "bcd":
+            b.add_pulse(source=name, proportion=0.1, time=100)
         b.add_pulse(dest="d", source="a", proportion=0.2, time=200)
         g = b.resolve()
         assert g.pulses[0].dest == g.pulses[1].dest == g.pulses[2].dest == "a"
@@ -3193,10 +3197,10 @@ class TestGraphResolution(unittest.TestCase):
 
         # time
         b = Builder(defaults=dict(pulse=dict(time=100)))
-        for id in "abcd":
-            b.add_deme(id, epochs=[dict(start_size=1)])
-        for id in "bcd":
-            b.add_pulse(source="a", dest=id, proportion=0.1)
+        for name in "abcd":
+            b.add_deme(name, epochs=[dict(start_size=1)])
+        for name in "bcd":
+            b.add_pulse(source="a", dest=name, proportion=0.1)
         b.add_pulse(source="d", dest="a", proportion=0.2, time=50)
         g = b.resolve()
         assert g.pulses[0].time == g.pulses[1].time == g.pulses[2].time == 100
@@ -3204,10 +3208,10 @@ class TestGraphResolution(unittest.TestCase):
 
         # proportion
         b = Builder(defaults=dict(pulse=dict(proportion=0.1)))
-        for id in "abcd":
-            b.add_deme(id, epochs=[dict(start_size=1)])
-        for id in "bcd":
-            b.add_pulse(source="a", dest=id, time=100)
+        for name in "abcd":
+            b.add_deme(name, epochs=[dict(start_size=1)])
+        for name in "bcd":
+            b.add_pulse(source="a", dest=name, time=100)
         b.add_pulse(source="d", dest="a", time=50, proportion=0.2)
         g = b.resolve()
         assert (
@@ -3222,8 +3226,8 @@ class TestGraphResolution(unittest.TestCase):
     def test_toplevel_defaults_epoch(self):
         # start_size
         b = Builder(defaults=dict(epoch=dict(start_size=1)))
-        for id in "abc":
-            b.add_deme(id)
+        for name in "abc":
+            b.add_deme(name)
         b.add_deme("d", epochs=[dict(start_size=2)])
         b.add_deme(
             "e",
@@ -3259,8 +3263,8 @@ class TestGraphResolution(unittest.TestCase):
 
         # end_size
         b = Builder(defaults=dict(epoch=dict(end_size=1)))
-        for id in "abc":
-            b.add_deme(id)
+        for name in "abc":
+            b.add_deme(name)
         b.add_deme("d", epochs=[dict(end_size=2)])
         b.add_deme(
             "e",
@@ -3296,8 +3300,8 @@ class TestGraphResolution(unittest.TestCase):
 
         # end_time
         b = Builder(defaults=dict(epoch=dict(end_time=100)))
-        for id in "abc":
-            b.add_deme(id, epochs=[dict(start_size=1)])
+        for name in "abc":
+            b.add_deme(name, epochs=[dict(start_size=1)])
         b.add_deme(
             "d",
             ancestors=["a", "b", "c"],
@@ -3324,8 +3328,8 @@ class TestGraphResolution(unittest.TestCase):
 
         # selfing_rate
         b = Builder(defaults=dict(epoch=dict(selfing_rate=0.1)))
-        for id in "abc":
-            b.add_deme(id, epochs=[dict(start_size=1)])
+        for name in "abc":
+            b.add_deme(name, epochs=[dict(start_size=1)])
         b.add_deme(
             "d",
             ancestors=["a", "b", "c"],
@@ -3363,8 +3367,8 @@ class TestGraphResolution(unittest.TestCase):
 
         # cloning_rate
         b = Builder(defaults=dict(epoch=dict(cloning_rate=0.1)))
-        for id in "abc":
-            b.add_deme(id, epochs=[dict(start_size=1)])
+        for name in "abc":
+            b.add_deme(name, epochs=[dict(start_size=1)])
         b.add_deme(
             "d",
             ancestors=["a", "b", "c"],
@@ -3402,8 +3406,8 @@ class TestGraphResolution(unittest.TestCase):
 
         # size_function
         b = Builder(defaults=dict(epoch=dict(size_function="constant")))
-        for id in "abc":
-            b.add_deme(id, epochs=[dict(start_size=1)])
+        for name in "abc":
+            b.add_deme(name, epochs=[dict(start_size=1)])
         b.add_deme(
             "d",
             ancestors=["a", "b", "c"],
