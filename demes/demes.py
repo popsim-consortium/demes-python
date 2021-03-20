@@ -1667,6 +1667,15 @@ class Graph:
                 f"invalid pulse at time={time}, which is source={source}'s start_time"
             )
 
+        # We create the new pulse object (which checks for common errors)
+        # before checking for edge cases below.
+        new_pulse = Pulse(
+            source=source,
+            dest=dest,
+            time=time,
+            proportion=proportion,
+        )
+
         # Check for models that have multiple pulses defined at the same time.
         # E.g. chains of pulses like: deme0 -> deme1; deme1 -> deme2,
         # where reversing the order of the pulse definitions changes the
@@ -1689,14 +1698,19 @@ class Graph:
                 "the desired ancestry proportions."
             )
 
-        pulse = Pulse(
-            source=source,
-            dest=dest,
-            time=time,
-            proportion=proportion,
-        )
-        self.pulses.append(pulse)
-        return pulse
+        # Check for multiple pulses into dest at the same time that
+        # give a sum of proportions > 1.
+        proportion_sum = proportion
+        for pulse in self.pulses:
+            if dest == pulse.dest and pulse.time == time:
+                proportion_sum += pulse.proportion
+        if proportion_sum > 1:
+            raise ValueError(
+                f"sum of pulse proportions > 1 for dest={dest} at time={time}"
+            )
+
+        self.pulses.append(new_pulse)
+        return new_pulse
 
     def _migration_matrices(self):
         """

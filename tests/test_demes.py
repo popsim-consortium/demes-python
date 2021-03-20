@@ -3086,6 +3086,17 @@ class TestGraphResolution(unittest.TestCase):
             b2.resolve()
         assert len(record) == 0
 
+    def test_pulse_proportions_sum(self):
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a")
+        b.add_deme("b")
+        b.add_deme("c")
+        b.add_pulse(source="b", dest="a", time=100, proportion=0.6)
+        b.add_pulse(source="c", dest="a", time=100, proportion=0.6)
+        with pytest.warns(UserWarning):
+            with pytest.raises(ValueError):
+                b.resolve()
+
     def test_toplevel_defaults_deme(self):
         # description
         b = Builder(defaults=dict(deme=dict(description="Demey MacDemeFace")))
@@ -3268,7 +3279,8 @@ class TestGraphResolution(unittest.TestCase):
         for name in "bcd":
             b.add_pulse(source=name, proportion=0.1, time=100)
         b.add_pulse(dest="d", source="a", proportion=0.2, time=200)
-        g = b.resolve()
+        with pytest.warns(UserWarning):
+            g = b.resolve()
         assert g.pulses[0].dest == g.pulses[1].dest == g.pulses[2].dest == "a"
         assert g.pulses[3].dest == "d"
 
