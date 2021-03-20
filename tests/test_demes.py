@@ -467,7 +467,7 @@ class TestMigration(unittest.TestCase):
                     demes=["a", "b"], start_time=10, end_time=0, rate=rate
                 )
 
-        for rate in (-10000, -1, -1e-9, math.inf):
+        for rate in (-10000, -1, -1e-9, 1.2, 100, math.inf):
             with self.assertRaises(ValueError):
                 AsymmetricMigration(
                     source="a", dest="b", start_time=10, end_time=0, rate=rate
@@ -599,7 +599,7 @@ class TestPulse(unittest.TestCase):
             with self.assertRaises(TypeError):
                 Pulse(source="a", dest="b", time=time, proportion=0.1)
 
-        for time in (-10000, -1, -1e-9, math.inf):
+        for time in (-10000, -1, -1e-9, 0, math.inf):
             with self.assertRaises(ValueError):
                 Pulse(source="a", dest="b", time=time, proportion=0.1)
 
@@ -2901,6 +2901,44 @@ class TestGraphResolution(unittest.TestCase):
         b2.add_migration(source="B", dest="A", rate=0.01, start_time=10, end_time=5)
         b2.resolve()
 
+    def test_bad_migration_rates_sum(self):
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("A")
+        b.add_deme("B")
+        b.add_deme("C")
+        b.add_migration(source="B", dest="A", rate=0.5)
+        b.add_migration(source="C", dest="A", rate=0.5)
+        # rates into A sum to 1.0, which is fine
+        b.resolve()
+
+        b.add_deme("D")
+        b.add_migration(source="D", dest="A", rate=1e-9)
+        with pytest.raises(ValueError, match="sum of migration rates"):
+            b.resolve()
+
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("A")
+        b.add_deme("B")
+        b.add_deme("C")
+        b.add_migration(source="C", dest="A", rate=0.6, start_time=100, end_time=50)
+        b.add_migration(source="B", dest="A", rate=0.6, start_time=200, end_time=100)
+        # migration time intervals don't intersect, so this is fine
+        b.resolve()
+
+        b.add_deme("D")
+        b.add_migration(source="D", dest="A", rate=0.6, start_time=60, end_time=20)
+        with pytest.raises(ValueError, match="sum of migration rates"):
+            b.resolve()
+
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("A")
+        b.add_deme("B")
+        b.add_deme("C")
+        b.add_migration(demes=["A", "B"], rate=0.6, start_time=100)
+        b.add_migration(source="C", dest="A", rate=0.6)
+        with pytest.raises(ValueError, match="sum of migration rates"):
+            b.resolve()
+
     def test_bad_pulses(self):
         # pulses is not a list
         for data in (None, {}, "string", 0, 1e-5):
@@ -2948,6 +2986,23 @@ class TestGraphResolution(unittest.TestCase):
         b.add_pulse(source="deme1", dest="deme2", proportion=0.1, time=10)
         with self.assertRaises(ValueError):
             b.resolve()
+
+        b = Builder(defaults=dict(epoch=dict(start_size=100)))
+        b.add_deme("A")
+        b.add_deme("B", start_time=100, ancestors=["A"], epochs=[dict(end_time=50)])
+        g = b.resolve()
+
+        # Can't have pulse at the dest deme's end_time.
+        b2 = copy.deepcopy(b)
+        b2.add_pulse(source="A", dest="B", time=g["B"].end_time, proportion=0.1)
+        with self.assertRaises(ValueError):
+            b2.resolve()
+
+        # Can't have pulse at the source deme's start_time.
+        b2 = copy.deepcopy(b)
+        b2.add_pulse(source="B", dest="A", time=g["B"].start_time, proportion=0.1)
+        with self.assertRaises(ValueError):
+            b2.resolve()
 
     def test_pulse_same_time(self):
         b1 = Builder()
