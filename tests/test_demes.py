@@ -3832,6 +3832,88 @@ class TestGraphToDict(unittest.TestCase):
         self.assertTrue(len(d["migrations"][1]["demes"]) == 2)
         self.assertTrue(len(d["migrations"][2]["demes"]) == 3)
 
+    def test_invalid_fields(self):
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.data["deems"] = b.data.pop("demes")
+        with pytest.raises(KeyError, match="toplevel.*deems"):
+            b.resolve()
+
+        b = Builder(defaults=dict(epok=dict(start_size=1)))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError, match="defaults.*epok"):
+            b.resolve()
+
+        b = Builder(defaults=dict(epoch=dict(start_syze=1)))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError, match="defaults.*epoch.*start_syze"):
+            b.resolve()
+
+        b = Builder(defaults=dict(deme=dict(end_thyme=1)))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError, match="defaults.*deme.*end_thyme"):
+            b.resolve()
+
+        b = Builder(defaults=dict(migration=dict(end_thyme=1)))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError, match="defaults.*migration.*end_thyme"):
+            b.resolve()
+
+        b = Builder(defaults=dict(pulse=dict(thyme=1)))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError, match="defaults.*pulse.*thyme"):
+            b.resolve()
+
+        b = Builder()
+        b.add_deme("A", epochs=[dict(start_size=1)])
+        b.add_deme("B", epochs=[dict(start_size=1)])
+        b.add_deme("MacDemeFace", epochs=[dict(start_size=1)])
+        b.add_deme("C", epochs=[dict(start_size=1)])
+        b.data["demes"][2]["epoks"] = b.data["demes"][2].pop("epochs")
+        with pytest.raises(KeyError, match="demes.*2.*MacDemeFace.*epoks"):
+            b.resolve()
+
+        b = Builder()
+        b.add_deme("A", epochs=[dict(start_size=1)])
+        b.add_deme("B", epochs=[dict(start_size=1)])
+        b.add_deme(
+            "MacDemeFace",
+            epochs=[
+                dict(start_size=4, end_time=999),
+                dict(start_size=5, end_time=99),
+                dict(start_syze=99),
+            ],
+        )
+        b.add_deme("C", epochs=[dict(start_size=1)])
+        with pytest.raises(
+            KeyError, match="demes.*2.*MacDemeFace.*epochs.*2.*start_syze"
+        ):
+            b.resolve()
+
+        b = Builder()
+        b.add_deme("A", epochs=[dict(start_size=1)])
+        b.add_deme("B", epochs=[dict(start_size=1)])
+        b.add_deme(
+            "MacDemeFace",
+            defaults=dict(epok=dict(start_size=99)),
+        )
+        b.add_deme("C", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError, match="demes.*2.*MacDemeFace.*defaults.*epok"):
+            b.resolve()
+
+        b = Builder()
+        b.add_deme("A", epochs=[dict(start_size=1)])
+        b.add_deme("B", epochs=[dict(start_size=1)])
+        b.add_deme(
+            "MacDemeFace",
+            defaults=dict(epoch=dict(start_syze=99)),
+        )
+        b.add_deme("C", epochs=[dict(start_size=1)])
+        with pytest.raises(
+            KeyError, match="demes.*2.*MacDemeFace.*defaults.*epoch.*start_syze"
+        ):
+            b.resolve()
+
 
 class TestBuilder:
     def test_properties(self):
