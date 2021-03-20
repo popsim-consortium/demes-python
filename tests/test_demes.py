@@ -193,7 +193,7 @@ class TestEpoch(unittest.TestCase):
                 end_size=1,
                 size_function="constant",
                 selfing_rate=rate,
-                cloning_rate=rate,
+                cloning_rate=1 - rate,
             )
         for fn in ("linear", "exponential", "N(t) = 6 * log(t)"):
             Epoch(
@@ -378,6 +378,28 @@ class TestEpoch(unittest.TestCase):
                     size_function="constant",
                     cloning_rate=rate,
                 )
+
+    def test_bad_selfing_rate_cloning_rate_combination(self):
+        with self.assertRaises(ValueError):
+            Epoch(
+                start_time=100,
+                end_time=0,
+                start_size=1,
+                end_size=1,
+                size_function="constant",
+                cloning_rate=0.5,
+                selfing_rate=0.5 + 1e-9,
+            )
+        with self.assertRaises(ValueError):
+            Epoch(
+                start_time=100,
+                end_time=0,
+                start_size=1,
+                end_size=1,
+                size_function="constant",
+                cloning_rate=1,
+                selfing_rate=1,
+            )
 
     def test_bad_size_function(self):
         for fn in (0, 1e5, [], {}, math.nan):
