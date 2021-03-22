@@ -10,8 +10,9 @@ Tag release.
  - E.g. ``git tag 0.1.0``
 
 Build distribution files, and test on testpypi.
- - See https://packaging.python.org/guides/using-testpypi/
- - ``python setup.py sdist bdist_wheel``
+ - See https://packaging.python.org/tutorials/packaging-projects/#generating-distribution-archives
+ - ``python -m pip install --upgrade build twine``
+ - ``python -m build``
  - ``twine check dist/*``
  - ``twine upload --repository testpypi dist/*``
  - ``pip uninstall demes``
