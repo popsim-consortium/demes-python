@@ -193,7 +193,7 @@ class TestEpoch(unittest.TestCase):
                 end_size=1,
                 size_function="constant",
                 selfing_rate=rate,
-                cloning_rate=rate,
+                cloning_rate=1 - rate,
             )
         for fn in ("linear", "exponential", "N(t) = 6 * log(t)"):
             Epoch(
@@ -378,6 +378,28 @@ class TestEpoch(unittest.TestCase):
                     size_function="constant",
                     cloning_rate=rate,
                 )
+
+    def test_bad_selfing_rate_cloning_rate_combination(self):
+        with self.assertRaises(ValueError):
+            Epoch(
+                start_time=100,
+                end_time=0,
+                start_size=1,
+                end_size=1,
+                size_function="constant",
+                cloning_rate=0.5,
+                selfing_rate=0.5 + 1e-9,
+            )
+        with self.assertRaises(ValueError):
+            Epoch(
+                start_time=100,
+                end_time=0,
+                start_size=1,
+                end_size=1,
+                size_function="constant",
+                cloning_rate=1,
+                selfing_rate=1,
+            )
 
     def test_bad_size_function(self):
         for fn in (0, 1e5, [], {}, math.nan):
@@ -3064,6 +3086,17 @@ class TestGraphResolution(unittest.TestCase):
             b2.resolve()
         assert len(record) == 0
 
+    def test_pulse_proportions_sum(self):
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a")
+        b.add_deme("b")
+        b.add_deme("c")
+        b.add_pulse(source="b", dest="a", time=100, proportion=0.6)
+        b.add_pulse(source="c", dest="a", time=100, proportion=0.6)
+        with pytest.warns(UserWarning):
+            with pytest.raises(ValueError):
+                b.resolve()
+
     def test_toplevel_defaults_deme(self):
         # description
         b = Builder(defaults=dict(deme=dict(description="Demey MacDemeFace")))
@@ -3246,7 +3279,8 @@ class TestGraphResolution(unittest.TestCase):
         for name in "bcd":
             b.add_pulse(source=name, proportion=0.1, time=100)
         b.add_pulse(dest="d", source="a", proportion=0.2, time=200)
-        g = b.resolve()
+        with pytest.warns(UserWarning):
+            g = b.resolve()
         assert g.pulses[0].dest == g.pulses[1].dest == g.pulses[2].dest == "a"
         assert g.pulses[3].dest == "d"
 
@@ -3797,6 +3831,88 @@ class TestGraphToDict(unittest.TestCase):
         self.assertTrue(len(d["migrations"][0]["demes"]) == 2)
         self.assertTrue(len(d["migrations"][1]["demes"]) == 2)
         self.assertTrue(len(d["migrations"][2]["demes"]) == 3)
+
+    def test_invalid_fields(self):
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.data["deems"] = b.data.pop("demes")
+        with pytest.raises(KeyError, match="toplevel.*deems"):
+            b.resolve()
+
+        b = Builder(defaults=dict(epok=dict(start_size=1)))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError, match="defaults.*epok"):
+            b.resolve()
+
+        b = Builder(defaults=dict(epoch=dict(start_syze=1)))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError, match="defaults.*epoch.*start_syze"):
+            b.resolve()
+
+        b = Builder(defaults=dict(deme=dict(end_thyme=1)))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError, match="defaults.*deme.*end_thyme"):
+            b.resolve()
+
+        b = Builder(defaults=dict(migration=dict(end_thyme=1)))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError, match="defaults.*migration.*end_thyme"):
+            b.resolve()
+
+        b = Builder(defaults=dict(pulse=dict(thyme=1)))
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError, match="defaults.*pulse.*thyme"):
+            b.resolve()
+
+        b = Builder()
+        b.add_deme("A", epochs=[dict(start_size=1)])
+        b.add_deme("B", epochs=[dict(start_size=1)])
+        b.add_deme("MacDemeFace", epochs=[dict(start_size=1)])
+        b.add_deme("C", epochs=[dict(start_size=1)])
+        b.data["demes"][2]["epoks"] = b.data["demes"][2].pop("epochs")
+        with pytest.raises(KeyError, match="demes.*2.*MacDemeFace.*epoks"):
+            b.resolve()
+
+        b = Builder()
+        b.add_deme("A", epochs=[dict(start_size=1)])
+        b.add_deme("B", epochs=[dict(start_size=1)])
+        b.add_deme(
+            "MacDemeFace",
+            epochs=[
+                dict(start_size=4, end_time=999),
+                dict(start_size=5, end_time=99),
+                dict(start_syze=99),
+            ],
+        )
+        b.add_deme("C", epochs=[dict(start_size=1)])
+        with pytest.raises(
+            KeyError, match="demes.*2.*MacDemeFace.*epochs.*2.*start_syze"
+        ):
+            b.resolve()
+
+        b = Builder()
+        b.add_deme("A", epochs=[dict(start_size=1)])
+        b.add_deme("B", epochs=[dict(start_size=1)])
+        b.add_deme(
+            "MacDemeFace",
+            defaults=dict(epok=dict(start_size=99)),
+        )
+        b.add_deme("C", epochs=[dict(start_size=1)])
+        with pytest.raises(KeyError, match="demes.*2.*MacDemeFace.*defaults.*epok"):
+            b.resolve()
+
+        b = Builder()
+        b.add_deme("A", epochs=[dict(start_size=1)])
+        b.add_deme("B", epochs=[dict(start_size=1)])
+        b.add_deme(
+            "MacDemeFace",
+            defaults=dict(epoch=dict(start_syze=99)),
+        )
+        b.add_deme("C", epochs=[dict(start_size=1)])
+        with pytest.raises(
+            KeyError, match="demes.*2.*MacDemeFace.*defaults.*epoch.*start_syze"
+        ):
+            b.resolve()
 
 
 class TestBuilder:

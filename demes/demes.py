@@ -1,4 +1,4 @@
-from typing import List, Union, Optional, Dict, Mapping, MutableMapping, Any, Set
+from typing import List, Union, Optional, Dict, MutableMapping, Any, Set
 import itertools
 import math
 import numbers
@@ -130,21 +130,11 @@ def pop_object(data, name, default=NO_DEFAULT, scope=""):
     )
 
 
-def check_empty(data, scope):
-    assert isinstance(data, Mapping)
-    if len(data) != 0:
-        keys = list(data.keys())
-        if len(keys) == 1:
-            raise KeyError(f"{scope}: unexpected field: {keys[0]}")
-        else:
-            raise KeyError(f"{scope}: unexpected fields: {keys}")
-
-
-def check_defaults(defaults, allowed_fields, scope):
-    for key in defaults.keys():
+def check_allowed(data, allowed_fields, scope):
+    for key in data.keys():
         if key not in allowed_fields:
             raise KeyError(
-                f"{scope}: unexpected field: {key}. "
+                f"{scope}: unexpected field: '{key}'. "
                 f"Allowed fields are: {allowed_fields}"
             )
 
@@ -203,6 +193,8 @@ class Epoch:
             raise ValueError("if start time is inf, must be a constant size epoch")
         if self.size_function == "constant" and self.start_size != self.end_size:
             raise ValueError("start_size != end_size, but size_function is constant")
+        if self.selfing_rate + self.cloning_rate > 1:
+            raise ValueError("must have selfing_rate + cloning_rate <= 1")
 
     @property
     def time_span(self):
@@ -1665,6 +1657,15 @@ class Graph:
                 f"invalid pulse at time={time}, which is source={source}'s start_time"
             )
 
+        # We create the new pulse object (which checks for common errors)
+        # before checking for edge cases below.
+        new_pulse = Pulse(
+            source=source,
+            dest=dest,
+            time=time,
+            proportion=proportion,
+        )
+
         # Check for models that have multiple pulses defined at the same time.
         # E.g. chains of pulses like: deme0 -> deme1; deme1 -> deme2,
         # where reversing the order of the pulse definitions changes the
@@ -1687,14 +1688,19 @@ class Graph:
                 "the desired ancestry proportions."
             )
 
-        pulse = Pulse(
-            source=source,
-            dest=dest,
-            time=time,
-            proportion=proportion,
-        )
-        self.pulses.append(pulse)
-        return pulse
+        # Check for multiple pulses into dest at the same time that
+        # give a sum of proportions > 1.
+        proportion_sum = proportion
+        for pulse in self.pulses:
+            if dest == pulse.dest and pulse.time == time:
+                proportion_sum += pulse.proportion
+        if proportion_sum > 1:
+            raise ValueError(
+                f"sum of pulse proportions > 1 for dest={dest} at time={time}"
+            )
+
+        self.pulses.append(new_pulse)
+        return new_pulse
 
     def _migration_matrices(self):
         """
@@ -1903,13 +1909,66 @@ class Graph:
         # Don't modify the input data dict.
         data = copy.deepcopy(data)
 
+        check_allowed(
+            data,
+            [
+                "description",
+                "time_units",
+                "generation_time",
+                "defaults",
+                "doi",
+                "demes",
+                "migrations",
+                "pulses",
+            ],
+            "toplevel",
+        )
+
         defaults = pop_object(data, "defaults", {}, scope="toplevel")
+        check_allowed(
+            defaults,
+            ["deme", "migration", "pulse", "epoch"],
+            "defaults",
+        )
+
         deme_defaults = pop_object(defaults, "deme", {}, scope="defaults")
+        allowed_fields_deme = [
+            "description",
+            "start_time",
+            "ancestors",
+            "proportions",
+        ]
+        allowed_fields_deme_inner = allowed_fields_deme + ["name", "defaults", "epochs"]
+        check_allowed(deme_defaults, allowed_fields_deme, "defaults: deme")
+
         migration_defaults = pop_object(defaults, "migration", {}, scope="defaults")
+        allowed_fields_migration = [
+            "demes",
+            "source",
+            "dest",
+            "start_time",
+            "end_time",
+            "rate",
+        ]
+        check_allowed(
+            migration_defaults, allowed_fields_migration, "defaults: migration"
+        )
+
         pulse_defaults = pop_object(defaults, "pulse", {}, scope="defaults")
+        allowed_fields_pulse = ["source", "dest", "time", "proportion"]
+        check_allowed(pulse_defaults, allowed_fields_pulse, "defaults.pulse")
+
         # epoch defaults may also be specified within a Deme definition.
         global_epoch_defaults = pop_object(defaults, "epoch", {}, scope="defaults")
-        check_empty(defaults, "defaults")
+        allowed_fields_epoch = [
+            "end_time",
+            "start_size",
+            "end_size",
+            "size_function",
+            "cloning_rate",
+            "selfing_rate",
+        ]
+        check_allowed(global_epoch_defaults, allowed_fields_epoch, "defaults: epoch")
 
         if "time_units" not in data:
             raise KeyError("toplevel: required field 'time_units' not found")
@@ -1920,20 +1979,20 @@ class Graph:
             doi=data.pop("doi", []),
             generation_time=data.pop("generation_time", None),
         )
-        check_defaults(
-            deme_defaults,
-            ["description", "start_time", "ancestors", "proportions"],
-            "defaults: deme",
-        )
 
         for i, deme_data in enumerate(
             pop_list(data, "demes", required_type=MutableMapping, scope="toplevel")
         ):
-            insert_defaults(deme_data, deme_defaults)
             if "name" not in deme_data:
-                raise KeyError("deme[{i}]: required field 'name' not found")
+                raise KeyError("demes[{i}]: required field 'name' not found")
+            deme_name = deme_data.pop("name")
+            check_allowed(
+                deme_data, allowed_fields_deme_inner, f"demes[{i}] {deme_name}"
+            )
+            insert_defaults(deme_data, deme_defaults)
+
             deme = graph._add_deme(
-                name=deme_data.pop("name"),
+                name=deme_name,
                 description=deme_data.pop("description", None),
                 start_time=deme_data.pop("start_time", None),
                 ancestors=deme_data.pop("ancestors", None),
@@ -1941,26 +2000,21 @@ class Graph:
             )
 
             local_defaults = pop_object(
-                deme_data, "defaults", {}, scope=f"deme[{i}] {deme.name}"
+                deme_data, "defaults", {}, scope=f"demes[{i}] {deme.name}"
+            )
+            check_allowed(
+                local_defaults, ["epoch"], f"demes[{i}] {deme.name}: defaults"
             )
             local_epoch_defaults = pop_object(
-                local_defaults, "epoch", {}, scope=f"deme[{i}] {deme.name}: defaults"
+                local_defaults, "epoch", {}, scope=f"demes[{i}] {deme.name}: defaults"
             )
-            check_empty(local_defaults, f"deme[{i}] {deme.name}: defaults")
             epoch_defaults = global_epoch_defaults.copy()
             epoch_defaults.update(local_epoch_defaults)
 
-            check_defaults(
+            check_allowed(
                 epoch_defaults,
-                [
-                    "end_time",
-                    "start_size",
-                    "end_size",
-                    "selfing_rate",
-                    "cloning_rate",
-                    "size_function",
-                ],
-                f"deme[{i}] {deme.name}: defaults: epoch",
+                allowed_fields_epoch,
+                f"demes[{i}] {deme.name}: defaults: epoch",
             )
 
             if len(epoch_defaults) == 0 and "epochs" not in deme_data:
@@ -1968,7 +2022,7 @@ class Graph:
                 # or end_size are required for the first epoch. But we check
                 # here to provide a more informative error message.
                 raise KeyError(
-                    f"deme[{i}] {deme.name}: required field 'epochs' not found"
+                    f"demes[{i}] {deme.name}: required field 'epochs' not found"
                 )
 
             # There is always at least one epoch defined with the default values.
@@ -1977,16 +2031,21 @@ class Graph:
                 "epochs",
                 [{}],
                 required_type=MutableMapping,
-                scope=f"deme[{i}] {deme.name}",
+                scope=f"demes[{i}] {deme.name}",
             )
             for j, epoch_data in enumerate(epochs):
+                check_allowed(
+                    epoch_data,
+                    allowed_fields_epoch,
+                    f"demes[{i}] {deme.name}: epochs[{j}]",
+                )
                 insert_defaults(epoch_data, epoch_defaults)
                 if "end_time" not in epoch_data:
                     if j == len(epochs) - 1:
                         epoch_data["end_time"] = 0
                     else:
                         raise KeyError(
-                            f"deme[{i}] {deme.name}: epoch[{j}]: "
+                            f"demes[{i}] {deme.name}: epochs[{j}]: "
                             "required field 'end_time' not found"
                         )
                 deme._add_epoch(
@@ -1997,19 +2056,13 @@ class Graph:
                     selfing_rate=epoch_data.pop("selfing_rate", 0),
                     cloning_rate=epoch_data.pop("cloning_rate", 0),
                 )
-                check_empty(epoch_data, f"deme[{i}] {deme.name}: epoch[{j}]")
-            check_empty(deme_data, f"deme[{i}] {deme.name}")
 
-        check_defaults(
-            migration_defaults,
-            ["rate", "start_time", "end_time", "source", "dest", "demes"],
-            "defaults: migration",
-        )
         for i, migration_data in enumerate(
             pop_list(
                 data, "migrations", [], required_type=MutableMapping, scope="toplevel"
             )
         ):
+            check_allowed(migration_data, allowed_fields_migration, f"migration[{i}]")
             insert_defaults(migration_data, migration_defaults)
             if "rate" not in migration_data:
                 raise KeyError(f"migration[{i}]: required field 'rate' not found")
@@ -2044,16 +2097,13 @@ class Graph:
                     )
             except (TypeError, ValueError) as e:
                 raise e.__class__(f"migration[{i}]: invalid migration") from e
-            check_empty(migration_data, f"migration[{i}]")
 
         graph._check_migration_rates()
 
-        check_defaults(
-            pulse_defaults, ["source", "dest", "time", "proportion"], "defaults: pulse"
-        )
         for i, pulse_data in enumerate(
             pop_list(data, "pulses", [], required_type=MutableMapping, scope="toplevel")
         ):
+            check_allowed(pulse_data, allowed_fields_pulse, f"pulse[{i}]")
             insert_defaults(pulse_data, pulse_defaults)
             for field in ("source", "dest", "time", "proportion"):
                 if field not in pulse_data:
@@ -2067,9 +2117,6 @@ class Graph:
                 )
             except (TypeError, ValueError) as e:
                 raise e.__class__(f"pulse[{i}]: invalid pulse") from e
-            check_empty(pulse_data, f"pulse[{i}]")
-
-        check_empty(data, "toplevel")
 
         return graph
 
