@@ -33,7 +33,9 @@ jobs:
           python setup.py build
 
       - name: Build Docs
-        run: make -C docs
+        run: |
+          cd docs
+          make dist
 
       - name: Checkout docs site
         if: (!github.event.pull_request)

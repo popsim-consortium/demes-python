@@ -1,5 +1,10 @@
 __pycache__
 docs/_build
 .coverage
+coverage.xml
 .DS_Store
 demes/_version.py
+build/
+dist/
+demes.egg-info
+.hypothesis
