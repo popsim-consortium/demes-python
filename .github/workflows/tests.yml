@@ -35,9 +35,7 @@ jobs:
       - name: checkout
         uses: actions/checkout@v2
 
-      # We only install conda to get msprime.
-      # When msprime 1.0 is released, we should be able to do away with conda
-      # and just pip install msprime (binary wheels for all platforms).
+      # We only install conda to get msprime (on windows).
       - name: install conda
         uses: conda-incubator/setup-miniconda@v2
         with:
@@ -47,12 +45,15 @@ jobs:
 
       - name: install dependencies
         run: |
-          conda install --yes $(grep numpy requirements.txt) $(grep msprime requirements.txt)
-          pip install -r requirements.txt
+          conda install --yes \
+            $(grep numpy requirements/*.txt) $(grep msprime requirements/*.txt)
+          pip install -r requirements/minimal.txt
+          pip install -r requirements/tests.txt
+          pip install -r requirements/delete-me.txt
 
       - name: run pytest
         run: |
-          python -m pytest \
+          python -m pytest -n auto \
             --cov=demes --cov-report=term-missing --cov-report=xml -v tests
 
       - name: upload coverage report to codecov

@@ -1,0 +1,9 @@
+name: demes-binder
+
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+    - -r file:requirements/minimal.txt
+    # Install demes from current directory.
+    - .
