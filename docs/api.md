@@ -1,26 +1,28 @@
-.. _sec_api:
+(sec_api)=
 
-=============
-API Reference
-=============
+# API Reference
 
-Loading and saving Demes graphs
--------------------------------
+## Loading and saving Demes graphs
 
+```{eval-rst}
 .. autofunction:: demes.load
+.. autofunction:: demes.load_asdict
 .. autofunction:: demes.loads
+.. autofunction:: demes.loads_asdict
 .. autofunction:: demes.dump
 .. autofunction:: demes.dumps
+```
 
-Constructing Demes graphs
--------------------------
+## Building Demes graphs
 
+```{eval-rst}
 .. autoclass:: demes.Builder
    :members:
+```
 
-Examining Demes graphs
----------------------------
+## Working with Demes graphs
 
+```{eval-rst}
 .. autoclass:: demes.Graph
     :members:
 
@@ -29,10 +31,11 @@ Examining Demes graphs
 
 .. autoclass:: demes.Epoch
     :members:
+```
 
-Continuous demographic events
------------------------------
+## Continuous demographic events
 
+```{eval-rst}
 .. autoclass:: demes.Migration
     :members:
 
@@ -41,10 +44,11 @@ Continuous demographic events
 
 .. autoclass:: demes.SymmetricMigration
     :members:
+```
 
-Discrete demographic events
----------------------------
+## Discrete demographic events
 
+```{eval-rst}
 .. autoclass:: demes.Pulse
     :members:
 
@@ -59,3 +63,4 @@ Discrete demographic events
 
 .. autoclass:: demes.Admix
     :members:
+```

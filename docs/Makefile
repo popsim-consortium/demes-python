@@ -1,14 +1,16 @@
-SPHINXOPTS    = -W
-SPHINXBUILD   = sphinx-build
-SOURCEDIR     = .
-BUILDDIR      = _build
 
-html:
-	@$(SPHINXBUILD) -M html "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+# Need to set PYTHONPATH so that we pick up the local demes
+PYPATH=${PWD}/..
+DEMES_VERSION:=$(shell PYTHONPATH=${PYPATH} \
+   python3 -c 'import demes; print(demes.__version__.split("+")[0])')
 
-.PHONY: html Makefile
+dev:
+	PYTHONPATH=${PYPATH} ./build.sh
 
-# Catch-all target: route all unknown targets to Sphinx using the new
-# "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
-%: Makefile
-	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+dist:
+	@echo Building distribution for msprime version ${DEMES_VERSION}
+	sed -i s/__DEMES_VERSION__/${DEMES_VERSION}/g _config.yml
+	PYTHONPATH=${PYPATH} ./build.sh
+
+clean:
+	rm -fR _build

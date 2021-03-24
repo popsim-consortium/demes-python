@@ -20,10 +20,10 @@ def to_msprime(graph: demes.Graph):
         ``pc`` is a list of population configurations,
         ``de`` is a list of demographic events, and
         ``mm`` is the initial migration matrix.
-    :rtype: (
-        list of :class:`msprime.PopulationConfiguration`,
-        list of :class:`msprime.DemographicEvent`,
-        list of list of float)
+    :rtype:
+        (list[msprime.PopulationConfiguration],
+        list[msprime.DemographicEvent],
+        list[list[float]])
     """
     graph = graph.in_generations()
     population_configurations = []
@@ -192,14 +192,13 @@ def from_msprime(
     Convert an msprime demography into a demes graph.
 
     :param population_configurations: A list of population configurations.
-    :type population_configurations: list of :class:`msprime.PopulationConfiguration`
+    :type population_configurations: list[msprime.PopulationConfiguration]
     :param demographic_events: A list of demographic events.
-    :type demographic_events: list of :class:`msprime.DemographicEvent`
+    :type demographic_events: list[msprime.DemographicEvent]
     :param migration_matrix: The initial migration matrix.
-    :type migration_matrix: list of list of float
-    :param pop_names: A list of population names to use.
+    :type migration_matrix: list[list[float]]
+    :param list[str] pop_names: A list of population names to use.
         If None, the names will be pop0, pop1, ..., popN.
-    :param pop_names: list of str
     :return: A demes graph.
     :rtype: :class:`demes.Graph`
     """
