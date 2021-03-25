@@ -10,8 +10,18 @@ kernelspec:
   name: python3
 ---
 
-(sec_quickstart)=
+```{code-cell}
+:tags: ["remove-cell"]
+# Notebook preamble.
+from IPython.display import Markdown
 
+def display_yaml(filename):
+    """Show a syntax-highlighted yaml file."""
+    with open(filename) as f:
+        return Markdown("```yaml\n" + f.read() +  "```")
+```
+
+(sec_quickstart)=
 # Quickstart
 
 ## Loading a Demes graph
@@ -20,8 +30,9 @@ Consider the well-known
 [Gutenkunst et al. (2009)](https://doi.org/10.1371/journal.pgen.1000695)
 Out-of-Africa model of human history.
 
-```{literalinclude} ../examples/gutenkunst_ooa.yml
-:language: yaml
+```{code-cell}
+:tags: ["remove-input"]
+display_yaml("../examples/gutenkunst_ooa.yml")
 ```
 
 This YAML file can be loaded into Python with the {func}`.load` function,

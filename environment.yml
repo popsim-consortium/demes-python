@@ -7,3 +7,5 @@ dependencies:
     - -r file:requirements/minimal.txt
     # Install demes from current directory.
     - .
+    # Needed to open myst-markdown files as notebooks.
+    - jupytext
