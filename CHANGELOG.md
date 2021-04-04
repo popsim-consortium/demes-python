@@ -2,6 +2,16 @@
 
 ## 0.1.XXX - 2021-XX-XX
 
+**Breaking changes**:
+
+- The interpretation has been changed for symmetric migrations when the
+  `start_time` (and/or `end_time`) is not specified. Symmetric migrations are
+  now resolved separately for each pair in the list of participating demes.
+  To accommodate this semantic change, the `SymmetricMigration` class has
+  been removed, and symmetric migrations are always resolved into pairs of
+  `AsymmetricMigration` objects.
+  ({user}`grahamgower`, {issue}`263`, {pr}`268`)
+
 
 ## 0.1.0a4 - 2021-03-22
 

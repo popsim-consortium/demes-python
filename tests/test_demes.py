@@ -3,6 +3,7 @@ import copy
 import pathlib
 import math
 import typing
+import random
 
 import pytest
 import hypothesis as hyp
@@ -11,7 +12,6 @@ from demes import (
     Builder,
     Epoch,
     AsymmetricMigration,
-    SymmetricMigration,
     Pulse,
     Deme,
     Graph,
@@ -434,32 +434,16 @@ class TestMigration(unittest.TestCase):
                 AsymmetricMigration(
                     source="a", dest="b", start_time=100, end_time=time, rate=0.1
                 )
-            with self.assertRaises(TypeError):
-                SymmetricMigration(
-                    demes=["a", "b"], start_time=time, end_time=0, rate=0.1
-                )
-            with self.assertRaises(TypeError):
-                SymmetricMigration(
-                    demes=["a", "b"], start_time=100, end_time=time, rate=0.1
-                )
 
         for time in (-10000, -1, -1e-9):
             with self.assertRaises(ValueError):
                 AsymmetricMigration(
                     source="a", dest="b", start_time=time, end_time=0, rate=0.1
                 )
-            with self.assertRaises(ValueError):
-                SymmetricMigration(
-                    demes=["a", "b"], start_time=time, end_time=0, rate=0.1
-                )
         for time in (-10000, -1, -1e-9, math.inf):
             with self.assertRaises(ValueError):
                 AsymmetricMigration(
                     source="a", dest="b", start_time=100, end_time=time, rate=0.1
-                )
-            with self.assertRaises(ValueError):
-                SymmetricMigration(
-                    demes=["a", "b"], start_time=100, end_time=time, rate=0.1
                 )
 
         # start_time == end_time
@@ -467,16 +451,12 @@ class TestMigration(unittest.TestCase):
             AsymmetricMigration(
                 source="a", dest="b", start_time=100, end_time=100, rate=0.1
             )
-        with self.assertRaises(ValueError):
-            SymmetricMigration(demes=["a", "b"], start_time=100, end_time=100, rate=0.1)
 
         # start_time < end_time
         with self.assertRaises(ValueError):
             AsymmetricMigration(
                 source="a", dest="b", start_time=10, end_time=100, rate=0.1
             )
-        with self.assertRaises(ValueError):
-            SymmetricMigration(demes=["a", "b"], start_time=10, end_time=100, rate=0.1)
 
     def test_bad_rate(self):
         for rate in ("inf", "100", {}, [], math.nan):
@@ -484,19 +464,11 @@ class TestMigration(unittest.TestCase):
                 AsymmetricMigration(
                     source="a", dest="b", start_time=10, end_time=0, rate=rate
                 )
-            with self.assertRaises(TypeError):
-                SymmetricMigration(
-                    demes=["a", "b"], start_time=10, end_time=0, rate=rate
-                )
 
         for rate in (-10000, -1, -1e-9, 1.2, 100, math.inf):
             with self.assertRaises(ValueError):
                 AsymmetricMigration(
                     source="a", dest="b", start_time=10, end_time=0, rate=rate
-                )
-            with self.assertRaises(ValueError):
-                SymmetricMigration(
-                    demes=["a", "b"], start_time=10, end_time=0, rate=rate
                 )
 
     def test_bad_demes(self):
@@ -509,10 +481,6 @@ class TestMigration(unittest.TestCase):
                 AsymmetricMigration(
                     source="a", dest=name, start_time=10, end_time=0, rate=0.1
                 )
-            with self.assertRaises(TypeError):
-                SymmetricMigration(
-                    demes=["a", name], start_time=10, end_time=0, rate=0.1
-                )
 
         for name in ("a", "", "pop 1"):
             with self.assertRaises(ValueError):
@@ -523,16 +491,6 @@ class TestMigration(unittest.TestCase):
                 AsymmetricMigration(
                     source="a", dest=name, start_time=10, end_time=0, rate=0.1
                 )
-            with self.assertRaises(ValueError):
-                SymmetricMigration(
-                    demes=["a", name], start_time=10, end_time=0, rate=0.1
-                )
-
-        # need at least two demes for symmetric migration
-        with self.assertRaises(ValueError):
-            SymmetricMigration(demes=["a"], start_time=10, end_time=0, rate=0.1)
-        with self.assertRaises(ValueError):
-            SymmetricMigration(demes=[], start_time=10, end_time=0, rate=0.1)
 
     def test_valid_migration(self):
         AsymmetricMigration(
@@ -540,11 +498,6 @@ class TestMigration(unittest.TestCase):
         )
         AsymmetricMigration(
             source="a", dest="b", start_time=1000, end_time=999, rate=0.9
-        )
-        SymmetricMigration(demes=["a", "b"], start_time=math.inf, end_time=0, rate=1e-9)
-        SymmetricMigration(demes=["a", "b"], start_time=1000, end_time=999, rate=0.9)
-        SymmetricMigration(
-            demes=["a", "b", "c", "d", "e"], start_time=1, end_time=0, rate=0.9
         )
 
     def test_isclose(self):
@@ -3166,10 +3119,13 @@ class TestGraphResolution(unittest.TestCase):
         b.add_migration(demes=["a", "b"], start_time=30, end_time=20)
         b.add_migration(demes=["a", "b"], start_time=20, end_time=10, rate=0.2)
         g = b.resolve()
+        assert len(g.migrations) == 6
         assert g.migrations[0].rate == 0.1
         assert g.migrations[1].rate == 0.2
         assert g.migrations[2].rate == 0.1
-        assert g.migrations[3].rate == 0.2
+        assert g.migrations[3].rate == 0.1
+        assert g.migrations[4].rate == 0.2
+        assert g.migrations[5].rate == 0.2
 
         # start_time
         b = Builder(defaults=dict(migration=dict(start_time=100)))
@@ -3183,7 +3139,9 @@ class TestGraphResolution(unittest.TestCase):
         assert g.migrations[0].start_time == 100
         assert g.migrations[1].start_time == 90
         assert g.migrations[2].start_time == 100
-        assert g.migrations[3].start_time == 90
+        assert g.migrations[3].start_time == 100
+        assert g.migrations[4].start_time == 90
+        assert g.migrations[5].start_time == 90
 
         # end_time
         b = Builder(defaults=dict(migration=dict(end_time=100)))
@@ -3197,7 +3155,9 @@ class TestGraphResolution(unittest.TestCase):
         assert g.migrations[0].end_time == 100
         assert g.migrations[1].end_time == 50
         assert g.migrations[2].end_time == 100
-        assert g.migrations[3].end_time == 50
+        assert g.migrations[3].end_time == 100
+        assert g.migrations[4].end_time == 50
+        assert g.migrations[5].end_time == 50
 
         # source
         b = Builder(defaults=dict(migration=dict(source="a")))
@@ -3219,8 +3179,8 @@ class TestGraphResolution(unittest.TestCase):
             b.add_deme(name, epochs=[dict(start_size=1)])
         b.add_migration(source=None, demes=["x", "y", "z"], rate=0.1)
         g = b.resolve()
-        assert isinstance(g.migrations[4], SymmetricMigration)
-        assert g.migrations[4].demes == ["x", "y", "z"]
+        for migration in g.migrations[4:]:
+            assert migration.source in "xyz"
 
         # dest
         b = Builder(defaults=dict(migration=dict(dest="a")))
@@ -3239,8 +3199,8 @@ class TestGraphResolution(unittest.TestCase):
             b.add_deme(name, epochs=[dict(start_size=1)])
         b.add_migration(dest=None, demes=["x", "y", "z"], rate=0.1)
         g = b.resolve()
-        assert isinstance(g.migrations[4], SymmetricMigration)
-        assert g.migrations[4].demes == ["x", "y", "z"]
+        for migration in g.migrations[4:]:
+            assert migration.dest in "xyz"
 
         # demes
         b = Builder(defaults=dict(migration=dict(demes=["a", "b", "c"])))
@@ -3249,16 +3209,20 @@ class TestGraphResolution(unittest.TestCase):
         b.add_migration(start_time=200, end_time=100, rate=0.1)
         b.add_migration(demes=["a", "b"], start_time=100, end_time=0, rate=0.2)
         g = b.resolve()
-        assert g.migrations[0].demes == ["a", "b", "c"]
-        assert g.migrations[1].demes == ["a", "b"]
+        assert len(g.migrations) == 8
+        for migration in g.migrations[0:6]:
+            assert migration.source in "abc"
+            assert migration.dest in "abc"
+        for migration in g.migrations[6:8]:
+            assert migration.source in "ab"
+            assert migration.dest in "ab"
         # demes still defaults to ["a", "b", "c"], but we want asymmetric migration
         for name in "xy":
             b.add_deme(name, epochs=[dict(start_size=1)])
         b.add_migration(demes=None, source="x", dest="y", rate=0.3)
         g = b.resolve()
-        assert isinstance(g.migrations[2], AsymmetricMigration)
-        assert g.migrations[2].source == "x"
-        assert g.migrations[2].dest == "y"
+        assert g.migrations[8].source == "x"
+        assert g.migrations[8].dest == "y"
 
     def test_toplevel_defaults_pulse(self):
         # source
@@ -3670,6 +3634,51 @@ class TestGraphResolution(unittest.TestCase):
         assert g["b"].epochs[2].size_function == "exponential"
         assert g["b"].epochs[3].size_function == "N(t) = 5 * t"
 
+    def test_symmetric_migration(self):
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)])
+        b.add_deme("c", ancestors=["b"], start_time=100, epochs=[dict(start_size=1)])
+        b.add_migration(demes=["a", "b", "c"], rate=0.01)
+        g = b.resolve()
+        assert len(g.migrations) == 6
+        assert (
+            AsymmetricMigration(
+                source="a", dest="b", rate=0.01, start_time=math.inf, end_time=0
+            )
+            in g.migrations
+        )
+        assert (
+            AsymmetricMigration(
+                source="b", dest="a", rate=0.01, start_time=math.inf, end_time=0
+            )
+            in g.migrations
+        )
+        assert (
+            AsymmetricMigration(
+                source="a", dest="c", rate=0.01, start_time=100, end_time=0
+            )
+            in g.migrations
+        )
+        assert (
+            AsymmetricMigration(
+                source="c", dest="a", rate=0.01, start_time=100, end_time=0
+            )
+            in g.migrations
+        )
+        assert (
+            AsymmetricMigration(
+                source="b", dest="c", rate=0.01, start_time=100, end_time=0
+            )
+            in g.migrations
+        )
+        assert (
+            AsymmetricMigration(
+                source="c", dest="b", rate=0.01, start_time=100, end_time=0
+            )
+            in g.migrations
+        )
+
 
 class TestGraphToDict(unittest.TestCase):
     def test_finite_start_time(self):
@@ -3794,43 +3803,87 @@ class TestGraphToDict(unittest.TestCase):
         self.assertTrue(d["migrations"][0]["start_time"] == 20)
         self.assertTrue(d["migrations"][0]["end_time"] == 10)
 
-    def test_multiple_symmetric_migrations(self):
+    def msorted(self, data):
+        # sort migrations' demes list for easier comparison
+        data = copy.deepcopy(data)
+        for mig in data["migrations"]:
+            if "demes" in mig:
+                mig["demes"].sort()
+        return data
+
+    def test_simplify_multiple_symmetric_migrations(self):
         b = Builder()
-        b.add_deme("a", epochs=[dict(start_size=100, end_time=0)])
-        b.add_deme("b", epochs=[dict(start_size=200, end_time=0)])
-        b.add_deme("c", epochs=[dict(start_size=300, end_time=0)])
+        b.add_deme("a", epochs=[dict(start_size=100)])
+        b.add_deme("b", epochs=[dict(start_size=200)])
+        b.add_deme("c", epochs=[dict(start_size=300)])
         b.add_migration(demes=["a", "b", "c"], rate=0.01)
         d = b.resolve().asdict_simplified()
-        self.assertTrue(len(d["migrations"]) == 1)
+        d = self.msorted(d)
+        assert len(d["migrations"]) == 1
+        assert dict(demes=["a", "b", "c"], rate=0.01) in d["migrations"]
 
         b.add_deme("d", epochs=[dict(start_size=400, end_time=0)])
         b.add_migration(demes=["a", "d"], rate=0.01)
         d = b.resolve().asdict_simplified()
-        self.assertTrue(len(d["migrations"]) == 2)
-        self.assertTrue(len(d["migrations"][0]["demes"]) == 3)
-        self.assertTrue(len(d["migrations"][1]["demes"]) == 2)
-        self.assertTrue("d" not in d["migrations"][0]["demes"])
+        d = self.msorted(d)
+        assert len(d["migrations"]) == 2
+        assert dict(demes=["a", "b", "c"], rate=0.01) in d["migrations"]
+        assert dict(demes=["a", "d"], rate=0.01) in d["migrations"]
 
-    def test_mix_sym_asym_migrations(self):
+    def test_simplify_mix_sym_asym_migrations(self):
         b = Builder()
-        b.add_deme("a", epochs=[dict(start_size=1, end_time=0)])
-        b.add_deme("b", epochs=[dict(start_size=1, end_time=0)])
-        b.add_deme("c", epochs=[dict(start_size=1, end_time=0)])
-        b.add_deme("d", epochs=[dict(start_size=1, end_time=0)])
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)])
+        b.add_deme("c", epochs=[dict(start_size=1)])
+        b.add_deme("d", epochs=[dict(start_size=1)])
         b.add_migration(demes=["a", "b"], rate=0.01)
         b.add_migration(demes=["b", "c"], rate=0.01)
         b.add_migration(demes=["a", "c", "d"], rate=0.01)
         b.add_migration(source="b", dest="d", rate=0.01)
         g = b.resolve()
         d = g.asdict()
-        self.assertTrue(len(d["migrations"]) == 4)
+        assert len(d["migrations"]) == 11
+
+        # How this graph is simplified could depend upon the order of
+        # the migrations and the demes list(s).
+        for seed in range(10):
+            rng = random.Random(seed)
+            rng.shuffle(b.data["demes"])
+            rng.shuffle(b.data["migrations"])
+            for migration in b.data["migrations"]:
+                if "demes" in migration:
+                    rng.shuffle(migration["demes"])
+
+            g = b.resolve()
+            d = g.asdict_simplified()
+            d = self.msorted(d)
+            assert len(d["migrations"]) == 4
+            assert dict(source="b", dest="d", rate=0.01) in d["migrations"]
+
+            # Could be resolved in two distinct ways, and both are reasonable.
+            assert (
+                dict(demes=["a", "b", "c"], rate=0.01) in d["migrations"]
+                or dict(demes=["a", "c", "d"], rate=0.01) in d["migrations"]
+            )
+            if dict(demes=["a", "b", "c"], rate=0.01) in d["migrations"]:
+                assert dict(demes=["a", "d"], rate=0.01) in d["migrations"]
+                assert dict(demes=["c", "d"], rate=0.01) in d["migrations"]
+            else:
+                assert dict(demes=["a", "b"], rate=0.01) in d["migrations"]
+                assert dict(demes=["b", "c"], rate=0.01) in d["migrations"]
+
+    def test_simplify_symmetric_migrations_branching_demography(self):
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)])
+        b.add_deme("c", ancestors=["b"], start_time=100, epochs=[dict(start_size=1)])
+        b.add_migration(demes=["a", "b", "c"], rate=0.01)
+        g = b.resolve()
+        d = g.asdict()
+        assert len(d["migrations"]) == 6
         d = g.asdict_simplified()
-        self.assertTrue(
-            {"source": "b", "dest": "d", "rate": 0.01} == d["migrations"][3]
-        )
-        self.assertTrue(len(d["migrations"][0]["demes"]) == 2)
-        self.assertTrue(len(d["migrations"][1]["demes"]) == 2)
-        self.assertTrue(len(d["migrations"][2]["demes"]) == 3)
+        assert len(d["migrations"]) == 1
+        assert dict(demes=["a", "b", "c"], rate=0.01) in d["migrations"]
 
     def test_invalid_fields(self):
         b = Builder()

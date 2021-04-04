@@ -138,17 +138,9 @@ def to_msprime(graph: demes.Graph):
         rate = migration.rate
         start_time = migration.end_time
         end_time = migration.start_time
-        if isinstance(migration, demes.AsymmetricMigration):
-            dest = pop_id[migration.source]
-            source = pop_id[migration.dest]
-            append_migration(dest, source, start_time, end_time, rate)
-        else:
-            assert isinstance(migration, demes.SymmetricMigration)
-            for x, y in itertools.permutations(migration.demes, 2):
-                pop_x = pop_id[x]
-                pop_y = pop_id[y]
-                append_migration(pop_x, pop_y, start_time, end_time, rate)
-                append_migration(pop_y, pop_x, start_time, end_time, rate)
+        dest = pop_id[migration.source]
+        source = pop_id[migration.dest]
+        append_migration(dest, source, start_time, end_time, rate)
 
     # Collapse migration rate events in the same generation.
     # This is not strictly needed, but usually results in fewer events.
