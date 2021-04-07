@@ -36,13 +36,7 @@
 ## Continuous demographic events
 
 ```{eval-rst}
-.. autoclass:: demes.Migration
-    :members:
-
 .. autoclass:: demes.AsymmetricMigration
-    :members:
-
-.. autoclass:: demes.SymmetricMigration
     :members:
 ```
 

@@ -11,8 +11,6 @@ except ImportError:
 from .demes import (
     Builder,
     Epoch,
-    Migration,
-    SymmetricMigration,
     AsymmetricMigration,
     Pulse,
     Deme,

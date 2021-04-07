@@ -1,4 +1,6 @@
 import math
+import itertools
+import collections
 
 import numpy as np
 import hypothesis as hyp
@@ -9,6 +11,9 @@ import demes
 
 @st.composite
 def deme_names(draw, max_length=20):
+    """
+    A hypothesis strategy for creating a valid deme name.
+    """
     name = draw(st.text(min_size=1, max_size=max_length))
     # Names must be valid Python identifiers.
     hyp.assume(name.isidentifier())
@@ -18,6 +23,8 @@ def deme_names(draw, max_length=20):
 @st.composite
 def yaml_strings(draw, min_size=1, max_size=100):
     """
+    A hypothesis strategy for creating a valid YAML string.
+
     From https://yaml.org/spec/1.2/spec.html#id2770814
 
         To ensure readability, YAML streams use only the printable subset of
@@ -56,13 +63,6 @@ def yaml_strings(draw, min_size=1, max_size=100):
 def epochs_lists(draw, start_time=math.inf, max_epochs=5):
     """
     A hypothesis strategy for creating lists of Epochs for a deme.
-
-    .. code-block::
-
-        @hypothesis.given(epoch_lists())
-        test_something(self, epoch_list):
-            # epoch_list has type ``list of Epoch``
-            pass
 
     :param float start_time: The start time of the deme.
     :param int max_epochs: The maximum number of epochs in the list.
@@ -106,21 +106,188 @@ def epochs_lists(draw, start_time=math.inf, max_epochs=5):
 
 
 @st.composite
-def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
+def migration_matrices(
+    draw, graph, max_migrations=10, max_additional_migration_intervals=5
+):
+    """
+    A hypothesis strategy for creating migration matrices for a graph.
+    """
+    n = len(graph.demes)
+    assert n > 0
+
+    uniq_deme_times = set(deme.start_time for deme in graph.demes)
+    uniq_deme_times.update(deme.end_time for deme in graph.demes)
+    start_time, *end_times = sorted(uniq_deme_times, reverse=True)
+
+    # Identify the first time at which 2 or more demes exist simultaneously.
+    for end_time in end_times:
+        if sum(1 for deme in graph.demes if deme.start_time <= start_time) > 1:
+            break
+        start_time = end_time
+
+    if start_time == end_times[-1]:
+        # No two demes exist simultaneously.
+        return [[[0] * n for _ in range(n)]], math.inf, [0]
+
+    saved_start_time = start_time
+
+    # Partition time intervals even further.
+    additional_times = draw(
+        st.lists(
+            st.floats(min_value=end_times[-1], max_value=start_time, exclude_max=True),
+            unique=True,
+            min_size=0,
+            max_size=max_additional_migration_intervals,
+        )
+    )
+    end_times = sorted(set(end_times + additional_times), reverse=True)
+
+    mm_list = [[[0] * n for _ in range(n)] for _ in range(len(end_times))]
+    n_migrations = draw(st.integers(min_value=0, max_value=max_migrations))
+
+    for migration_matrix, end_time in zip(mm_list, end_times):
+        # Find demes alive in this interval.
+        deme_indices = [
+            j
+            for j, deme in enumerate(graph.demes)
+            if (
+                deme.start_time >= start_time > deme.end_time
+                and deme.start_time > end_time >= deme.end_time
+            )
+        ]
+        if len(deme_indices) < 2:
+            continue
+
+        # Select pairs of demes for migration.
+        pairs = list(itertools.permutations(deme_indices, 2))
+        pair_indices = draw(
+            st.lists(
+                st.integers(min_value=0, max_value=len(pairs) - 1),
+                unique=True,
+                min_size=0,
+                max_size=min(len(pairs), n_migrations),
+            )
+        )
+
+        for k in pair_indices:
+            a, b = pairs[k]
+            assert migration_matrix[a][b] == 0
+            max_rate = 1 - sum(migration_matrix[a])
+            if math.isclose(max_rate, 0):
+                continue
+            n_migrations -= 1
+            rate = draw(st.floats(min_value=0, max_value=max_rate, exclude_min=True))
+            migration_matrix[a][b] = rate
+
+        if n_migrations == 0:
+            break
+        start_time = end_time
+
+    return mm_list, saved_start_time, end_times
+
+
+@st.composite
+def migrations_lists(draw, graph, max_migrations=10):
+    """
+    A hypothesis strategy for creating a migration list for a graph.
+    """
+    mm_list, start_time, end_times = draw(
+        migration_matrices(graph, max_migrations=max_migrations)
+    )
+    assert len(mm_list) == len(end_times)
+    migrations = []
+    for migration_matrix, end_time in zip(mm_list, end_times):
+        for j, row in enumerate(migration_matrix):
+            for k, rate in enumerate(row):
+                if rate > 0:
+                    migration = demes.AsymmetricMigration(
+                        source=graph.demes[k].name,
+                        dest=graph.demes[j].name,
+                        start_time=start_time,
+                        end_time=end_time,
+                        rate=rate,
+                    )
+                    migrations.append(migration)
+        start_time = end_time
+    return migrations
+
+
+@st.composite
+def pulses_lists(draw, graph, max_pulses=10):
+    """
+    A hypothesis strategy for creating a pulses list for a graph.
+    """
+    n_pulses = draw(st.integers(min_value=0, max_value=max_pulses))
+    pulses = []
+    ingress_proportions = collections.defaultdict(lambda: 0)
+    for j, deme_j in enumerate(graph.demes[:-1]):
+        for deme_k in graph.demes[j + 1 :]:
+            time_lo = max(deme_j.end_time, deme_k.end_time)
+            time_hi = min(deme_j.start_time, deme_k.start_time)
+
+            # We wish to draw times for the pulses. They must be in the open
+            # interval (time_lo, time_hi) to ensure the pulse doesn't happen
+            # at any deme's start_time or end_time, which could be invalid.
+            # So we check there is at least one floating point number between
+            # time_lo and time_hi.
+            if time_hi <= np.nextafter(time_lo, np.inf, dtype=float):
+                continue
+            n = draw(st.integers(min_value=0, max_value=n_pulses))
+            for _ in range(n):
+                source, dest = deme_j.name, deme_k.name
+                if draw(st.booleans()):
+                    source, dest = dest, source
+                time = draw(
+                    st.floats(
+                        min_value=time_lo,
+                        max_value=time_hi,
+                        exclude_min=True,
+                        exclude_max=True,
+                    )
+                )
+                max_proportion = 1 - ingress_proportions[(dest, time)]
+                if math.isclose(max_proportion, 0):
+                    continue
+                proportion = draw(
+                    st.floats(
+                        min_value=0,
+                        max_value=max_proportion,
+                        exclude_min=True,
+                        exclude_max=True,
+                    )
+                )
+                ingress_proportions[(dest, time)] += proportion
+                pulse = dict(
+                    source=source,
+                    dest=dest,
+                    time=time,
+                    proportion=proportion,
+                )
+                pulses.append(pulse)
+                n_pulses -= 1
+            if n_pulses == 0:
+                break
+        if n_pulses == 0:
+            break
+    return pulses
+
+
+@st.composite
+def graphs(draw, max_demes=5, max_epochs=10, max_migrations=10, max_pulses=10):
     """
     A hypothesis strategy for creating a Graph.
 
     .. code-block::
 
         @hypothesis.given(graphs())
-        def test_something(self, g):
-            # g has type ``Graph``
-            pass
+        def test_something(self, graph: demes.Graph):
+            # Do something with the ``graph``.
+            ...
 
     :param int max_demes: The maximum number of demes in the graph.
-    :param int max_interactions: The maximum number of migrations plus pulses
-        in the graph.
     :param int max_epochs: The maximum number of epochs per deme.
+    :param int max_migrations: The maximum number of migrations in the graph.
+    :param int max_pulses: The maximum number of pulses in the graph.
     """
     generation_time = draw(st.none() | st.floats(min_value=1e-9, max_value=1e6))
     if generation_time is None:
@@ -196,108 +363,11 @@ def graphs(draw, max_demes=5, max_interactions=5, max_epochs=5):
             start_time=start_time,
         )
 
-    n_interactions = draw(st.integers(min_value=0, max_value=max_interactions))
-    n_tries = 100
-    n_demes = len(b.data["demes"])
-    for j in range(n_demes - 1):
-        for k in range(j + 1, n_demes):
-            dj = b.data["demes"][j]["name"]
-            dk = b.data["demes"][k]["name"]
-            time_lo = max(
-                b.data["demes"][j]["epochs"][-1]["end_time"],
-                b.data["demes"][k]["epochs"][-1]["end_time"],
-            )
-            time_hi = min(
-                b.data["demes"][j]["start_time"], b.data["demes"][k]["start_time"]
-            )
-            # Draw asymmetric migrations.
-            #
-            # If time_hi > time_lo, then demes j and k exist at the same time
-            # during the half-open interval [time_lo, time_hi).
-            #
-            # We wish to draw a migration start_time and end_time on this
-            # interval, and in the worst case (smallest interval) we will
-            # draw start_time=time_hi, end_time=time_lo, which is valid.
-            if time_hi <= time_lo:
-                continue
-            n = draw(st.integers(min_value=0, max_value=n_interactions))
-            successes = 0
-            migration_intervals = {(dj, dk): [], (dk, dj): []}
-            try_i = 0
-            while successes < n and try_i < n_tries:
-                try_i += 1
-                source, dest = dj, dk
-                if draw(st.booleans()):
-                    source, dest = dk, dj
-                times = draw(
-                    st.lists(
-                        st.floats(min_value=time_lo, max_value=time_hi),
-                        unique=True,
-                        min_size=2,
-                        max_size=2,
-                    )
-                )
-                no_overlap = True
-                for existing_interval in migration_intervals[(dj, dk)]:
-                    # check that our drawn interval doesn't overlap with existing mig
-                    if not (
-                        min(times) >= existing_interval[0]
-                        or max(times) <= existing_interval[1]
-                    ):
-                        no_overlap = False
-                        break
-                if no_overlap:
-                    migration_intervals[(dj, dk)].append([max(times), min(times)])
-                    successes += 1
-                    b.add_migration(
-                        source=source,
-                        dest=dest,
-                        start_time=max(times),
-                        end_time=min(times),
-                        rate=draw(
-                            st.floats(min_value=0, max_value=1, exclude_max=True)
-                        ),
-                    )
-            n_interactions -= successes
-            if n_interactions <= 0:
-                break
-
-            # Draw pulses.
-            #
-            # We wish to draw a time for the pulse. This must be in the open
-            # interval (time_lo, time_hi) to ensure the pulse doesn't happen
-            # at any deme's start_time or end_time, which would be invalid.
-            # So we check there is at least one floating point number between
-            # time_lo and time_hi.
-            if time_hi <= np.nextafter(time_lo, np.inf, dtype=float):
-                continue
-            n = draw(st.integers(min_value=0, max_value=n_interactions))
-            n_interactions -= n
-            for _ in range(n):
-                source, dest = dj, dk
-                if draw(st.booleans()):
-                    source, dest = dk, dj
-                time = draw(
-                    st.floats(
-                        min_value=time_lo,
-                        max_value=time_hi,
-                        exclude_min=True,
-                        exclude_max=True,
-                    )
-                )
-                b.add_pulse(
-                    source=source,
-                    dest=dest,
-                    time=time,
-                    proportion=draw(
-                        st.floats(
-                            min_value=0, max_value=1, exclude_min=True, exclude_max=True
-                        )
-                    ),
-                )
-            if n_interactions <= 0:
-                break
-        if n_interactions <= 0:
-            break
-
-    return b.resolve()
+    graph = b.resolve()
+    graph.migrations = draw(migrations_lists(graph, max_migrations=max_migrations))
+    graph.pulses = draw(pulses_lists(graph, max_pulses=max_pulses))
+    # Resolve the graph again. This is not strictly necessary, but has only
+    # a small computational overhead and serves to catch simple errors in
+    # the migrations_lists()/pulses_lists() implementations.
+    graph = demes.Builder.fromdict(graph.asdict()).resolve()
+    return graph

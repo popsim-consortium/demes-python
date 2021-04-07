@@ -290,25 +290,31 @@ class Epoch:
 
 
 @attr.s(auto_attribs=True, kw_only=True)
-class Migration:
+class AsymmetricMigration:
     """
-    Parameters for continuous migration. Migration may be symmetric, in which
-    case the list of demes will be specified. Alternately, migration may be
-    asymmetric from one deme to another. In the latter case,
-    source and destination demes follow the forwards-in-time convention,
-    of migrations born in the source deme having children in the dest deme.
+    Parameters for continuous asymmetric migration.
+    The source and destination demes follow the forwards-in-time convention,
+    where migrants are born in the source deme and (potentially) have children
+    in the dest deme.
 
+    :ivar str source: The source deme for asymmetric migration.
+    :ivar str dest: The destination deme for asymmetric migration.
     :ivar float start_time: The time at which the migration rate is activated.
     :ivar float ~.end_time: The time at which the migration rate is deactivated.
-    :ivar float rate: The rate of migration. Set to zero to disable
-        migrations after the given time.
+    :ivar float rate: The rate of migration per generation.
     """
 
+    source: Name = attr.ib(
+        validator=[attr.validators.instance_of(str), valid_deme_name]
+    )
+    dest: Name = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_name])
     start_time: Time = attr.ib(validator=[int_or_float, non_negative])
     end_time: Time = attr.ib(validator=[int_or_float, non_negative, finite])
     rate: Rate = attr.ib(validator=[int_or_float, unit_interval])
 
     def __attrs_post_init__(self):
+        if self.source == self.dest:
+            raise ValueError("source and dest cannot be the same deme")
         if not (self.start_time > self.end_time):
             raise ValueError("must have start_time > end_time")
 
@@ -323,10 +329,9 @@ class Migration:
         Raises AssertionError if the object is not equal to ``other``,
         up to a numerical tolerance.
         Compares values of the following attributes:
-        `start_time``, ``end_time``, ``rate``.
+        ``source``, ``dest``, ``start_time``, ``end_time``, ``rate``.
 
-        :param other: The migration to compare against.
-        :type other: :class:`.Migration`
+        :param AsymmetricMigration other: The migration to compare against.
         :param ret_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
         :type ret_tol: float
@@ -337,6 +342,8 @@ class Migration:
         assert (
             self.__class__ is other.__class__
         ), f"Failed as other migration is not instance of {self.__class__} type."
+        assert self.source == other.source
+        assert self.dest == other.dest
         assert math.isclose(
             self.start_time, other.start_time, rel_tol=rel_tol, abs_tol=abs_tol
         ), f"Failed for start_time {self.start_time} != {other.start_time} (other)."
@@ -358,8 +365,7 @@ class Migration:
         Returns true if the migration is equal to the ``other`` migration.
         For more information see :meth:`assert_close`.
 
-        :param other: The migration to compare against.
-        :type other: :class:`.Migration`
+        :param AsymmetricMigration other: The migration to compare against.
         :param ret_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
         :type ret_tol: float
@@ -376,98 +382,6 @@ class Migration:
             return True
         except AssertionError:
             return False
-
-
-@attr.s(auto_attribs=True, kw_only=True)
-class SymmetricMigration(Migration):
-    """
-    :ivar list[str] demes: The list of demes for symmetric migration.
-    """
-
-    demes: List[Name] = attr.ib(
-        validator=attr.validators.deep_iterable(
-            member_validator=attr.validators.and_(
-                attr.validators.instance_of(str), valid_deme_name
-            ),
-            iterable_validator=attr.validators.instance_of(list),
-        ),
-    )
-
-    def __attrs_post_init__(self):
-        super().__attrs_post_init__()
-        if len(self.demes) < 2:
-            raise ValueError("must have at least 2 demes for symmetric migration")
-        if len(self.demes) != len(set(self.demes)):
-            raise ValueError("demes for symmetric migration must be unique")
-
-    def assert_close(
-        self,
-        other,
-        *,
-        rel_tol=_ISCLOSE_REL_TOL,
-        abs_tol=_ISCLOSE_ABS_TOL,
-    ):
-        """
-        Raises AssertionError if the object is not equal to ``other``,
-        up to a numerical tolerance.
-        Compares values of the following attributes:
-        ``demes``, ``start_time``, ``end_time``, ``rate``.
-
-        :param other: The migration to compare against.
-        :type other: :class:`.Migration`
-        :param ret_tol: The relative tolerance permitted for numerical
-                        comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
-        :param abs_tol: The absolute tolerance permitted for numerical
-                        comparisons. See documentation for :func:`math.isclose`.
-        :type abs_tol: float
-        """
-        super().assert_close(other, rel_tol=rel_tol, abs_tol=abs_tol)
-        assert sorted(self.demes) == sorted(other.demes)
-
-
-@attr.s(auto_attribs=True, kw_only=True)
-class AsymmetricMigration(Migration):
-    """
-    :ivar str source: The source deme for asymmetric migration.
-    :ivar str dest: The destination deme for asymmetric migration.
-    """
-
-    source: Name = attr.ib(
-        validator=[attr.validators.instance_of(str), valid_deme_name]
-    )
-    dest: Name = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_name])
-
-    def __attrs_post_init__(self):
-        super().__attrs_post_init__()
-        if self.source == self.dest:
-            raise ValueError("source and dest cannot be the same deme")
-
-    def assert_close(
-        self,
-        other,
-        *,
-        rel_tol=_ISCLOSE_REL_TOL,
-        abs_tol=_ISCLOSE_ABS_TOL,
-    ):
-        """
-        Raises AssertionError if the object is not equal to ``other``,
-        up to a numerical tolerance.
-        Compares values of the following attributes:
-        ``source``, ``dest``, ``start_time``, ``end_time``, ``rate``.
-
-        :param other: The migration to compare against.
-        :type other: :class:`.Migration`
-        :param ret_tol: The relative tolerance permitted for numerical
-                        comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
-        :param abs_tol: The absolute tolerance permitted for numerical
-                        comparisons. See documentation for :func:`math.isclose`.
-        :type abs_tol: float
-        """
-        super().assert_close(other, rel_tol=rel_tol, abs_tol=abs_tol)
-        assert self.source == other.source
-        assert self.dest == other.dest
 
 
 @attr.s(auto_attribs=True, kw_only=True)
@@ -1235,7 +1149,8 @@ class Graph:
     :ivar list[str] doi: If the graph describes a published demography,
         the DOI(s) should be be given here as a list.
     :ivar list[Deme] demes: The demes in the demography.
-    :ivar list[Migration] migrations: The continuous migrations for the demography.
+    :ivar list[AsymmetricMigration] migrations: The continuous migrations for
+        the demographic model.
     :ivar list[Pulse] pulses: The migration pulses for the demography.
     """
 
@@ -1260,7 +1175,7 @@ class Graph:
         ),
     )
     demes: List[Deme] = attr.ib(factory=list, init=False)
-    migrations: List[Migration] = attr.ib(factory=list, init=False)
+    migrations: List[AsymmetricMigration] = attr.ib(factory=list, init=False)
     pulses: List[Pulse] = attr.ib(factory=list, init=False)
 
     def __attrs_post_init__(self):
@@ -1331,35 +1246,12 @@ class Graph:
         assert_sorted_eq(
             self.demes, other.demes, rel_tol=rel_tol, abs_tol=abs_tol, name="demes"
         )
-        # Compare asymmetric and symmetric migrations separately.
         assert_sorted_eq(
-            [m for m in self.migrations if isinstance(m, AsymmetricMigration)],
-            [m for m in other.migrations if isinstance(m, AsymmetricMigration)],
+            self.migrations,
+            other.migrations,
             rel_tol=rel_tol,
             abs_tol=abs_tol,
-            name="asymmetric migrations",
-        )
-        # Symmetric migrations are special, in the sense that they contain lists
-        # of demes, and we must first sort the list of demes before sorting the
-        # list of SymmetricMigration objects.
-        self_migrations_sym = []
-        other_migrations_sym = []
-        for m in self.migrations:
-            if isinstance(m, SymmetricMigration):
-                m = copy.deepcopy(m)
-                m.demes.sort()
-                self_migrations_sym.append(m)
-        for m in other.migrations:
-            if isinstance(m, SymmetricMigration):
-                m = copy.deepcopy(m)
-                m.demes.sort()
-                other_migrations_sym.append(m)
-        assert_sorted_eq(
-            self_migrations_sym,
-            other_migrations_sym,
-            rel_tol=rel_tol,
-            abs_tol=abs_tol,
-            name="symmetric migrations",
+            name="migrations",
         )
         assert_sorted_eq(
             self.pulses,
@@ -1511,7 +1403,7 @@ class Graph:
         if time is not None:
             if not (time_lo <= time <= time_hi):
                 raise ValueError(
-                    f"{time} not in interval [{time_lo}, {time_hi}], "
+                    f"time {time} not in interval [{time_lo}, {time_hi}], "
                     f"as defined by the time-intersection of {deme1.name} "
                     f"(start_time={deme1.start_time}, end_time={deme1.end_time}) "
                     f"and {deme2.name} (start_time={deme2.start_time}, "
@@ -1519,31 +1411,9 @@ class Graph:
                 )
         return time_lo, time_hi
 
-    def _check_overlapping_migrations(self, *, source, dest, start_time, end_time):
-        for migration in self.migrations:
-            if (
-                isinstance(migration, SymmetricMigration)
-                and source in migration.demes
-                and dest in migration.demes
-            ) or (
-                isinstance(migration, AsymmetricMigration)
-                and source == migration.source
-                and dest == migration.dest
-            ):
-                if (
-                    start_time >= migration.start_time > end_time
-                    or start_time > migration.end_time >= end_time
-                    or migration.start_time >= start_time > migration.end_time
-                    or migration.start_time > end_time >= migration.end_time
-                ):
-                    raise ValueError(
-                        "new migration overlaps exisiting migration "
-                        f"between {source} and {dest}"
-                    )
-
     def _add_symmetric_migration(
         self, *, demes, rate, start_time=None, end_time=None
-    ) -> SymmetricMigration:
+    ) -> List[AsymmetricMigration]:
         """
         Add continuous symmetric migrations between all pairs of demes in a list.
 
@@ -1553,28 +1423,21 @@ class Graph:
         :param float start_time: The time at which the migration rate is enabled.
         :param float end_time: The time at which the migration rate is disabled.
         :return: List of newly created migrations.
-        :rtype: list[SymmetricMigration]
+        :rtype: list[AsymmetricMigration]
         """
         if not isinstance(demes, list) or len(demes) < 2:
             raise ValueError("must specify a list of two or more deme names")
-        if start_time is None:
-            start_time = min(self[deme_name].start_time for deme_name in demes)
-        if end_time is None:
-            end_time = max(self[deme_name].end_time for deme_name in demes)
+        migrations = []
         for source, dest in itertools.permutations(demes, 2):
-            self._check_time_intersection(source, dest, start_time)
-            self._check_time_intersection(source, dest, end_time)
-            self._check_overlapping_migrations(
-                source=source, dest=dest, start_time=start_time, end_time=end_time
+            migration = self._add_asymmetric_migration(
+                source=source,
+                dest=dest,
+                rate=rate,
+                start_time=start_time,
+                end_time=end_time,
             )
-        migration = SymmetricMigration(
-            demes=demes,
-            start_time=start_time,
-            end_time=end_time,
-            rate=rate,
-        )
-        self.migrations.append(migration)
-        return migration
+            migrations.append(migration)
+        return migrations
 
     def _add_asymmetric_migration(
         self, *, source, dest, rate, start_time=None, end_time=None
@@ -1609,9 +1472,6 @@ class Graph:
             end_time = time_lo
         else:
             self._check_time_intersection(source, dest, end_time)
-        self._check_overlapping_migrations(
-            source=source, dest=dest, start_time=start_time, end_time=end_time
-        )
         migration = AsymmetricMigration(
             source=source,
             dest=dest,
@@ -1712,15 +1572,15 @@ class Graph:
                 if start_time <= migration.end_time:
                     break
                 if end_time < migration.start_time:
-                    if isinstance(migration, AsymmetricMigration):
-                        source_id = deme_id[migration.source]
-                        dest_id = deme_id[migration.dest]
-                        mm_list[k][dest_id][source_id] = migration.rate
-                    else:
-                        for source, dest in itertools.permutations(migration.demes, 2):
-                            source_id = deme_id[source]
-                            dest_id = deme_id[dest]
-                            mm_list[k][dest_id][source_id] = migration.rate
+                    source_id = deme_id[migration.source]
+                    dest_id = deme_id[migration.dest]
+                    if mm_list[k][dest_id][source_id] > 0:
+                        raise ValueError(
+                            "multiple migrations defined for "
+                            f"source={migration.source}, dest={migration.dest} "
+                            f"between start_time={start_time}, end_time={end_time}"
+                        )
+                    mm_list[k][dest_id][source_id] = migration.rate
                 start_time = end_time
         return mm_list, end_times
 
@@ -2115,7 +1975,7 @@ class Graph:
 
     def asdict(self) -> MutableMapping[str, Any]:
         """
-        Return a dict representation of the graph.
+        Return a fully-resolved dict representation of the graph.
         """
 
         def filt(_attrib, val):
@@ -2140,10 +2000,6 @@ class Graph:
         for deme in data["demes"]:
             for epoch in deme["epochs"]:
                 del epoch["start_time"]
-                if epoch["selfing_rate"] == 0:
-                    del epoch["selfing_rate"]
-                if epoch["cloning_rate"] == 0:
-                    del epoch["cloning_rate"]
         return data
 
     def asdict_simplified(self) -> MutableMapping[str, Any]:
@@ -2162,6 +2018,10 @@ class Graph:
                         del epoch["size_function"]
                     if epoch["start_size"] == epoch["end_size"]:
                         del epoch["end_size"]
+                    if epoch["selfing_rate"] == 0:
+                        del epoch["selfing_rate"]
+                    if epoch["cloning_rate"] == 0:
+                        del epoch["cloning_rate"]
 
             for deme in data["demes"]:
                 # remove implied start times
@@ -2175,22 +2035,96 @@ class Graph:
 
         def simplify_migration_rates(data):
             """
-            Remove redundant information
+            Collapse symmetric migration rates, and remove redundant information
             about start and end times if they are implied by the time overlap
             interval of the demes involved.
+
+            To collapse symmetric migrations, we collect all source/dest migration
+            pairs for each set of migration attributes (rate, start_time, end_time),
+            and then iteratively check for all-way symmetric migration between all
+            demes that are involved in migrations for the given set of migration
+            attributes.
             """
 
-            for migration in data["migrations"]:
-                demes = migration.get("demes", [])
-                if len(demes) == 0:
-                    demes = [migration["source"], migration["dest"]]
+            def collapse_demes(pairs):
+                all_demes = []
+                for pair in pairs:
+                    if pair[0] not in all_demes:
+                        all_demes.append(pair[0])
+                    if pair[1] not in all_demes:
+                        all_demes.append(pair[1])
+                return all_demes
 
-                time_lo = min(self[deme_name].start_time for deme_name in demes)
-                time_hi = max(self[deme_name].end_time for deme_name in demes)
-                if migration["start_time"] == time_lo:
-                    del migration["start_time"]
-                if migration["end_time"] == time_hi:
+            symmetric = []
+            asymmetric = data["migrations"].copy()
+            # first remove start/end times if equal time intersections
+            rate_sets = {}
+            # keys of rate_types are (rate, start_time, end_time)
+            for migration in data["migrations"]:
+                source = migration["source"]
+                dest = migration["dest"]
+                time_hi = min(self[source].start_time, self[dest].start_time)
+                time_lo = max(self[dest].end_time, self[dest].end_time)
+                if migration["end_time"] == time_lo:
                     del migration["end_time"]
+                if migration["start_time"] == time_hi:
+                    del migration["start_time"]
+                k = tuple(
+                    migration.get(key) for key in ("rate", "start_time", "end_time")
+                )
+                rate_sets.setdefault(k, [])
+                rate_sets[k].append((source, dest))
+
+            for k, pairs in rate_sets.items():
+                if len(pairs) == 1:
+                    continue
+                # list of all demes that are source or dest in this rate set
+                all_demes = collapse_demes(pairs)
+
+                # we check all possible sets of n-way symmetric migration
+                i = len(all_demes)
+                while len(all_demes) >= 2 and i >= 2:
+                    # loop through each possible set for a given set size i
+                    compress_demes = False
+                    for deme_set in itertools.combinations(all_demes, i):
+                        # check if all (source, dest) pairs exist in pairs of migration
+                        all_present = True
+                        for deme_pair in itertools.permutations(deme_set, 2):
+                            if deme_pair not in pairs:
+                                all_present = False
+                                break
+                        # if they do all exist
+                        if all_present:
+                            compress_demes = True
+                            # remove from asymmetric list
+                            for deme_pair in itertools.permutations(deme_set, 2):
+                                mig = {
+                                    "source": deme_pair[0],
+                                    "dest": deme_pair[1],
+                                    "rate": k[0],
+                                }
+                                if k[1] is not None:
+                                    mig["start_time"] = k[1]
+                                if k[2] is not None:
+                                    mig["end_time"] = k[2]
+                                asymmetric.remove(mig)
+                                pairs.remove(deme_pair)
+                            # add to symmetric list
+                            sym_mig = dict(demes=[d for d in deme_set], rate=k[0])
+                            if k[1] is not None:
+                                sym_mig["start_time"] = k[1]
+                            if k[2] is not None:
+                                sym_mig["end_time"] = k[2]
+                            symmetric.append(sym_mig)
+                    # if we found a set of symmetric migrations, compress all_demes
+                    if compress_demes:
+                        all_demes = collapse_demes(pairs)
+                        i = min(i, len(all_demes))
+                    # otherwise, check one set size smaller
+                    else:
+                        i -= 1
+
+            data["migrations"] = symmetric + asymmetric
 
         data = self.asdict()
 
