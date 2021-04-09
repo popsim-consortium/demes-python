@@ -15,6 +15,10 @@ repository:
   branch: main
   path_to_book: docs
 
+launch_buttons:
+  # Disable binder launch button on pages with python code.
+  binderhub_url: ""
+
 html:
   use_issues_button: true
   use_repository_button: true
