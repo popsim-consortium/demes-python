@@ -1735,10 +1735,10 @@ class Graph:
         Return a copy of the graph with times in units of generations.
         """
         graph = copy.deepcopy(self)
-        graph.time_units = "generations"
         generation_time = self.generation_time
-        if generation_time is not None:
-            graph.generation_time = None
+        graph.generation_time = None
+        if graph.time_units != "generations" and generation_time is not None:
+            graph.time_units = "generations"
             for deme in graph.demes:
                 deme.start_time /= generation_time
                 for epoch in deme.epochs:
