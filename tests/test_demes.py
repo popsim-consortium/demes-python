@@ -1845,12 +1845,12 @@ class TestGraph(unittest.TestCase):
 
         # Alternate implementation, which recurses the object hierarchy.
         def in_generations2(dg):
-            generation_time = dg.generation_time
             dg = copy.deepcopy(dg)
-            dg.time_units = "generations"
-            if generation_time is None:
-                return dg
+            generation_time = dg.generation_time
             dg.generation_time = None
+            if dg.time_units == "generations":
+                return dg
+            dg.time_units = "generations"
 
             def divide_time_attrs(obj):
                 if not hasattr(obj, "__dict__"):
@@ -1895,6 +1895,16 @@ class TestGraph(unittest.TestCase):
             self.check_in_generations(dg)
             i += 1
         self.assertGreater(i, 0)
+
+        # Check that in_generations() doesn't change the times when
+        # time_units are generations, even if the generation_time is set.
+        b = Builder(time_units="generations", generation_time=13)
+        b.add_deme(
+            "A", epochs=[dict(start_size=2000, end_time=100), dict(start_size=100)]
+        )
+        g = b.resolve().in_generations()
+        assert g.time_units == "generations"
+        assert g["A"].epochs[0].end_time == 100
 
     def test_isclose(self):
         b1 = Builder(description="test", time_units="generations")
