@@ -160,12 +160,27 @@ class Epoch:
     :ivar float end_size: Population size at ``end_time``.
         If ``start_size != end_size``, the population size changes
         monotonically between the start and end times.
-    :ivar str size_function: The size change function. Common options are
-        ``"constant"`` or ``"exponential"``, though any string is valid.
+    :ivar str size_function: The size change function. This is either
+        ``constant`` or ``exponential``, though it is possible that
+        additional values will be added in the future.
+
+         * ``constant``: the deme's size does not change over the epoch.
+         * ``exponential``: the deme's size changes exponentially from
+           ``start_size`` to ``end_size`` over the epoch.
+           If :math:`t` is a time within the span of the epoch,
+           the deme size :math:`N` at :math:`t` can be calculated as:
+
+           .. code::
+
+               dt = (epoch.start_time - t) / epoch.time_span
+                r = math.log(epoch.end_size / epoch.start_size)
+                N = epoch.start_size * math.exp(r * dt)
 
         .. warning::
 
-            Downstream applications might not understand the size_function provided.
+            Do not assume an exponentially changing size just because
+            ``start_size != end_size``. For forwards compatibility,
+            applications should always check the ``size_function``.
 
     :ivar float selfing_rate: The selfing rate for this epoch.
     :ivar float cloning_rate: The cloning rate for this epoch.
@@ -176,7 +191,7 @@ class Epoch:
     start_size: Size = attr.ib(validator=[int_or_float, positive, finite])
     end_size: Size = attr.ib(validator=[int_or_float, positive, finite])
     size_function: str = attr.ib(
-        validator=[attr.validators.instance_of(str), nonzero_len]
+        validator=attr.validators.in_(["constant", "exponential"])
     )
     selfing_rate: Proportion = attr.ib(
         default=0, validator=[int_or_float, unit_interval]
@@ -188,7 +203,6 @@ class Epoch:
     def __attrs_post_init__(self):
         if self.start_time <= self.end_time:
             raise ValueError("must have start_time > end_time")
-        # XXX: these tests should use math.isclose()
         if math.isinf(self.start_time) and self.start_size != self.end_size:
             raise ValueError("if start time is inf, must be a constant size epoch")
         if self.size_function == "constant" and self.start_size != self.end_size:
@@ -1012,7 +1026,6 @@ class Deme:
             if end_size is None:
                 end_size = start_size
 
-        # XXX: use math.isclose()?
         if size_function is None:
             if start_size == end_size:
                 size_function = "constant"
@@ -2211,8 +2224,7 @@ class Builder:
             This list has the same length as ``ancestors``, and must sum to 1.
         :param float start_time: The deme's start time.
         :param list[dict] epochs: List of epoch dictionaries. Each dictionary
-            contains parameters to be passed to the deme's
-            DemeProxy.add_epoch() method.
+            follows the data model for an epoch.
         """
         deme: MutableMapping[str, Any] = dict(name=name)
         if description is not None:
