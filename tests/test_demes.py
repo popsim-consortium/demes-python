@@ -1853,12 +1853,16 @@ class TestGraph(unittest.TestCase):
             dg.time_units = "generations"
 
             def divide_time_attrs(obj):
-                if not hasattr(obj, "__dict__"):
-                    return
-                for name, value in obj.__dict__.items():
-                    if name in ("time", "start_time", "end_time"):
+                attribs = getattr(obj, "__slots__", None)
+                if attribs is None:
+                    if not hasattr(obj, "__dict__"):
+                        return
+                    attribs = vars(obj).keys()
+                for attr in attribs:
+                    value = getattr(obj, attr)
+                    if attr in ("time", "start_time", "end_time"):
                         if value is not None:
-                            setattr(obj, name, value / generation_time)
+                            setattr(obj, attr, value / generation_time)
                     elif isinstance(value, (list, tuple)):
                         for a in value:
                             divide_time_attrs(a)
@@ -2183,12 +2187,13 @@ class TestGraph(unittest.TestCase):
         assert isinstance(objlist, list)
         objlist = copy.deepcopy(objlist)
         for obj in objlist:
-            # This function will break if we ever change to using slotted classes,
-            # because the __dict__ attribute won't be populated.
-            assert not hasattr(obj, "__slots__")
-            for name, attr in obj.__dict__.items():
-                if isinstance(attr, list):
-                    setattr(obj, name, sorted(attr))
+            attribs = getattr(obj, "__slots__", None)
+            if attribs is None:
+                attribs = vars(obj).keys()
+            for attr in attribs:
+                value = getattr(obj, attr)
+                if isinstance(value, list):
+                    setattr(obj, attr, sorted(value))
         objlist.sort()
         return objlist
 

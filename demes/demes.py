@@ -145,7 +145,7 @@ def insert_defaults(data, defaults):
             data[key] = value
 
 
-@attr.s(auto_attribs=True, kw_only=True)
+@attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Epoch:
     """
     Population size parameters for a deme in a specified time period.
@@ -289,7 +289,7 @@ class Epoch:
             return False
 
 
-@attr.s(auto_attribs=True, kw_only=True)
+@attr.s(auto_attribs=True, kw_only=True, slots=True)
 class AsymmetricMigration:
     """
     Parameters for continuous asymmetric migration.
@@ -384,7 +384,7 @@ class AsymmetricMigration:
             return False
 
 
-@attr.s(auto_attribs=True, kw_only=True)
+@attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Pulse:
     """
     Parameters for a pulse of migration from one deme to another.
@@ -476,7 +476,7 @@ class Pulse:
             return False
 
 
-@attr.s(auto_attribs=True, kw_only=True)
+@attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Split:
     """
     Parameters for a split event, in which a deme ends at a given time and
@@ -574,7 +574,7 @@ class Split:
             return False
 
 
-@attr.s(auto_attribs=True, kw_only=True)
+@attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Branch:
     """
     Parameters for a branch event, where a new deme branches off from a parental
@@ -657,7 +657,7 @@ class Branch:
             return False
 
 
-@attr.s(auto_attribs=True, kw_only=True)
+@attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Merge:
     """
     Parameters for a merge event, in which two or more demes end at some time and
@@ -778,7 +778,7 @@ class Merge:
             return False
 
 
-@attr.s(auto_attribs=True, kw_only=True)
+@attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Admix:
     """
     Parameters for an admixture event, where two or more demes contribute ancestry
@@ -901,7 +901,7 @@ class Admix:
             return False
 
 
-@attr.s(auto_attribs=True, kw_only=True)
+@attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Deme:
     """
     A collection of individuals that have a common set of population parameters.
@@ -1126,7 +1126,7 @@ class Deme:
         return self.start_time - self.end_time
 
 
-@attr.s(auto_attribs=True, kw_only=True)
+@attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Graph:
     """
     The Graph class provides a high-level API for working with a demographic
@@ -1178,9 +1178,9 @@ class Graph:
     migrations: List[AsymmetricMigration] = attr.ib(factory=list, init=False)
     pulses: List[Pulse] = attr.ib(factory=list, init=False)
 
-    def __attrs_post_init__(self):
-        self._deme_map: Dict[Name, Deme] = dict()
+    _deme_map: Dict[Name, Deme] = attr.ib(factory=dict, init=False)
 
+    def __attrs_post_init__(self):
         if self.time_units != "generations" and self.generation_time is None:
             raise ValueError(
                 'if time_units!="generations", generation_time must be specified'
@@ -1978,8 +1978,12 @@ class Graph:
         Return a fully-resolved dict representation of the graph.
         """
 
-        def filt(_attrib, val):
-            return val is not None and not (hasattr(val, "__len__") and len(val) == 0)
+        def filt(attrib, value):
+            return (
+                value is not None
+                and not (hasattr(value, "__len__") and len(value) == 0)
+                and attrib.name != "_deme_map"
+            )
 
         def coerce_numbers(inst, attribute, value):
             # Explicitly convert numeric types to int or float, so that they
