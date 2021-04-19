@@ -195,10 +195,6 @@ class TestEpoch(unittest.TestCase):
                 selfing_rate=rate,
                 cloning_rate=1 - rate,
             )
-        for fn in ("linear", "exponential", "N(t) = 6 * log(t)"):
-            Epoch(
-                start_time=100, end_time=0, start_size=1, end_size=10, size_function=fn
-            )
 
     def test_time_span(self):
         e = Epoch(
@@ -402,8 +398,8 @@ class TestEpoch(unittest.TestCase):
             )
 
     def test_bad_size_function(self):
-        for fn in (0, 1e5, [], {}, math.nan):
-            with self.assertRaises(TypeError):
+        for fn in (0, 1e5, [], {}, math.nan, "N(t) = 5 * t"):
+            with self.assertRaises(ValueError):
                 Epoch(
                     start_time=10,
                     end_time=0,
@@ -3496,7 +3492,7 @@ class TestGraphResolution(unittest.TestCase):
                 dict(start_size=1, end_time=90, size_function="constant"),
                 dict(start_size=1, end_size=100, end_time=50),
                 dict(start_size=100, end_size=50, end_time=10),
-                dict(start_size=100, end_size=50, size_function="N(t) = 5 * t"),
+                dict(start_size=100, end_size=100),
             ],
         )
         g = b.resolve()
@@ -3511,7 +3507,7 @@ class TestGraphResolution(unittest.TestCase):
         assert g["e"].epochs[0].size_function == "constant"
         assert g["e"].epochs[1].size_function == "exponential"
         assert g["e"].epochs[2].size_function == "exponential"
-        assert g["e"].epochs[3].size_function == "N(t) = 5 * t"
+        assert g["e"].epochs[3].size_function == "exponential"
 
     # Test demelevel epoch defaults, including overrides.
     # Comared with the test_toplevel_defaults_epoch() method, these tests
@@ -3637,9 +3633,9 @@ class TestGraphResolution(unittest.TestCase):
             defaults=dict(epoch=dict(size_function="exponential")),
             epochs=[
                 dict(start_size=1, end_time=90, size_function="constant"),
-                dict(start_size=1, end_size=100, end_time=50),
-                dict(start_size=100, end_size=50, end_time=10),
-                dict(start_size=100, end_size=50, size_function="N(t) = 5 * t"),
+                dict(start_size=100, end_size=100, end_time=50),
+                dict(start_size=50, end_size=50, end_time=10),
+                dict(start_size=100, end_size=50, size_function="exponential"),
             ],
         )
         g = b.resolve()
@@ -3647,7 +3643,7 @@ class TestGraphResolution(unittest.TestCase):
         assert g["b"].epochs[0].size_function == "constant"
         assert g["b"].epochs[1].size_function == "exponential"
         assert g["b"].epochs[2].size_function == "exponential"
-        assert g["b"].epochs[3].size_function == "N(t) = 5 * t"
+        assert g["b"].epochs[3].size_function == "exponential"
 
     def test_symmetric_migration(self):
         b = Builder()
@@ -3694,6 +3690,21 @@ class TestGraphResolution(unittest.TestCase):
             in g.migrations
         )
 
+    def test_size_function_defaults(self):
+        # If size_function isn't specified, it defaults to "constant" when
+        # start_size==end_size and "exponential" otherwise.
+        b = Builder()
+        b.add_deme(
+            "A",
+            epochs=[
+                dict(start_size=100, end_time=200),
+                dict(start_size=100, end_size=400),
+            ],
+        )
+        g = b.resolve()
+        assert g["A"].epochs[0].size_function == "constant"
+        assert g["A"].epochs[1].size_function == "exponential"
+
 
 class TestGraphToDict(unittest.TestCase):
     def test_finite_start_time(self):
@@ -3737,18 +3748,6 @@ class TestGraphToDict(unittest.TestCase):
         d = b.resolve().asdict_simplified()
         self.assertTrue(d["demes"][2]["epochs"][0]["cloning_rate"] == 0.3)
         self.assertTrue("cloning_rate" not in d["demes"][2]["epochs"][1], msg=f"{d}")
-
-    def test_fill_nonstandard_size_function(self):
-        b = Builder()
-        b.add_deme(
-            "a",
-            epochs=[
-                dict(start_size=1, end_time=10),
-                dict(end_size=10, size_function="linear"),
-            ],
-        )
-        d = b.resolve().asdict()
-        self.assertTrue(d["demes"][0]["epochs"][-1]["size_function"] == "linear")
 
     def test_fill_epoch_selfing_rates(self):
         b = Builder()
