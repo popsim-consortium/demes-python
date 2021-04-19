@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.XXX - 2021-XX-XX
+## 0.1.0 - 2021-04-19
 
 **Breaking changes**:
 
@@ -12,6 +12,19 @@
   `AsymmetricMigration` objects.
   ({user}`grahamgower`, {issue}`263`, {pr}`268`)
 
+- The `size_function` field can no longer be an arbitrary string.
+  Only the "constant" and "exponential" strings are recognised.
+  ({issue}`262`, {pr}`278`)
+
+**New features**:
+- The `from_ms()` function has been added to convert an ms command line
+  into a `Graph`.
+  ({user}`jeromekelleher`, {user}`grahamgower`, {issue}`74`, {pr}`102`)
+
+**Bug fixes**:
+- `Graph.in_generations()` no longer changes time values for a graph
+  when `time_units == "generations"` and `generation_time is not None`.
+  ({user}`grahamgower`, {issue}`273`, {pr}`274`)
 
 ## 0.1.0a4 - 2021-03-22
 
