@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 - 2021-04-21
+
+Remove the "demes" console_scripts entry point.
+This isn't documented/supported and was left in accidentally.
+
+
 ## 0.1.0 - 2021-04-19
 
 **Breaking changes**:
