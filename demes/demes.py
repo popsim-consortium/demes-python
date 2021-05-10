@@ -8,6 +8,8 @@ import warnings
 
 import attr
 
+from .load_dump import dumps as demes_dumps
+
 Number = Union[int, float]
 Name = str
 Time = Number
@@ -1191,7 +1193,12 @@ class Graph:
     migrations: List[AsymmetricMigration] = attr.ib(factory=list, init=False)
     pulses: List[Pulse] = attr.ib(factory=list, init=False)
 
-    _deme_map: Dict[Name, Deme] = attr.ib(factory=dict, init=False)
+    # This attribute is for internal use only. It's a (hidden) attribute
+    # because we're using slotted classes and can't add attributes after
+    # object creation (e.g. in __attrs_post_init__()).
+    _deme_map: Dict[Name, Deme] = attr.ib(
+        factory=dict, init=False, repr=False, cmp=False
+    )
 
     def __attrs_post_init__(self):
         if self.time_units != "generations" and self.generation_time is None:
@@ -1210,6 +1217,9 @@ class Graph:
         Check if the graph contains a deme with the specified name.
         """
         return deme_name in self._deme_map
+
+    # Use the simplified YAML output as the string representation.
+    __str__ = demes_dumps
 
     def assert_close(
         self,
