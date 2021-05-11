@@ -22,7 +22,7 @@ from demes import (
     load,
 )
 import demes
-import tests
+import demes.hypothesis_strategies
 
 
 class TestEpoch(unittest.TestCase):
@@ -3989,7 +3989,7 @@ class TestBuilder:
         assert isinstance(b.data, typing.MutableMapping)
 
     @hyp.settings(deadline=None, suppress_health_check=[hyp.HealthCheck.too_slow])
-    @hyp.given(tests.graphs())
+    @hyp.given(graph=demes.hypothesis_strategies.graphs())
     def test_back_and_forth(self, graph):
         b = Builder.fromdict(graph.asdict())
         g = b.resolve()

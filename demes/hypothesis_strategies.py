@@ -1,12 +1,35 @@
 import math
 import itertools
 import collections
+import struct
 
-import numpy as np
 import hypothesis as hyp
 import hypothesis.strategies as st
 
 import demes
+
+
+def prec32(x):
+    """truncate x to the nearest single-precision floating point number"""
+    return struct.unpack("f", struct.pack("f", x))[0]
+
+
+# Limits for the floating point numbers we'll draw.
+#
+# We wish to be more restrictive with the allowable range than the limits
+# provided by floating-point types, to avoid doing arithmetic on numbers at
+# those floating point limits. Values near the limits are not useful for
+# demographic models in practice, so we don't want to generate models that
+# require applications to deal with floating point underflow and overflow.
+# On the other hand, we also don't want to enforce artificial limits in the
+# Demes spec for things like time values or deme sizes.
+#
+# The numbers below are sufficiently conservative so as to avoid underflow
+# and overflow during arithmetic (although this is not gauranteed),
+# but not too conservative that the randomly generated models won't catch a
+# variety of errors in downstream application code.
+FLOAT_MAX = prec32(1e30)
+FLOAT_EPS = prec32(1e-6)
 
 
 @st.composite
@@ -60,7 +83,13 @@ def yaml_strings(draw, min_size=1, max_size=100):
 
 
 @st.composite
-def epochs_lists(draw, start_time=math.inf, max_epochs=5):
+def epochs_lists(
+    draw,
+    start_time=math.inf,
+    max_epochs=5,
+    min_deme_size=FLOAT_EPS,
+    max_deme_size=FLOAT_MAX,
+):
     """
     A hypothesis strategy for creating lists of Epochs for a deme.
 
@@ -70,7 +99,12 @@ def epochs_lists(draw, start_time=math.inf, max_epochs=5):
     assert max_epochs >= 2
     times = draw(
         st.lists(
-            st.floats(min_value=0, max_value=start_time, exclude_max=True),
+            st.floats(
+                min_value=0,
+                max_value=min(FLOAT_MAX, start_time),
+                exclude_max=True,
+                width=32,
+            ),
             unique=True,
             min_size=1,
             max_size=max_epochs,
@@ -80,15 +114,11 @@ def epochs_lists(draw, start_time=math.inf, max_epochs=5):
     epochs = []
 
     for i, end_time in enumerate(times):
-        start_size = draw(
-            st.floats(min_value=0, exclude_min=True, allow_infinity=False)
-        )
+        start_size = draw(st.floats(min_value=min_deme_size, max_value=max_deme_size))
         if i == 0 and math.isinf(start_time):
             end_size = start_size
         else:
-            end_size = draw(
-                st.floats(min_value=0, exclude_min=True, allow_infinity=False)
-            )
+            end_size = draw(st.floats(min_value=min_deme_size, max_value=max_deme_size))
         cloning_rate = draw(st.floats(min_value=0, max_value=1))
         selfing_rate = draw(st.floats(min_value=0, max_value=1 - cloning_rate))
 
@@ -134,7 +164,12 @@ def migration_matrices(
     # Partition time intervals even further.
     additional_times = draw(
         st.lists(
-            st.floats(min_value=end_times[-1], max_value=start_time, exclude_max=True),
+            st.floats(
+                min_value=end_times[-1],
+                max_value=start_time,
+                exclude_max=True,
+                width=32,
+            ),
             unique=True,
             min_size=0,
             max_size=max_additional_migration_intervals,
@@ -228,9 +263,8 @@ def pulses_lists(draw, graph, max_pulses=10):
             # We wish to draw times for the pulses. They must be in the open
             # interval (time_lo, time_hi) to ensure the pulse doesn't happen
             # at any deme's start_time or end_time, which could be invalid.
-            # So we check there is at least one floating point number between
-            # time_lo and time_hi.
-            if time_hi <= np.nextafter(time_lo, np.inf, dtype=float):
+            # So we check for some breathing room between time_lo and time_hi.
+            if time_hi <= time_lo + FLOAT_EPS:
                 continue
             n = draw(st.integers(min_value=0, max_value=n_pulses))
             for _ in range(n):
@@ -243,6 +277,7 @@ def pulses_lists(draw, graph, max_pulses=10):
                         max_value=time_hi,
                         exclude_min=True,
                         exclude_max=True,
+                        width=32,
                     )
                 )
                 max_proportion = 1 - ingress_proportions[(dest, time)]
@@ -254,6 +289,7 @@ def pulses_lists(draw, graph, max_pulses=10):
                         max_value=max_proportion,
                         exclude_min=True,
                         exclude_max=True,
+                        width=32,
                     )
                 )
                 ingress_proportions[(dest, time)] += proportion
@@ -273,7 +309,15 @@ def pulses_lists(draw, graph, max_pulses=10):
 
 
 @st.composite
-def graphs(draw, max_demes=5, max_epochs=10, max_migrations=10, max_pulses=10):
+def graphs(
+    draw,
+    max_demes=5,
+    max_epochs=10,
+    max_migrations=10,
+    max_pulses=10,
+    min_deme_size=FLOAT_EPS,
+    max_deme_size=FLOAT_MAX,
+):
     """
     A hypothesis strategy for creating a Graph.
 
@@ -288,8 +332,12 @@ def graphs(draw, max_demes=5, max_epochs=10, max_migrations=10, max_pulses=10):
     :param int max_epochs: The maximum number of epochs per deme.
     :param int max_migrations: The maximum number of migrations in the graph.
     :param int max_pulses: The maximum number of pulses in the graph.
+    :param float min_deme_size: The minimum size of a deme in any epoch.
+    :param float max_deme_size: The maximum size of a deme in any epoch.
     """
-    generation_time = draw(st.none() | st.floats(min_value=1e-9, max_value=1e6))
+    generation_time = draw(
+        st.none() | st.floats(min_value=FLOAT_EPS, max_value=FLOAT_MAX)
+    )
     if generation_time is None:
         time_units = "generations"
     else:
@@ -316,7 +364,9 @@ def graphs(draw, max_demes=5, max_epochs=10, max_migrations=10, max_pulses=10):
                 )
             )
             if len(anc_idx) > 0:
-                time_hi = min(b.data["demes"][j]["start_time"] for j in anc_idx)
+                time_hi = min(
+                    FLOAT_MAX, min(b.data["demes"][j]["start_time"] for j in anc_idx)
+                )
                 time_lo = max(
                     b.data["demes"][j]["epochs"][-1]["end_time"] for j in anc_idx
                 )
@@ -327,9 +377,9 @@ def graphs(draw, max_demes=5, max_epochs=10, max_migrations=10, max_pulses=10):
                 # start_time cannot be 0.
                 # However, there may not be any floating point numbers between
                 # 0 and time_hi even if time_hi > 0, so we check that time_hi
-                # is greater than the smallest positive number.
+                # is greater than a small positive number.
                 if (time_lo > 0 and time_hi > time_lo) or (
-                    time_lo == 0 and time_hi > np.finfo(float).tiny
+                    time_lo == 0 and time_hi > FLOAT_EPS
                 ):
                     # Draw a start time and the ancestry proportions.
                     start_time = draw(
@@ -339,6 +389,7 @@ def graphs(draw, max_demes=5, max_epochs=10, max_migrations=10, max_pulses=10):
                             exclude_max=True,
                             # Can't have start_time=0.
                             exclude_min=time_lo == 0,
+                            width=32,
                         )
                     )
                     ancestors = [b.data["demes"][j]["name"] for j in anc_idx]
@@ -359,7 +410,14 @@ def graphs(draw, max_demes=5, max_epochs=10, max_migrations=10, max_pulses=10):
             description=draw(st.none() | yaml_strings()),
             ancestors=ancestors,
             proportions=proportions,
-            epochs=draw(epochs_lists(start_time=start_time, max_epochs=max_epochs)),
+            epochs=draw(
+                epochs_lists(
+                    start_time=start_time,
+                    max_epochs=max_epochs,
+                    min_deme_size=min_deme_size,
+                    max_deme_size=max_deme_size,
+                )
+            ),
             start_time=start_time,
         )
 
@@ -371,3 +429,6 @@ def graphs(draw, max_demes=5, max_epochs=10, max_migrations=10, max_pulses=10):
     # the migrations_lists()/pulses_lists() implementations.
     graph = demes.Builder.fromdict(graph.asdict()).resolve()
     return graph
+
+
+st.register_type_strategy(demes.Graph, graphs())
