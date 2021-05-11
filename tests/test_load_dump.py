@@ -11,7 +11,7 @@ import hypothesis as hyp
 import numpy as np
 
 import demes
-import tests
+import demes.hypothesis_strategies
 
 
 def jacobs_papuans():
@@ -509,7 +509,7 @@ class TestLoadAndDump:
                         self.check_yaml_output_is_pretty(g, tmpfile, simplified)
 
     @hyp.settings(deadline=None, suppress_health_check=[hyp.HealthCheck.too_slow])
-    @hyp.given(tests.graphs())
+    @hyp.given(g=demes.hypothesis_strategies.graphs())
     def test_dump_load(self, g):
         self.check_dump_load_roundtrip(g)
 

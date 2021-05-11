@@ -371,3 +371,6 @@ def graphs(draw, max_demes=5, max_epochs=10, max_migrations=10, max_pulses=10):
     # the migrations_lists()/pulses_lists() implementations.
     graph = demes.Builder.fromdict(graph.asdict()).resolve()
     return graph
+
+
+st.register_type_strategy(demes.Graph, graphs())
