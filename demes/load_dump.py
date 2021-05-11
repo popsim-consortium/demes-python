@@ -41,8 +41,9 @@ def _load_yaml_asdict(fp):
 
 def _dump_yaml_fromdict(data, fp):
     with ruamel.yaml.YAML(typ="safe", output=fp) as yaml:
-        # Disable JSON-style inline arrays and dicts.
-        yaml.default_flow_style = False
+        # Output flow style, but only for collections that consist only
+        # of scalars (i.e. the leaves in the document tree).
+        yaml.default_flow_style = None
         # Don't emit obscure unicode, output "\Uxxxxxxxx" instead.
         # Needed for string equality after round-tripping.
         yaml.allow_unicode = False
