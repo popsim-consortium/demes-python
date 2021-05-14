@@ -120,7 +120,7 @@ def epochs_lists(
         else:
             end_size = draw(st.floats(min_value=min_deme_size, max_value=max_deme_size))
         cloning_rate = draw(st.floats(min_value=0, max_value=1))
-        selfing_rate = draw(st.floats(min_value=0, max_value=1 - cloning_rate))
+        selfing_rate = draw(st.floats(min_value=0, max_value=prec32(1 - cloning_rate)))
 
         epochs.append(
             dict(
@@ -211,7 +211,9 @@ def migration_matrices(
             if math.isclose(max_rate, 0):
                 continue
             n_migrations -= 1
-            rate = draw(st.floats(min_value=0, max_value=max_rate, exclude_min=True))
+            rate = draw(
+                st.floats(min_value=0, max_value=prec32(max_rate), exclude_min=True)
+            )
             migration_matrix[a][b] = rate
 
         if n_migrations == 0:
@@ -286,7 +288,7 @@ def pulses_lists(draw, graph, max_pulses=10):
                 proportion = draw(
                     st.floats(
                         min_value=0,
-                        max_value=max_proportion,
+                        max_value=prec32(max_proportion),
                         exclude_min=True,
                         exclude_max=True,
                         width=32,
