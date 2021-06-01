@@ -1,2 +1,2 @@
-attrs==20.3.0
+attrs==21.2.0
 ruamel.yaml==0.17.7
