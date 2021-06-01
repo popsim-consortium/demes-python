@@ -2324,6 +2324,66 @@ class TestGraph(unittest.TestCase):
             [Admix(parents=["a", "b"], child="c", proportions=[1 / 2, 1 / 2], time=100)]
         )
 
+    def test_migration_matrices(self):
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        g = b.resolve()
+        mm_list, end_times = g._migration_matrices()
+        assert end_times == [0]
+        assert mm_list == [[[0]]]
+
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)])
+        b.add_migration(source="a", dest="b", rate=0.1)
+        g = b.resolve()
+        mm_list, end_times = g._migration_matrices()
+        assert end_times == [0]
+        assert mm_list == [[[0, 0], [0.1, 0]]]
+
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)])
+        b.add_migration(source="a", dest="b", rate=0.1, start_time=100, end_time=50)
+        g = b.resolve()
+        mm_list, end_times = g._migration_matrices()
+        assert end_times == [100, 50, 0]
+        assert mm_list == [[[0, 0], [0, 0]], [[0, 0], [0.1, 0]], [[0, 0], [0, 0]]]
+
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", start_time=100, ancestors=["a"], epochs=[dict(start_size=1)])
+        b.add_migration(source="a", dest="b", rate=0.1)
+        g = b.resolve()
+        mm_list, end_times = g._migration_matrices()
+        assert end_times == [100, 0]
+        assert mm_list == [[[0, 0], [0, 0]], [[0, 0], [0.1, 0]]]
+
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)])
+        b.add_migration(source="a", dest="b", rate=0.1, end_time=100)
+        b.add_migration(source="a", dest="b", rate=0.1, start_time=50)
+        g = b.resolve()
+        mm_list, end_times = g._migration_matrices()
+        assert end_times == [100, 50, 0]
+        assert mm_list == [[[0, 0], [0.1, 0]], [[0, 0], [0, 0]], [[0, 0], [0.1, 0]]]
+
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)])
+        b.add_deme("c", epochs=[dict(start_size=1)])
+        b.add_migration(source="a", dest="b", rate=0.1, end_time=50)
+        b.add_migration(source="c", dest="b", rate=0.2, start_time=100)
+        g = b.resolve()
+        mm_list, end_times = g._migration_matrices()
+        assert end_times == [100, 50, 0]
+        assert mm_list == [
+            [[0, 0, 0], [0.1, 0, 0], [0, 0, 0]],
+            [[0, 0, 0], [0.1, 0, 0.2], [0, 0, 0]],
+            [[0, 0, 0], [0, 0, 0.2], [0, 0, 0]],
+        ]
+
 
 class TestGraphResolution(unittest.TestCase):
     def test_basic_resolution(self):

@@ -1588,7 +1588,11 @@ class Graph:
         """
         uniq_times = set(migration.start_time for migration in self.migrations)
         uniq_times.update(migration.end_time for migration in self.migrations)
-        end_times = sorted(uniq_times, reverse=True)[1:]
+        uniq_times.discard(math.inf)
+        end_times = sorted(uniq_times, reverse=True)
+        if len(end_times) == 0 or end_times[-1] != 0:
+            # Extend to t=0 even when there are no migrations.
+            end_times.append(0)
         n = len(self.demes)
         mm_list = [[[0] * n for _ in range(n)] for _ in range(len(end_times))]
         deme_id = {deme.name: j for j, deme in enumerate(self.demes)}
