@@ -1,5 +1,5 @@
 hypothesis==6.10.1
-numpy==1.19.4
+numpy==1.20.3
 pytest==6.2.3
 pytest-cov==2.11.1
 pytest-xdist==2.2.1
