@@ -2,6 +2,7 @@ import copy
 import decimal
 import enum
 import fractions
+import json
 import pathlib
 import tempfile
 import textwrap
@@ -599,3 +600,15 @@ class TestLoadAndDump:
             rate=decimal.Decimal("0.000012345"),
         )
         self.check_dump_load_roundtrip(b.resolve())
+
+    def test_json_infinities_get_stringified(self):
+        b = demes.Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        b.add_deme("b", epochs=[dict(start_size=1)])
+        b.add_migration(source="a", dest="b", rate=1e-4)
+        g = b.resolve()
+        json_str = demes.dumps(g, format="json", simplified=False)
+        data = json.loads(json_str)
+        assert data["demes"][0]["start_time"] == "Infinity"
+        assert data["demes"][1]["start_time"] == "Infinity"
+        assert data["migrations"][0]["start_time"] == "Infinity"
