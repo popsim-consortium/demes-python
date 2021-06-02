@@ -169,6 +169,20 @@ class TestEpoch(unittest.TestCase):
             end_size=100,
             size_function="exponential",
         )
+        Epoch(
+            start_time=100,
+            end_time=10,
+            start_size=1,
+            end_size=100,
+            size_function="linear",
+        )
+        Epoch(
+            start_time=20,
+            end_time=0,
+            start_size=100,
+            end_size=1,
+            size_function="linear",
+        )
         for rate in (0, 1, 0.5, 1e-5):
             Epoch(
                 start_time=math.inf,
@@ -222,6 +236,14 @@ class TestEpoch(unittest.TestCase):
                 start_size=10,
                 end_size=20,
                 size_function="exponential",
+            )
+        with self.assertRaises(ValueError):
+            Epoch(
+                start_time=math.inf,
+                end_time=0,
+                start_size=10,
+                end_size=20,
+                size_function="linear",
             )
 
     def test_isclose(self):

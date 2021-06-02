@@ -163,8 +163,8 @@ class Epoch:
         If ``start_size != end_size``, the population size changes
         monotonically between the start and end times.
     :ivar str size_function: The size change function. This is either
-        ``constant`` or ``exponential``, though it is possible that
-        additional values will be added in the future.
+        ``constant``, ``exponential`` or ``linear``, though it is possible
+        that additional values will be added in the future.
 
          * ``constant``: the deme's size does not change over the epoch.
          * ``exponential``: the deme's size changes exponentially from
@@ -177,12 +177,15 @@ class Epoch:
                dt = (epoch.start_time - t) / epoch.time_span
                 r = math.log(epoch.end_size / epoch.start_size)
                 N = epoch.start_size * math.exp(r * dt)
+         * ``linear``: the deme's size changes linearly from
+           ``start_size`` to ``end_size`` over the epoch.
+           If :math:`t` is a time within the span of the epoch,
+           the deme size :math:`N` at :math:`t` can be calculated as:
 
-        .. warning::
+           .. code::
 
-            Do not assume an exponentially changing size just because
-            ``start_size != end_size``. For forwards compatibility,
-            applications should always check the ``size_function``.
+               dt = (epoch.start_time - t) / epoch.time_span
+                N = epoch.start_size + (epoch.end_size - epoch.start_size) * dt
 
     :ivar float selfing_rate: The selfing rate for this epoch.
     :ivar float cloning_rate: The cloning rate for this epoch.
@@ -193,7 +196,7 @@ class Epoch:
     start_size: Size = attr.ib(validator=[int_or_float, positive, finite])
     end_size: Size = attr.ib(validator=[int_or_float, positive, finite])
     size_function: str = attr.ib(
-        validator=attr.validators.in_(["constant", "exponential"])
+        validator=attr.validators.in_(["constant", "exponential", "linear"])
     )
     selfing_rate: Proportion = attr.ib(
         default=0, validator=[int_or_float, unit_interval]
