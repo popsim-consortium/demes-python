@@ -4,6 +4,8 @@ Functions to load and dump graphs in YAML and JSON formats.
 import contextlib
 import json
 import io
+import math
+from typing import MutableMapping, Any
 
 import ruamel.yaml
 
@@ -52,6 +54,45 @@ def _dump_yaml_fromdict(data, fp):
         yaml.dump(data)
 
 
+_INFINITY_STR = "Infinity"
+
+
+def _stringify_infinities(data: MutableMapping[str, Any]) -> None:
+    """
+    Modifies the data dict so infinite values are set to the string "Infinity".
+
+    This is done for JSON output, because the JSON spec explicitly does not
+    provide an encoding for infinity.  The string-valued "Infinity" is likely
+    to be parsed without problem, and is converted to a float inf by the
+    following implementations:
+     * Python: float("Infinity")
+     * JavaScript: parseFloat("Infinity")
+     * C: strtod("Infinity", NULL) and atof("Infinity")
+     * R: as.numeric("Infinity")
+     * SLiM/Eidos: asFloat("Infinity")
+    """
+    for deme in data["demes"]:
+        if "start_time" in deme and math.isinf(deme["start_time"]):
+            deme["start_time"] = _INFINITY_STR
+    for migration in data.get("migrations", []):
+        if "start_time" in migration and math.isinf(migration["start_time"]):
+            migration["start_time"] = _INFINITY_STR
+
+
+def _unstringify_infinities(data: MutableMapping[str, Any]) -> None:
+    """
+    Modifies the data dict so the string "Infinity" is converted to float.
+    """
+    for deme in data["demes"]:
+        start_time = deme.get("start_time")
+        if start_time == _INFINITY_STR:
+            deme["start_time"] = float(start_time)
+    for migration in data.get("migrations", []):
+        start_time = migration.get("start_time")
+        if start_time == _INFINITY_STR:
+            migration["start_time"] = float(start_time)
+
+
 def loads_asdict(string, *, format="yaml"):
     """
     Load a YAML or JSON string into a dictionary of nested objects.
@@ -85,6 +126,7 @@ def load_asdict(filename, *, format="yaml"):
     if format == "json":
         with _open_file_polymorph(filename) as f:
             data = json.load(f)
+            _unstringify_infinities(data)
     elif format == "yaml":
         with _open_file_polymorph(filename) as f:
             data = _load_yaml_asdict(f)
@@ -165,7 +207,8 @@ def dump(graph, filename, *, format="yaml", simplified=True):
 
     if format == "json":
         with _open_file_polymorph(filename, "w") as f:
-            json.dump(data, f)
+            _stringify_infinities(data)
+            json.dump(data, f, allow_nan=False)
     elif format == "yaml":
         with _open_file_polymorph(filename, "w") as f:
             _dump_yaml_fromdict(data, f)
