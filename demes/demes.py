@@ -1143,6 +1143,36 @@ class Deme:
         """
         return self.start_time - self.end_time
 
+    def size_at(self, time: float) -> float:
+        """
+        Get the size of the deme at a given time.
+
+        :param float time: The time at which the size should be calculated.
+        :return: The deme size.
+        :rtype: float
+        """
+        for epoch in self.epochs:
+            if epoch.start_time >= time >= epoch.end_time:
+                break
+        else:
+            raise ValueError(
+                f"time {time} is outside deme {self.name}'s existence interval: "
+                f"({self.start_time}, {self.end_time}]"
+            )
+
+        if math.isclose(time, epoch.end_time) or epoch.size_function == "constant":
+            N = epoch.end_size
+        elif epoch.size_function == "exponential":
+            dt = (epoch.start_time - time) / epoch.time_span
+            r = math.log(epoch.end_size / epoch.start_size)
+            N = epoch.start_size * math.exp(r * dt)
+        elif epoch.size_function == "linear":
+            dt = (epoch.start_time - time) / epoch.time_span
+            N = epoch.start_size + (epoch.end_size - epoch.start_size) * dt
+        else:
+            raise NotImplementedError(f"unknown size_function '{epoch.size_function}'")
+        return N
+
 
 @attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Graph:
