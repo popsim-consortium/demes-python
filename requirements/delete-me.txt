@@ -1,2 +1,0 @@
-msprime==0.7.4
-stdpopsim==0.1.2

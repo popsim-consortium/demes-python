@@ -17,7 +17,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt install libgsl-dev  # for msprime
           pip install -r requirements/minimal.txt
           pip install -r requirements/lint.txt
           # Mypy also checks types in the tests/ folder

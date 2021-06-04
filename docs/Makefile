@@ -8,7 +8,7 @@ dev:
 	./build.sh
 
 dist:
-	@echo Building distribution for msprime version ${DEMES_VERSION}
+	@echo Building distribution for demes version ${DEMES_VERSION}
 	sed -i s/__DEMES_VERSION__/${DEMES_VERSION}/g _config.yml
 	./build.sh
 
