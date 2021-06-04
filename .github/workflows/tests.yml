@@ -20,8 +20,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     defaults:
       run:
-        # Needed to use the conda environment.
-        shell: bash -l {0}
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -35,21 +34,15 @@ jobs:
       - name: checkout
         uses: actions/checkout@v2
 
-      # We only install conda to get msprime (on windows).
-      - name: install conda
-        uses: conda-incubator/setup-miniconda@v2
+      - name: setup python
+        uses: actions/setup-python@v2
         with:
-          auto-update-conda: true
           python-version: ${{ matrix.python-version }}
-          channels: conda-forge
 
       - name: install dependencies
         run: |
-          conda install --yes \
-            $(grep numpy requirements/*.txt) $(grep msprime requirements/*.txt)
           pip install -r requirements/minimal.txt
           pip install -r requirements/tests.txt
-          pip install -r requirements/delete-me.txt
 
       - name: run pytest
         run: |
@@ -61,4 +54,3 @@ jobs:
         with:
           fail_ci_if_error: true
           env_vars: OS,PYTHON
-          verbose: true
