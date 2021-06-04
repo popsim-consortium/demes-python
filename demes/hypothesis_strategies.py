@@ -129,6 +129,8 @@ def epochs_lists(
                 end_size = draw(
                     st.floats(min_value=min_deme_size, max_value=max_deme_size)
                 )
+                if end_size == start_size:
+                    size_function = "constant"
         cloning_rate = draw(st.floats(min_value=0, max_value=1))
         selfing_rate = draw(st.floats(min_value=0, max_value=prec32(1 - cloning_rate)))
 

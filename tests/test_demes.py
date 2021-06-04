@@ -4000,7 +4000,6 @@ class TestBuilder:
         assert hasattr(b, "data")
         assert isinstance(b.data, typing.MutableMapping)
 
-    @hyp.settings(deadline=None, suppress_health_check=[hyp.HealthCheck.too_slow])
     @hyp.given(graph=demes.hypothesis_strategies.graphs())
     def test_back_and_forth(self, graph):
         b = Builder.fromdict(graph.asdict())

@@ -490,7 +490,6 @@ class TestLoadAndDump:
                     if format == "yaml":
                         self.check_yaml_output_is_pretty(g, tmpfile, simplified)
 
-    @hyp.settings(deadline=None, suppress_health_check=[hyp.HealthCheck.too_slow])
     @hyp.given(g=demes.hypothesis_strategies.graphs())
     def test_dump_load(self, g):
         self.check_dump_load_roundtrip(g)
