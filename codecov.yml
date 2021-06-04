@@ -1,0 +1,3 @@
+ignore:
+  # Coverage of the hypothesis strategy is not deterministic.
+  - demes/hypothesis_strategies.py
