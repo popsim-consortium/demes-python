@@ -89,6 +89,7 @@ def epochs_lists(
     max_epochs=5,
     min_deme_size=FLOAT_EPS,
     max_deme_size=FLOAT_MAX,
+    size_functions=None,
 ):
     """
     A hypothesis strategy for creating lists of Epochs for a deme.
@@ -96,6 +97,8 @@ def epochs_lists(
     :param float start_time: The start time of the deme.
     :param int max_epochs: The maximum number of epochs in the list.
     """
+    if size_functions is None:
+        size_functions = ["constant", "exponential", "linear"]
     assert max_epochs >= 2
     times = draw(
         st.lists(
@@ -117,8 +120,15 @@ def epochs_lists(
         start_size = draw(st.floats(min_value=min_deme_size, max_value=max_deme_size))
         if i == 0 and math.isinf(start_time):
             end_size = start_size
+            size_function = "constant"
         else:
-            end_size = draw(st.floats(min_value=min_deme_size, max_value=max_deme_size))
+            size_function = draw(st.sampled_from(size_functions))
+            if size_function == "constant":
+                end_size = start_size
+            else:
+                end_size = draw(
+                    st.floats(min_value=min_deme_size, max_value=max_deme_size)
+                )
         cloning_rate = draw(st.floats(min_value=0, max_value=1))
         selfing_rate = draw(st.floats(min_value=0, max_value=prec32(1 - cloning_rate)))
 
@@ -127,6 +137,7 @@ def epochs_lists(
                 end_time=end_time,
                 start_size=start_size,
                 end_size=end_size,
+                size_function=size_function,
                 cloning_rate=cloning_rate,
                 selfing_rate=selfing_rate,
             )
@@ -319,6 +330,7 @@ def graphs(
     max_pulses=10,
     min_deme_size=FLOAT_EPS,
     max_deme_size=FLOAT_MAX,
+    size_functions=None,
 ):
     """
     A hypothesis strategy for creating a Graph.
@@ -336,6 +348,7 @@ def graphs(
     :param int max_pulses: The maximum number of pulses in the graph.
     :param float min_deme_size: The minimum size of a deme in any epoch.
     :param float max_deme_size: The maximum size of a deme in any epoch.
+    :param list size_functions: Allowable values for an epoch's size_function.
     """
     generation_time = draw(
         st.none() | st.floats(min_value=FLOAT_EPS, max_value=FLOAT_MAX)
@@ -418,6 +431,7 @@ def graphs(
                     max_epochs=max_epochs,
                     min_deme_size=min_deme_size,
                     max_deme_size=max_deme_size,
+                    size_functions=size_functions,
                 )
             ),
             start_time=start_time,

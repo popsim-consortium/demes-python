@@ -23,6 +23,7 @@ from demes import (
 )
 import demes
 import demes.hypothesis_strategies
+import tests
 
 
 class TestEpoch(unittest.TestCase):
@@ -1748,6 +1749,67 @@ class TestDeme(unittest.TestCase):
                 )
             )
         )
+
+
+class TestDemeSizeAt:
+    @pytest.mark.parametrize("deme", tests.example_demes())
+    def test_deme_start_and_end_times(self, deme):
+        N = deme.size_at(deme.start_time)
+        assert N == deme.epochs[0].start_size
+        N = deme.size_at(deme.end_time)
+        assert N == deme.epochs[-1].end_size
+
+    @pytest.mark.parametrize("deme", tests.example_demes())
+    def test_times_within_each_epoch(self, deme):
+        for epoch in deme.epochs:
+            if math.isinf(epoch.start_time):
+                # The deme has the same size from end_time back to infinity.
+                for t in [epoch.end_time, epoch.end_time + 100, math.inf]:
+                    N = deme.size_at(t)
+                    assert N == epoch.start_size
+            else:
+                # Recalling that an epoch spans over the open-closed interval
+                # (start_time, end_time], we test several times in this range.
+                dt = epoch.start_time - epoch.end_time
+                r = math.log(epoch.end_size / epoch.start_size)
+                for p in [0, 1e-6, 1 / 3, 0.1, 1 - 1e-6]:
+                    t = epoch.end_time + p * dt
+                    N = deme.size_at(t)
+                    if epoch.size_function == "constant":
+                        assert N == epoch.start_size
+                    elif epoch.size_function == "exponential":
+                        expected_N = epoch.start_size * math.exp(r * (1 - p))
+                        assert math.isclose(N, expected_N)
+                    elif epoch.size_function == "linear":
+                        expected_N = epoch.start_size + (
+                            epoch.end_size - epoch.start_size
+                        ) * (1 - p)
+                        assert math.isclose(N, expected_N)
+                    else:
+                        raise AssertionError(
+                            f"No tests for size_function '{epoch.size_function}'"
+                        )
+
+    def test_bad_time(self):
+        b = demes.Builder()
+        b.add_deme("A", epochs=[dict(start_size=1, end_time=100)])
+        b.add_deme("B", ancestors=["A"], epochs=[dict(start_size=1)])
+        graph = b.resolve()
+        with pytest.raises(ValueError, match="existence interval"):
+            graph["A"].size_at(10)
+        with pytest.raises(ValueError, match="existence interval"):
+            graph["B"].size_at(200)
+
+    def test_unknown_size_function(self):
+        b = demes.Builder()
+        b.add_deme(
+            "A",
+            epochs=[dict(start_size=1, end_time=100), dict(start_size=1, end_size=50)],
+        )
+        graph = b.resolve()
+        graph["A"].epochs[-1].size_function = "foo"
+        with pytest.raises(NotImplementedError, match="size_function"):
+            graph["A"].size_at(10)
 
 
 class TestGraph(unittest.TestCase):
