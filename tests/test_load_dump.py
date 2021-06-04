@@ -13,6 +13,7 @@ import numpy as np
 
 import demes
 import demes.hypothesis_strategies
+import tests
 
 
 def jacobs_papuans():
@@ -397,22 +398,20 @@ class TestLoadAndDump:
         assert g["C"].ancestors == ["A", "B"]
         assert g["C"].proportions == [0.1, 0.9]
 
-    def test_loads_examples(self):
-        examples_path = pathlib.Path(__file__).parent.parent / "examples"
-        n = 0
-        for yaml_file in examples_path.glob("*.yml"):
-            n += 1
-            with open(yaml_file) as f:
-                yaml_str = f.read()
-            g = demes.loads(yaml_str)
-            assert g.description is not None
-            assert len(g.description) > 0
-            assert g.time_units is not None
-            assert len(g.time_units) > 0
-            assert len(g.demes) > 0
-        assert n > 1
+    @pytest.mark.parametrize("yaml_file", tests.example_files())
+    def test_loads_examples(self, yaml_file):
+        with open(yaml_file) as f:
+            yaml_str = f.read()
+        g = demes.loads(yaml_str)
+        assert g.description is not None
+        assert len(g.description) > 0
+        assert g.time_units is not None
+        assert len(g.time_units) > 0
+        assert len(g.demes) > 0
 
-    def check_dump_and_load_simple(self, *, format, simplified):
+    @pytest.mark.parametrize("simplified", [True, False])
+    @pytest.mark.parametrize("format", ["yaml", "json"])
+    def test_dump_and_load_simple(self, *, format, simplified):
         b1 = demes.Builder(
             description="some very concise description",
             time_units="years",
@@ -427,7 +426,9 @@ class TestLoadAndDump:
             g2 = demes.load(tmpfile, format=format)
         assert g1.isclose(g2)
 
-    def check_dump_and_load_complex(self, *, format, simplified):
+    @pytest.mark.parametrize("simplified", [True, False])
+    @pytest.mark.parametrize("format", ["yaml", "json"])
+    def test_dump_and_load_complex(self, *, format, simplified):
         g1 = jacobs_papuans()
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpfile = pathlib.Path(tmpdir) / "temp.txt"
@@ -435,43 +436,23 @@ class TestLoadAndDump:
             g2 = demes.load(tmpfile, format=format)
         assert g1.isclose(g2)
 
-    def test_dump_and_load_yaml(self):
-        for simplified in [True, False]:
-            self.check_dump_and_load_simple(format="yaml", simplified=simplified)
-            self.check_dump_and_load_complex(format="yaml", simplified=simplified)
-
-    def test_dump_and_load_json(self):
-        for simplified in [True, False]:
-            self.check_dump_and_load_simple(format="json", simplified=simplified)
-            self.check_dump_and_load_complex(format="json", simplified=simplified)
-
-    def check_examples_load_dump_load(self, *, format, simplified):
-        examples_path = pathlib.Path(__file__).parent.parent / "examples"
-        n = 0
-        for yaml_file in examples_path.glob("*.yml"):
-            g1 = demes.load(yaml_file, format="yaml")
-            with tempfile.TemporaryDirectory() as tmpdir:
-                tmpfile = pathlib.Path(tmpdir) / "temp.yml"
-                # dump and load files
-                demes.dump(g1, tmpfile, format=format, simplified=simplified)
-                g2 = demes.load(tmpfile, format=format)
-                # dump and load via file streams
-                with open(tmpfile, "w") as f:
-                    demes.dump(g1, f, format=format, simplified=simplified)
-                with open(tmpfile) as f:
-                    g3 = demes.load(f, format=format)
-            assert g1.isclose(g2)
-            assert g1.isclose(g3)
-            n += 1
-        assert n > 1
-
-    def test_examples_load_dump_load_yaml(self):
-        for simplified in [True, False]:
-            self.check_examples_load_dump_load(format="yaml", simplified=simplified)
-
-    def test_examples_load_dump_load_json(self):
-        for simplified in [True, False]:
-            self.check_examples_load_dump_load(format="json", simplified=simplified)
+    @pytest.mark.parametrize("simplified", [True, False])
+    @pytest.mark.parametrize("format", ["yaml", "json"])
+    @pytest.mark.parametrize("yaml_file", tests.example_files())
+    def test_examples_load_dump_load(self, yaml_file, format, simplified):
+        g1 = demes.load(yaml_file, format="yaml")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpfile = pathlib.Path(tmpdir) / "temp.yml"
+            # dump and load files
+            demes.dump(g1, tmpfile, format=format, simplified=simplified)
+            g2 = demes.load(tmpfile, format=format)
+            # dump and load via file streams
+            with open(tmpfile, "w") as f:
+                demes.dump(g1, f, format=format, simplified=simplified)
+            with open(tmpfile) as f:
+                g3 = demes.load(f, format=format)
+        assert g1.isclose(g2)
+        assert g1.isclose(g3)
 
     def check_yaml_output_is_pretty(self, g, yamlfile, simplified):
         with open(yamlfile) as f:
@@ -509,7 +490,6 @@ class TestLoadAndDump:
                     if format == "yaml":
                         self.check_yaml_output_is_pretty(g, tmpfile, simplified)
 
-    @hyp.settings(deadline=None, suppress_health_check=[hyp.HealthCheck.too_slow])
     @hyp.given(g=demes.hypothesis_strategies.graphs())
     def test_dump_load(self, g):
         self.check_dump_load_roundtrip(g)
@@ -606,9 +586,11 @@ class TestLoadAndDump:
         b.add_deme("a", epochs=[dict(start_size=1)])
         b.add_deme("b", epochs=[dict(start_size=1)])
         b.add_migration(source="a", dest="b", rate=1e-4)
-        g = b.resolve()
-        json_str = demes.dumps(g, format="json", simplified=False)
+        g1 = b.resolve()
+        json_str = demes.dumps(g1, format="json", simplified=False)
         data = json.loads(json_str)
         assert data["demes"][0]["start_time"] == "Infinity"
         assert data["demes"][1]["start_time"] == "Infinity"
         assert data["migrations"][0]["start_time"] == "Infinity"
+        g2 = demes.loads(json_str, format="json")
+        g2.assert_close(g1)
