@@ -1239,15 +1239,35 @@ class Graph:
                 'if time_units!="generations", generation_time must be specified'
             )
 
-    def __getitem__(self, deme_name):
+    def __getitem__(self, deme_name: Name) -> Deme:
         """
-        Return the :class:`.Deme` with the specified name.
+        Get the :class:`.Deme` with the specified name.
+
+        .. code::
+
+            graph = demes.load("gutenkunst_ooa.yml")
+            yri = graph["YRI"]
+            print(yri)
+
+        :param str deme_name: The name of the deme.
+        :rtype: Deme
+        :return: The deme.
         """
         return self._deme_map[deme_name]
 
-    def __contains__(self, deme_name):
+    def __contains__(self, deme_name: Name) -> bool:
         """
         Check if the graph contains a deme with the specified name.
+
+        .. code::
+
+            graph = demes.load("gutenkunst_ooa.yml")
+            if "CHB" in graph:
+                print("Deme CHB is in the graph")
+
+        :param str deme_name: The name of the deme.
+        :rtype: bool
+        :return: ``True`` if the deme is in the graph, ``False`` otherwise.
         """
         return deme_name in self._deme_map
 
