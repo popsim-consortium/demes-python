@@ -1,5 +1,4 @@
 import copy
-import pathlib
 import math
 import typing
 import random
@@ -18,7 +17,6 @@ from demes import (
     Branch,
     Merge,
     Admix,
-    load,
 )
 import demes
 import demes.hypothesis_strategies
@@ -1787,7 +1785,14 @@ class TestGraph:
                 doi=[""],
             )
 
-    def check_in_generations(self, dg1):
+    @pytest.mark.parametrize("graph", tests.example_graphs())
+    def test_in_generations(self, graph):
+        dg1 = copy.deepcopy(graph)
+        if dg1.generation_time in (None, 1):
+            # fake it
+            dg1.generation_time = 6
+            dg1.time_units = "years"
+
         assert dg1.generation_time is not None
         assert dg1.generation_time > 1
         dg1_copy = copy.deepcopy(dg1)
@@ -1843,19 +1848,7 @@ class TestGraph:
         dg2.assert_close(dg3)
         assert dg2.asdict() == dg3.asdict()
 
-    def test_in_generations(self):
-        examples_path = pathlib.Path(__file__).parent.parent / "examples"
-        i = 0
-        for yml in examples_path.glob("*.yml"):
-            dg = load(yml)
-            if dg.generation_time in (None, 1):
-                # fake it
-                dg.generation_time = 6
-                dg.time_units = "years"
-            self.check_in_generations(dg)
-            i += 1
-        assert i > 0
-
+    def test_in_generations_when_time_units_are_generations(self):
         # Check that in_generations() doesn't change the times when
         # time_units are generations, even if the generation_time is set.
         b = Builder(time_units="generations", generation_time=13)
