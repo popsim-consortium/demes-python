@@ -74,6 +74,18 @@ Similarly, one can check conformance to PEP8 style guidelines by running
 `flake8` (without parameters), and check type annotations by running
 `mypy` (also without parameters).
 
+### Pre-commit
+
+To simplify the process of running each of the linter tools, we also
+include a configuration for the `pre-commit` program. If you prefer not
+to run each of the commands above manually, install the `pre-commit` Python
+package and then run `pre-commit install` from the top-level folder of your
+cloned demes repository. Now when you try to commit changes, the lint
+checks will be performed automatically. If pre-commit made changes to the
+files when you tried to commit, you'll need to stage those changes and
+try again. E.g. `git add -u; git commit`.
+See the [pre-commit documentation](https://pre-commit.com/) for more details.
+
 ## Test suite
 
 A suite of tests is included in the `tests/` folder.

@@ -21,7 +21,7 @@ Build distribution files, and test on testpypi.
 Upload to pypi.
  - `twine upload --repository pypi dist/*`
  - Check it installs: `pip install demes --upgrade --pre`.
- 
+
 Push release.
  - E.g. `git push origin 0.1.0`
  - Create a release in the GitHub UI, based on the tag that was pushed.
