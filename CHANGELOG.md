@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.1.2 - 2021-06-08
+
+**New features**:
+
+- Add `Graph.migration_matrices()` to get the migration matrices for a graph.
+  ({user}`grahamgower`, {issue}`309`, {pr}`320`)
+- Add `Deme.size_at()` to get the size of a deme at a given time.
+  ({user}`grahamgower`, {issue}`312`, {pr}`314`)
+- Support "linear" as an `Epoch.size_function`.
+  ({user}`noscode`, {issue}`296`, {pr}`310`)
+- Downstream test code can now use the `demes.hypothesis_strategies.graphs()`
+  [hypothesis](https://hypothesis.readthedocs.io/) strategy to generate a
+  random `Graph`. This is preliminary, and as such is not yet documented,
+  but is used for testing internally with some success. The API may change
+  in the future in response to requests from downstream application authors.
+  ({user}`grahamgower`, {issue}`217`, {pr}`294`)
+- The string representation for a graph, `Graph.__str__()`, is now the
+  simplified YAML output.
+  ({user}`grahamgower`, {issue}`235`, {pr}`293`)
+
+**Breaking changes**:
+
+- The undocumented msprime and stdpopsim converters have been removed.
+  ({user}`grahamgower`, {issue}`313`, {pr}`316`)
+- The JSON spec doesn't allow serialising infinite float values (although the
+  Python json library does support this by default). So for JSON output we
+  instead use the string "Infinity".
+  ({user}`grahamgower`,
+  [demes-spec#70](https://github.com/popsim-consortium/demes-spec/issues/70),
+  {pr}`311`)
+
 ## 0.1.1 - 2021-04-21
 
 Remove the "demes" console_scripts entry point.
