@@ -26,6 +26,10 @@
 .. autoclass:: demes.Graph
     :members:
 
+    .. automethod:: __contains__
+
+    .. automethod:: __getitem__
+
 .. autoclass:: demes.Deme
     :members:
 
