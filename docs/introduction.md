@@ -17,7 +17,7 @@ sharing demographic models for population genetic simulations.
 ## Motivation
 
 Simulation is central to population genetics studies, and there are many great
-software out there for simulating sequencing data or computing expectations of
+software packages out there for simulating sequencing data or computing expectations of
 diversity statistics under a wide range of demographic scenarios. This requires
 writing a formal description of the demographic model. Generally, each
 simulation software has its own syntax and style for defining the demography -
