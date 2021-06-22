@@ -9,8 +9,10 @@
 .. autofunction:: demes.load_asdict
 .. autofunction:: demes.loads
 .. autofunction:: demes.loads_asdict
+.. autofunction:: demes.load_all
 .. autofunction:: demes.dump
 .. autofunction:: demes.dumps
+.. autofunction:: demes.dump_all
 ```
 
 ## Building Demes graphs
