@@ -110,7 +110,7 @@ def loads_asdict(string, *, format="yaml") -> MutableMapping[str, Any]:
     """
     Load a YAML or JSON string into a dictionary of nested objects.
     The keywords and structure of the input are defined by the
-    :ref:`spec:sec_ref`.
+    :ref:`spec:sec_spec`.
 
     :param str string: The string to be loaded.
     :param str format: The format of the input string. Either "yaml" or "json".
@@ -126,7 +126,7 @@ def load_asdict(filename, *, format="yaml") -> MutableMapping[str, Any]:
     """
     Load a YAML or JSON file into a dictionary of nested objects.
     The keywords and structure of the input are defined by the
-    :ref:`spec:sec_ref`.
+    :ref:`spec:sec_spec`.
 
     :param filename: The path to the file to be loaded, or a file-like object
         with a ``read()`` method.
@@ -152,7 +152,7 @@ def loads(string, *, format="yaml") -> "demes.Graph":
     """
     Load a graph from a YAML or JSON string.
     The keywords and structure of the input are defined by the
-    :ref:`spec:sec_ref`.
+    :ref:`spec:sec_spec`.
 
     :param str string: The string to be loaded.
     :param str format: The format of the input string. Either "yaml" or "json".
@@ -167,7 +167,7 @@ def load(filename, *, format="yaml") -> "demes.Graph":
     """
     Load a graph from a YAML or JSON file.
     The keywords and structure of the input are defined by the
-    :ref:`spec:sec_ref`.
+    :ref:`spec:sec_spec`.
 
     :param filename: The path to the file to be loaded, or a file-like object
         with a ``read()`` method.
@@ -185,7 +185,7 @@ def load_all(filename) -> Generator["demes.Graph", None, None]:
     Generate graphs from a YAML document stream. Documents must be separated by
     the YAML document start indicator, ``---``.
     The keywords and structure of each document are defined by the
-    :ref:`spec:sec_ref`.
+    :ref:`spec:sec_spec`.
 
     :param filename: The path to the file to be loaded, or a file-like object
         with a ``read()`` method.
@@ -203,7 +203,7 @@ def dumps(graph, *, format="yaml", simplified=True) -> str:
     """
     Dump the specified graph to a YAML or JSON string.
     The keywords and structure of the output are defined by the
-    :ref:`spec:sec_ref`.
+    :ref:`spec:sec_spec`.
 
     :param .Graph graph: The graph to dump.
     :param str format: The format of the output file. Either "yaml" or "json".
@@ -222,7 +222,7 @@ def dump(graph, filename, *, format="yaml", simplified=True) -> None:
     """
     Dump the specified graph to a file.
     The keywords and structure of the output are defined by the
-    :ref:`spec:sec_ref`.
+    :ref:`spec:sec_spec`.
 
     :param .Graph graph: The graph to dump.
     :param filename: Path to the output file, or a file-like object with a
