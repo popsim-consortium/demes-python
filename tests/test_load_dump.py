@@ -594,3 +594,78 @@ class TestLoadAndDump:
         assert data["migrations"][0]["start_time"] == "Infinity"
         g2 = demes.loads(json_str, format="json")
         g2.assert_close(g1)
+
+
+class TestMultiDocument:
+    @pytest.mark.parametrize("yaml_file", tests.example_files())
+    def test_load_all_single_document(self, yaml_file):
+        # Loading files with one document should work with the multi-doc API.
+        graphs = list(demes.load_all(yaml_file))
+        assert len(graphs) == 1
+        graph1 = graphs[0]
+        graph2 = demes.load(yaml_file)
+        graph1.assert_close(graph2)
+
+    @pytest.mark.parametrize("simplified", [True, False])
+    @pytest.mark.parametrize("graph1", tests.example_graphs())
+    def test_dump_all_single_document(self, graph1, simplified):
+        # A single documents saved with the multi-doc API should be loadable
+        # with the regular single-doc API.
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpfile = pathlib.Path(tmpdir) / "temp.yaml"
+            demes.dump_all([graph1], tmpfile, simplified=simplified)
+            graph2 = demes.load(tmpfile)
+        graph1.assert_close(graph2)
+
+    @pytest.mark.parametrize("simplified", [True, False])
+    def test_round_trip_file(self, simplified):
+        graphs1 = tests.example_graphs()
+        assert len(graphs1) > 1
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpfile = pathlib.Path(tmpdir) / "multidoc.yaml"
+            demes.dump_all(graphs1, tmpfile, simplified=simplified)
+            graphs2 = list(demes.load_all(tmpfile))
+        assert len(graphs1) == len(graphs2)
+        for g1, g2 in zip(graphs1, graphs2):
+            g1.assert_close(g2)
+
+    @pytest.mark.parametrize("simplified", [True, False])
+    def test_round_trip_stream(self, simplified):
+        graphs1 = tests.example_graphs()
+        assert len(graphs1) > 1
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpfile = pathlib.Path(tmpdir) / "multidoc.yaml"
+            with open(tmpfile, "w") as f:
+                demes.dump_all(graphs1, f, simplified=simplified)
+            with open(tmpfile) as f:
+                graphs2 = list(demes.load_all(f))
+        assert len(graphs1) == len(graphs2)
+        for g1, g2 in zip(graphs1, graphs2):
+            g1.assert_close(g2)
+
+    @pytest.mark.parametrize("simplified", [True, False])
+    def test_round_trip_no_end_document_marker(self, simplified):
+        graphs1 = tests.example_graphs()
+        assert len(graphs1) > 1
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpfile = pathlib.Path(tmpdir) / "multidoc.yaml"
+            with open(tmpfile, "w") as f:
+                for j, graph in enumerate(graphs1):
+                    if j > 0:
+                        # Output a start marker between documents.
+                        print("---", file=f)
+                    demes.dump(graph, f, simplified=simplified)
+            graphs2 = list(demes.load_all(tmpfile))
+        assert len(graphs1) == len(graphs2)
+        for g1, g2 in zip(graphs1, graphs2):
+            g1.assert_close(g2)
+
+    @pytest.mark.parametrize("simplified", [True, False])
+    def test_empty_file(self, simplified):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpfile = pathlib.Path(tmpdir) / "empty.yaml"
+            demes.dump_all([], tmpfile)
+            assert tmpfile.exists()
+            assert tmpfile.stat().st_size == 0
+            graphs = list(demes.load_all(tmpfile))
+            assert len(graphs) == 0

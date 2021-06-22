@@ -5,7 +5,7 @@ import contextlib
 import json
 import io
 import math
-from typing import MutableMapping, Any
+from typing import Any, Generator, MutableMapping
 
 import ruamel.yaml
 
@@ -36,12 +36,22 @@ def _open_file_polymorph(polymorph, mode="r"):
 # which are hopefully simple enough to not suffer from API instability.
 
 
-def _load_yaml_asdict(fp):
+def _load_yaml_asdict(fp) -> MutableMapping[str, Any]:
     with ruamel.yaml.YAML(typ="safe") as yaml:
         return yaml.load(fp)
 
 
-def _dump_yaml_fromdict(data, fp):
+def _dump_yaml_fromdict(data, fp, multidoc=False) -> None:
+    """
+    Dump data dict to a YAML file-like object.
+
+    :param bool multidoc: If True, output the YAML document start line ``---``,
+        and document end line ``...``, which indicate the beginning and end of
+        a YAML document respectively. The start indicator is needed when
+        outputing multiple YAML documents to a single file (or file stream).
+        The end indicator is not strictly needed, but may be desirable
+        depending on the underlying communication channel.
+    """
     with ruamel.yaml.YAML(typ="safe", output=fp) as yaml:
         # Output flow style, but only for collections that consist only
         # of scalars (i.e. the leaves in the document tree).
@@ -51,6 +61,9 @@ def _dump_yaml_fromdict(data, fp):
         yaml.allow_unicode = False
         # Keep dict insertion order, thank you very much!
         yaml.sort_base_mapping_type_on_output = False
+        if multidoc:
+            yaml.explicit_start = True
+            yaml.explicit_end = True
         yaml.dump(data)
 
 
@@ -93,7 +106,7 @@ def _unstringify_infinities(data: MutableMapping[str, Any]) -> None:
             migration["start_time"] = float(start_time)
 
 
-def loads_asdict(string, *, format="yaml"):
+def loads_asdict(string, *, format="yaml") -> MutableMapping[str, Any]:
     """
     Load a YAML or JSON string into a dictionary of nested objects.
     The keywords and structure of the input are defined by the
@@ -109,7 +122,7 @@ def loads_asdict(string, *, format="yaml"):
         return load_asdict(stream, format=format)
 
 
-def load_asdict(filename, *, format="yaml"):
+def load_asdict(filename, *, format="yaml") -> MutableMapping[str, Any]:
     """
     Load a YAML or JSON file into a dictionary of nested objects.
     The keywords and structure of the input are defined by the
@@ -135,7 +148,7 @@ def load_asdict(filename, *, format="yaml"):
     return data
 
 
-def loads(string, *, format="yaml"):
+def loads(string, *, format="yaml") -> "demes.Graph":
     """
     Load a graph from a YAML or JSON string.
     The keywords and structure of the input are defined by the
@@ -150,7 +163,7 @@ def loads(string, *, format="yaml"):
     return demes.Graph.fromdict(data)
 
 
-def load(filename, *, format="yaml"):
+def load(filename, *, format="yaml") -> "demes.Graph":
     """
     Load a graph from a YAML or JSON file.
     The keywords and structure of the input are defined by the
@@ -167,7 +180,26 @@ def load(filename, *, format="yaml"):
     return demes.Graph.fromdict(data)
 
 
-def dumps(graph, *, format="yaml", simplified=True):
+def load_all(filename) -> Generator["demes.Graph", None, None]:
+    """
+    Generate graphs from a YAML document stream. Documents must be separated by
+    the YAML document start indicator, ``---``.
+    The keywords and structure of each document are defined by the
+    :ref:`spec:sec_ref`.
+
+    :param filename: The path to the file to be loaded, or a file-like object
+        with a ``read()`` method.
+    :type filename: Union[str, os.PathLike, FileLike]
+    :return: A generator of graphs.
+    :rtype: Generator[demes.Graph, None, None]
+    """
+    with _open_file_polymorph(filename) as f:
+        with ruamel.yaml.YAML(typ="safe") as yaml:
+            for data in yaml.load_all(f):
+                yield demes.Graph.fromdict(data)
+
+
+def dumps(graph, *, format="yaml", simplified=True) -> str:
     """
     Dump the specified graph to a YAML or JSON string.
     The keywords and structure of the output are defined by the
@@ -176,7 +208,7 @@ def dumps(graph, *, format="yaml", simplified=True):
     :param .Graph graph: The graph to dump.
     :param str format: The format of the output file. Either "yaml" or "json".
     :param bool simplified: If True, returns a simplified graph. If False, returns
-        a complete redundant graph.
+        a fully-qualified graph.
     :return: The YAML or JSON string.
     :rtype: str
     """
@@ -186,7 +218,7 @@ def dumps(graph, *, format="yaml", simplified=True):
     return string
 
 
-def dump(graph, filename, *, format="yaml", simplified=True):
+def dump(graph, filename, *, format="yaml", simplified=True) -> None:
     """
     Dump the specified graph to a file.
     The keywords and structure of the output are defined by the
@@ -198,7 +230,7 @@ def dump(graph, filename, *, format="yaml", simplified=True):
     :type filename: Union[str, os.PathLike, FileLike]
     :param str format: The format of the output file. Either "yaml" or "json".
     :param bool simplified: If True, outputs a simplified graph. If False, outputs
-        a redundant graph.
+        a fully-qualified graph.
     """
     if simplified:
         data = graph.asdict_simplified()
@@ -214,3 +246,23 @@ def dump(graph, filename, *, format="yaml", simplified=True):
             _dump_yaml_fromdict(data, f)
     else:
         raise ValueError(f"unknown format: {format}")
+
+
+def dump_all(graphs, filename, *, simplified=True) -> None:
+    """
+    Dump the specified graphs to a multi-document YAML file or output stream.
+
+    :param graphs: An iterable of graphs to dump.
+    :param filename: Path to the output file, or a file-like object with a
+        ``write()`` method.
+    :type filename: Union[str, os.PathLike, FileLike]
+    :param bool simplified: If True, outputs simplified graphs. If False, outputs
+        fully-qualified graphs.
+    """
+    with _open_file_polymorph(filename, "w") as f:
+        for graph in graphs:
+            if simplified:
+                data = graph.asdict_simplified()
+            else:
+                data = graph.asdict()
+            _dump_yaml_fromdict(data, f, multidoc=True)

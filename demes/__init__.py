@@ -20,5 +20,14 @@ from .demes import (
     Merge,
     Admix,
 )
-from .load_dump import load_asdict, loads_asdict, load, loads, dump, dumps
+from .load_dump import (
+    load_asdict,
+    loads_asdict,
+    load,
+    loads,
+    load_all,
+    dump,
+    dumps,
+    dump_all,
+)
 from .ms import from_ms
