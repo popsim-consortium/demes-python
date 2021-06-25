@@ -240,7 +240,7 @@ def dump(graph, filename, *, format="yaml", simplified=True) -> None:
     if format == "json":
         with _open_file_polymorph(filename, "w") as f:
             _stringify_infinities(data)
-            json.dump(data, f, allow_nan=False)
+            json.dump(data, f, allow_nan=False, indent=2)
     elif format == "yaml":
         with _open_file_polymorph(filename, "w") as f:
             _dump_yaml_fromdict(data, f)
