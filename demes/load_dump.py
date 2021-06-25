@@ -139,12 +139,15 @@ def load_asdict(filename, *, format="yaml") -> MutableMapping[str, Any]:
     if format == "json":
         with _open_file_polymorph(filename) as f:
             data = json.load(f)
-            _unstringify_infinities(data)
     elif format == "yaml":
         with _open_file_polymorph(filename) as f:
             data = _load_yaml_asdict(f)
     else:
         raise ValueError(f"unknown format: {format}")
+    # The string "Infinity" should only be present in JSON files.
+    # But YAML is a superset of JSON, so we want the YAML loader to also
+    # load JSON files without problem.
+    _unstringify_infinities(data)
     return data
 
 
@@ -240,7 +243,7 @@ def dump(graph, filename, *, format="yaml", simplified=True) -> None:
     if format == "json":
         with _open_file_polymorph(filename, "w") as f:
             _stringify_infinities(data)
-            json.dump(data, f, allow_nan=False)
+            json.dump(data, f, allow_nan=False, indent=2)
     elif format == "yaml":
         with _open_file_polymorph(filename, "w") as f:
             _dump_yaml_fromdict(data, f)

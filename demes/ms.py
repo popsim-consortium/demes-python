@@ -3,6 +3,7 @@ import math
 import argparse
 import logging
 import sys
+import operator
 from typing import Any, Dict, List, Mapping, MutableMapping, Set, Tuple
 
 import attr
@@ -118,15 +119,15 @@ class Event(Option):
 
 @attr.define
 class GrowthRateChange(Event):
-    # -G α
-    # -eG t α
+    # -G alpha
+    # -eG t alpha
     alpha = attr.ib(converter=float, validator=finite)
 
 
 @attr.define
 class PopulationGrowthRateChange(Event):
-    # -g i α
-    # -eg t i α
+    # -g i alpha
+    # -eg t i alpha
     i = attr.ib(converter=int, validator=positive)
     alpha = attr.ib(converter=float, validator=finite)
 
@@ -218,8 +219,9 @@ class PopulationSplit(Event):
     j = attr.ib(converter=int, validator=positive)
 
 
-def parse_ms_args(command: str):
-    parser = ValueErrorArgumentParser()
+def build_parser(parser=None):
+    if parser is None:
+        parser = ValueErrorArgumentParser()
 
     class LoadFromFile(argparse.Action):
         def __call__(self, parser, namespace, filename, option_string=None):
@@ -230,56 +232,55 @@ def parse_ms_args(command: str):
 
     parser.add_argument(
         "-f",
-        "--filename",
+        metavar="filename",
         action=LoadFromFile,
         help="Insert commands from a file at this point in the command line.",
     )
     parser.add_argument(
-        "--structure",
         "-I",
+        dest="structure",
         nargs="+",
         action=coerce_nargs(Structure.from_nargs),
-        metavar="value",
+        metavar=("num_demes", "n1"),
         help=(
-            "Sample from populations with the specified deme structure. "
-            "The arguments are of the form 'num_demes "
-            "n1 n2 ... [4N0m]', specifying the number of populations, "
+            "Set the number of demes and the sampling configuration. "
+            "The arguments are of the form "
+            "'num_demes n1 n2 ... [4N0m]', "
+            "specifying the number of demes, "
             "the sample configuration, and optionally, the migration "
-            "rate for a symmetric island model"
+            "rate for a symmetric island model (in units of 4 * N0). "
+            "While values must be provided for the sample configuration, "
+            "they are not used for constructing the Demes model."
         ),
     )
     parser.add_argument(
-        "--population-size",
         "-n",
         nargs=2,
         action=coerce_nargs(lambda *x: PopulationSizeChange(0, *x), append=True),
         dest="initial_state",
         default=[],
         metavar=("i", "x"),
-        help="Set the size of a specific population to size*N0.",
+        help="Set the size of deme i to x * N0.",
     )
     parser.add_argument(
-        "--population-growth-rate",
         "-g",
         nargs=2,
         action=coerce_nargs(lambda *x: PopulationGrowthRateChange(0, *x), append=True),
         dest="initial_state",
         default=[],
-        metavar=("i", "α"),
-        help="Set the growth rate to alpha for a specific population.",
+        metavar=("i", "alpha"),
+        help="Set the growth rate of deme i to alpha.",
     )
     parser.add_argument(
-        "--growth-rate",
         "-G",
         nargs=1,
         action=coerce_nargs(lambda *x: GrowthRateChange(0, *x), append=True),
         dest="initial_state",
         default=[],
-        metavar="α",
-        help="Set the growth rate to alpha for all populations.",
+        metavar="alpha",
+        help="Set the growth rate to alpha for all demes.",
     )
     parser.add_argument(
-        "--migration-matrix-entry",
         "-m",
         nargs=3,
         action=coerce_nargs(lambda *x: MigrationMatrixEntryChange(0, *x), append=True),
@@ -288,12 +289,10 @@ def parse_ms_args(command: str):
         metavar=("i", "j", "rate"),
         help=(
             "Sets an entry M[i, j] in the migration matrix to the "
-            "specified rate. i and j are (1-indexed) population "
-            "IDs. Multiple options can be specified."
+            "specified rate. i and j are (1-indexed) deme IDs."
         ),
     )
     parser.add_argument(
-        "--migration-matrix",
         "-ma",
         nargs="+",
         action=coerce_nargs(
@@ -303,56 +302,49 @@ def parse_ms_args(command: str):
         default=[],
         metavar="entry",
         help=(
-            "Sets the migration matrix to the specified value. The "
-            "entries are in the order M[1, 1], M[1, 2], ..., M[2, 1], "
-            "M[2, 2], ..., M[N, N], where N is the number of populations. "
+            "Sets the migration matrix from the specified vector of values. "
+            "The entries are in the order M[1, 1], M[1, 2], ..., M[2, 1], "
+            "M[2, 2], ..., M[N, N], where N is the number of demes. "
             "Diagonal entries may be written as 'x'."
         ),
     )
     parser.add_argument(
-        "--growth-rate-change",
         "-eG",
         nargs=2,
         action=coerce_nargs(GrowthRateChange, append=True),
         dest="demographic_events",
         default=[],
         metavar=("t", "alpha"),
-        help="Set the growth rate for all populations to alpha at time t",
+        help="Set the growth rate for all demes to alpha at time t.",
     )
     parser.add_argument(
-        "--population-growth-rate-change",
         "-eg",
         nargs=3,
         action=coerce_nargs(PopulationGrowthRateChange, append=True),
         dest="demographic_events",
         default=[],
         metavar=("t", "i", "alpha"),
-        help=("Set the growth rate for a specific population to " "alpha at time t"),
+        help="Set the growth rate of deme i to alpha at time t.",
     )
     parser.add_argument(
-        "--size-change",
         "-eN",
         nargs=2,
         action=coerce_nargs(SizeChange, append=True),
         dest="demographic_events",
         default=[],
         metavar=("t", "x"),
-        help="Set the population size for all populations to x * N0 at time t",
+        help="Set the size of all demes to x * N0 at time t.",
     )
     parser.add_argument(
-        "--population-size-change",
         "-en",
         nargs=3,
         action=coerce_nargs(PopulationSizeChange, append=True),
         dest="demographic_events",
         default=[],
         metavar=("t", "i", "x"),
-        help=(
-            "Set the population size for a specific population to " "x * N0 at time t"
-        ),
+        help="Set the size of deme i to x * N0 at time t.",
     )
     parser.add_argument(
-        "--migration-rate-change",
         "-eM",
         nargs=2,
         action=coerce_nargs(MigrationRateChange, append=True),
@@ -361,40 +353,37 @@ def parse_ms_args(command: str):
         metavar=("t", "x"),
         help=(
             "Set the symmetric island model migration rate to "
-            "x / (npop - 1) at time t"
+            "'x / (num_demes - 1)' at time t."
         ),
     )
     parser.add_argument(
-        "--migration-matrix-entry-change",
         "-em",
         action=coerce_nargs(MigrationMatrixEntryChange, append=True),
         dest="demographic_events",
-        metavar=("time", "i", "j", "rate"),
+        metavar=("t", "i", "j", "rate"),
         nargs=4,
         default=[],
         help=(
-            "Sets an entry M[i, j] in the migration matrix to the "
-            "specified rate at the specified time. i and j are "
-            "(1-indexed) population IDs."
+            "Sets the entry M[i, j] in the migration matrix to the "
+            "specified rate at time t. i and j are (1-indexed) deme IDs."
         ),
     )
     parser.add_argument(
-        "--migration-matrix-change",
         "-ema",
         nargs="+",
         default=[],
         action=coerce_nargs(MigrationMatrixChange.from_nargs, append=True),
         dest="demographic_events",
-        metavar="entry",
+        metavar=("t", "entry"),
         help=(
-            "Sets the migration matrix to the specified value at time t. "
+            "Sets the migration matrix from the specified vector of values "
+            "at time t. "
             "The entries are in the order M[1, 1], M[1, 2], ..., M[2, 1], "
-            "M[2, 2], ..., M[N, N], where N is the number of populations. "
+            "M[2, 2], ..., M[N, N], where N is the number of demes. "
             "Diagonal entries may be written as 'x'."
         ),
     )
     parser.add_argument(
-        "--admixture",
         "-es",
         nargs=3,
         action=coerce_nargs(Admixture, append=True),
@@ -402,17 +391,15 @@ def parse_ms_args(command: str):
         default=[],
         metavar=("t", "i", "p"),
         help=(
-            "Split the specified population into a new population, such "
-            "that the specified proportion of lineages remains in "
-            "the population i. Forwards in time this "
-            "corresponds to an admixture event. The new population has ID "
-            "num_demes + 1. Migration rates to and from the new "
-            "population are set to 0, and growth rate is 0 and the "
-            "population size for the new population is N0."
+            "Split deme i into a new deme, such that the specified "
+            "proportion p of lineages remains in deme i. Forwards in time "
+            "this corresponds to an admixture event with the extinction of "
+            "the new deme. The new deme has ID num_demes + 1, and has size N0, "
+            "growth rate 0, and migration rates to and from the new deme are "
+            "set to 0."
         ),
     )
     parser.add_argument(
-        "--population-split",
         "-ej",
         nargs=3,
         action=coerce_nargs(PopulationSplit, append=True),
@@ -420,45 +407,13 @@ def parse_ms_args(command: str):
         default=[],
         metavar=("t", "i", "j"),
         help=(
-            "Move all lineages in population i to j at time t. "
+            "Move all lineages in deme i to j at time t. "
             "Forwards in time, this corresponds to a population split "
             "in which lineages in j split into i. All migration "
-            "rates for population i are set to zero."
+            "rates for deme i are set to zero."
         ),
     )
-
-    args, unknown = parser.parse_known_args(command.split())
-    # Sort demographic events args by the time field.
-    args.demographic_events.sort(key=lambda x: x.t)
-    return args, unknown
-
-
-def demes_sorted_by_ancestry(demes_data: List[Mapping]):
-    """
-    Return the demes list sorted so that ancestors come before descendants.
-    """
-    # Iterate through the remaining demes and insert them once all
-    # ancestors are already inserted.
-    remaining = demes_data.copy()
-    inserted = dict()
-    n_remaining = len(remaining)
-    while n_remaining > 0:
-        for deme in remaining.copy():
-            ancestors_in_graph = True
-            for ancestor in deme.get("ancestors", []):
-                if ancestor not in inserted:
-                    ancestors_in_graph = False
-                    break
-            if ancestors_in_graph:
-                remaining.remove(deme)
-                inserted[deme["name"]] = deme
-        if n_remaining == len(remaining):
-            raise ValueError(
-                "Cannot resolve graph because an ancestor/descendant cycle "
-                f"exists among: {deme['name'] for deme in remaining}"
-            )
-        n_remaining = len(remaining)
-    return list(inserted.values())
+    return parser
 
 
 def migrations_from_mm_list(
@@ -599,6 +554,8 @@ def build_graph(args, N0: float) -> demes.Graph:
             mm_end_times.insert(0, time)
         return migration_matrix
 
+    # Sort demographic events args by the time field.
+    args.demographic_events.sort(key=lambda x: x.t)
     # Process the initial_state options followed by the demographic_events.
     for event in args.initial_state + args.demographic_events:
         time = 4 * N0 * event.t
@@ -763,8 +720,10 @@ def build_graph(args, N0: float) -> demes.Graph:
         migration["rate"] /= 4 * N0
     b.data["migrations"] = migrations
 
-    # Reinsert each deme so that ancestors come before descendants.
-    b.data["demes"] = demes_sorted_by_ancestry(b.data["demes"])
+    # Sort demes by their start time so that ancestors come before descendants.
+    b.data["demes"] = sorted(
+        b.data["demes"], key=operator.itemgetter("start_time"), reverse=True
+    )
 
     graph = b.resolve()
     return graph
@@ -825,7 +784,8 @@ def from_ms(
     :return: The demes graph.
     :rtype: demes.Graph
     """
-    args, unknown = parse_ms_args(command)
+    parser = build_parser()
+    args, unknown = parser.parse_known_args(command.split())
     if len(unknown) > 0:
         # TODO: do something better here? Pass unknown args back to user?
         logger.warning(f"Ignoring unknown args: {unknown}")

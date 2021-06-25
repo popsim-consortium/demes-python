@@ -1119,18 +1119,22 @@ class TestFromMs:
                 demes.from_ms("-I 2 1 1", N0=1, deme_names=bad_deme_names)
 
     def test_unhandled_event(self):
-        from demes.ms import parse_ms_args, build_graph
+        from demes.ms import build_parser, build_graph
+
+        parser = build_parser()
 
         class Foo:
             t: float
 
         foo = Foo()
         foo.t = 0
-        args, _ = parse_ms_args("-I 2 1 1")
+        args = parser.parse_args("-I 2 1 1".split())
         args.initial_state.append(foo)
         with pytest.raises(AssertionError):
             build_graph(args, 1)
 
         foo.t = 1.0
-        args, _ = parse_ms_args("-I 2 1 1")
-        args.initial_state.append(foo)
+        args = parser.parse_args("-I 2 1 1".split())
+        args.demographic_events.append(foo)
+        with pytest.raises(AssertionError):
+            build_graph(args, 1)
