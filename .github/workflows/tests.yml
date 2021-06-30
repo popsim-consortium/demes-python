@@ -44,6 +44,13 @@ jobs:
           pip install -r requirements/minimal.txt
           pip install -r requirements/tests.txt
 
+      # Check that demes installs as expected.
+      # Also check the "demes" CLI entry point.
+      - name: install demes
+        run: |
+          pip install .
+          demes -h
+
       - name: run pytest
         run: |
           python -m pytest -n auto \

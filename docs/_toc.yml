@@ -2,5 +2,6 @@
 - file: installation
 - file: quickstart
 - file: api
+- file: cli
 - file: development
 - file: changelog

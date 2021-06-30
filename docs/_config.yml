@@ -35,6 +35,7 @@ sphinx:
     - sphinx.ext.viewcode
     - sphinx.ext.intersphinx
     - sphinx_issues
+    - sphinxcontrib.programoutput
 
     config:
       issues_github_path: popsim-consortium/demes-python
