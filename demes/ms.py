@@ -4,7 +4,8 @@ import argparse
 import logging
 import sys
 import operator
-from typing import Any, Dict, List, Mapping, MutableMapping, Set, Tuple
+import itertools
+from typing import Any, List, Mapping, Set
 
 import attr
 
@@ -206,14 +207,14 @@ class MigrationMatrixChange(Event):
 
 
 @attr.define
-class Admixture(Event):
+class Split(Event):
     # -es t i p
     i = attr.ib(converter=int, validator=positive)
     p = attr.ib(converter=float, validator=unit_interval)
 
 
 @attr.define
-class PopulationSplit(Event):
+class Join(Event):
     # -ej t i j
     i = attr.ib(converter=int, validator=positive)
     j = attr.ib(converter=int, validator=positive)
@@ -386,85 +387,34 @@ def build_parser(parser=None):
     parser.add_argument(
         "-es",
         nargs=3,
-        action=coerce_nargs(Admixture, append=True),
+        action=coerce_nargs(Split, append=True),
         dest="demographic_events",
         default=[],
         metavar=("t", "i", "p"),
         help=(
             "Split deme i into a new deme, such that the specified "
-            "proportion p of lineages remains in deme i. Forwards in time "
-            "this corresponds to an admixture event with the extinction of "
-            "the new deme. The new deme has ID num_demes + 1, and has size N0, "
-            "growth rate 0, and migration rates to and from the new deme are "
-            "set to 0."
+            "proportion p of lineages remains in deme i. The new deme has ID "
+            "num_demes + 1, and has size N0, growth rate 0, and migration "
+            "rates to and from the new deme are set to 0. "
+            "Forwards in time this corresponds to an admixture event with "
+            "the extinction of the new deme."
         ),
     )
     parser.add_argument(
         "-ej",
         nargs=3,
-        action=coerce_nargs(PopulationSplit, append=True),
+        action=coerce_nargs(Join, append=True),
         dest="demographic_events",
         default=[],
         metavar=("t", "i", "j"),
         help=(
-            "Move all lineages in deme i to j at time t. "
-            "Forwards in time, this corresponds to a population split "
-            "in which lineages in j split into i. All migration "
-            "rates for deme i are set to zero."
+            "Move all lineages in deme i to j at time t. All migration "
+            "rates for deme i are set to zero. "
+            "Forwards in time, this corresponds to a branch event "
+            "in which lineages in j split into i."
         ),
     )
     return parser
-
-
-def migrations_from_mm_list(
-    mm_list: List[List[List[float]]], end_times: List[float], deme_names: List[str]
-) -> List[MutableMapping]:
-    """
-    Convert a list of migration matrices into a list of migration dicts.
-    """
-    assert len(mm_list) == len(end_times)
-    migrations: List[MutableMapping] = []
-    current: Dict[Tuple[int, int], MutableMapping] = dict()
-    start_time = math.inf
-    for migration_matrix, end_time in zip(mm_list, end_times):
-        n = len(migration_matrix)
-        assert n == len(deme_names)
-        for j in range(n):
-            assert n == len(migration_matrix[j])
-            for k in range(n):
-                if j == k:
-                    continue
-                rate = migration_matrix[j][k]
-                mm = current.get((j, k))
-                if mm is None:
-                    if rate != 0:
-                        mm = dict(
-                            source=deme_names[j],
-                            dest=deme_names[k],
-                            start_time=start_time,
-                            end_time=end_time,
-                            rate=rate,
-                        )
-                        current[(j, k)] = mm
-                        migrations.append(mm)
-                else:
-                    if rate == 0:
-                        del current[(j, k)]
-                    elif mm["rate"] == rate:
-                        # extend mm
-                        mm["end_time"] = end_time
-                    else:
-                        mm = dict(
-                            source=deme_names[j],
-                            dest=deme_names[k],
-                            start_time=start_time,
-                            end_time=end_time,
-                            rate=rate,
-                        )
-                        current[(j, k)] = mm
-                        migrations.append(mm)
-        start_time = end_time
-    return migrations
 
 
 def build_graph(args, N0: float) -> demes.Graph:
@@ -555,147 +505,199 @@ def build_graph(args, N0: float) -> demes.Graph:
         return migration_matrix
 
     # Sort demographic events args by the time field.
-    args.demographic_events.sort(key=lambda x: x.t)
+    args.demographic_events.sort(key=operator.attrgetter("t"))
     # Process the initial_state options followed by the demographic_events.
-    for event in args.initial_state + args.demographic_events:
-        time = 4 * N0 * event.t
-        if isinstance(event, GrowthRateChange):
-            # -G α
-            # -eG t α
-            growth_rate = event.alpha / (4 * N0)
-            for deme in b.data["demes"]:
+    for t, events_iter in itertools.groupby(
+        args.initial_state + args.demographic_events, operator.attrgetter("t")
+    ):
+        time = 4 * N0 * t
+        events_group = list(events_iter)
+
+        # Lineage movements matrix to track -es/ej (Split/Join) events.
+        # This is used to turn complex sequences of -es/-ej events with the
+        # same time parameter into more direct ancestry relationships.
+        n = num_demes + sum(1 for event in events_group if isinstance(event, Split))
+        lineage_movements = [[0] * n for _ in range(n)]
+        for j in range(n):
+            lineage_movements[j][j] = 1
+        # The indices for lineages specified in Split/Join events.
+        split_join_indices = set()
+
+        for event in events_group:
+            if isinstance(event, GrowthRateChange):
+                # -G α
+                # -eG t α
+                growth_rate = event.alpha / (4 * N0)
+                for j, deme in enumerate(b.data["demes"]):
+                    if j not in joined:
+                        current_epoch = deme["epochs"][0]
+                        current_growth_rate = current_epoch.get("growth_rate", 0)
+                        if current_growth_rate != growth_rate:
+                            epoch = epoch_resolve(deme, time)
+                            epoch["growth_rate"] = growth_rate
+
+            elif isinstance(event, PopulationGrowthRateChange):
+                # -g i α
+                # -eg t i α
+                pid = convert_population_id(event.i)
+                growth_rate = event.alpha / (4 * N0)
+                deme = b.data["demes"][pid]
                 current_epoch = deme["epochs"][0]
                 current_growth_rate = current_epoch.get("growth_rate", 0)
                 if current_growth_rate != growth_rate:
                     epoch = epoch_resolve(deme, time)
                     epoch["growth_rate"] = growth_rate
 
-        elif isinstance(event, PopulationGrowthRateChange):
-            # -g i α
-            # -eg t i α
-            pid = convert_population_id(event.i)
-            growth_rate = event.alpha / (4 * N0)
-            deme = b.data["demes"][pid]
-            current_epoch = deme["epochs"][0]
-            current_growth_rate = current_epoch.get("growth_rate", 0)
-            if current_growth_rate != growth_rate:
-                epoch = epoch_resolve(deme, time)
-                epoch["growth_rate"] = growth_rate
+            elif isinstance(event, SizeChange):
+                # -eN t x
+                size = event.x * N0
+                for j, deme in enumerate(b.data["demes"]):
+                    if j not in joined:
+                        current_epoch = deme["epochs"][0]
+                        current_growth_rate = current_epoch.get("growth_rate", 0)
+                        if (
+                            current_growth_rate != 0
+                            or current_epoch["end_size"] != size
+                        ):
+                            epoch = epoch_resolve(deme, time)
+                            epoch["growth_rate"] = 0
+                            epoch["end_size"] = size
 
-        elif isinstance(event, SizeChange):
-            # -eN t x
-            size = event.x * N0
-            for deme in b.data["demes"]:
+            elif isinstance(event, PopulationSizeChange):
+                # -n i x
+                # -en t i x
+                pid = convert_population_id(event.i)
+                size = event.x * N0
+                deme = b.data["demes"][pid]
                 current_epoch = deme["epochs"][0]
                 current_growth_rate = current_epoch.get("growth_rate", 0)
                 if current_growth_rate != 0 or current_epoch["end_size"] != size:
                     epoch = epoch_resolve(deme, time)
-                    epoch["growth_rate"] = 0
                     epoch["end_size"] = size
+                    # set growth_rate to 0 for -en option, but not for -n option
+                    if "-en" in event.option_strings:
+                        epoch["growth_rate"] = 0
 
-        elif isinstance(event, PopulationSizeChange):
-            # -n i x
-            # -en t i x
-            pid = convert_population_id(event.i)
-            size = event.x * N0
-            deme = b.data["demes"][pid]
-            current_epoch = deme["epochs"][0]
-            current_growth_rate = current_epoch.get("growth_rate", 0)
-            if current_growth_rate != 0 or current_epoch["end_size"] != size:
-                epoch = epoch_resolve(deme, time)
-                epoch["end_size"] = size
-                # set growth_rate to 0 for -en option, but not for -n option
-                if "-en" in event.option_strings:
-                    epoch["growth_rate"] = 0
+            elif isinstance(event, MigrationRateChange):
+                # -eM t x
+                mm = migration_matrix_at(time)
+                for j in range(len(mm)):
+                    if j not in joined:
+                        for k in range(len(mm)):
+                            if j != k and k not in joined:
+                                mm[j][k] = event.x / (num_demes - 1)
 
-        elif isinstance(event, PopulationSplit):
-            # -ej t i j
-            pop_i = convert_population_id(event.i)
-            pop_j = convert_population_id(event.j)
+            elif isinstance(event, MigrationMatrixEntryChange):
+                # -m i j x
+                # -em t i j x
+                pid_i = convert_population_id(event.i)
+                pid_j = convert_population_id(event.j)
+                if pid_i == pid_j:
+                    raise ValueError("Cannot set diagonal elements in migration matrix")
+                mm = migration_matrix_at(time)
+                mm[pid_i][pid_j] = event.rate
 
-            b.data["demes"][pop_i]["start_time"] = time
-            b.data["demes"][pop_i]["ancestors"] = [f"deme{pop_j + 1}"]
+            elif isinstance(event, MigrationMatrixChange):
+                # -ma M11 M12 M12 ... M21 ...
+                # -ema t npop M11 M12 M12 ... M21 ...
+                if "-ma" in event.option_strings:
+                    event.npop = num_demes
+                if event.npop != num_demes:
+                    raise ValueError(
+                        f"-ema 'npop' ({event.npop}) doesn't match the current "
+                        f"number of demes ({num_demes})"
+                    )
+                _ = migration_matrix_at(time)
+                mm = mm_list[0] = copy.deepcopy(event.M)
+                # Ms ignores matrix entries for demes that were previously joined
+                # (-ej option), and users may deliberately put invalid values
+                # here (e.g. 'x'). So we explicitly set these rates to zero.
+                for j in joined:
+                    for k in range(num_demes):
+                        if j != k:
+                            mm[j][k] = 0
+                            mm[k][j] = 0
 
-            mm = migration_matrix_at(time)
-            # Turn off migrations to/from deme i.
-            for k in range(num_demes):
-                if k != pop_i:
-                    mm[k][pop_i] = 0
-                    mm[pop_i][k] = 0
+            elif isinstance(event, Join):
+                # -ej t i j
+                # Move all lineages from deme i to deme j at time t.
+                pop_i = convert_population_id(event.i)
+                pop_j = convert_population_id(event.j)
 
-            # Record pop_i so that this index isn't used by later events.
-            joined.add(pop_i)
+                b.data["demes"][pop_i]["start_time"] = time
+                b.data["demes"][pop_i]["ancestors"] = [f"deme{pop_j + 1}"]
+                for lm in lineage_movements:
+                    lm[pop_j] = lm[pop_i]
+                    lm[pop_i] = 0
+                split_join_indices.add(pop_i)
 
-        elif isinstance(event, Admixture):
-            # -es t i p
-            pid = convert_population_id(event.i)
-
-            # Add a new deme which will be the source of a migration pulse.
-            new_pid = num_demes
-            b.add_deme(
-                f"deme{new_pid + 1}",
-                start_time=math.inf,
-                epochs=[dict(end_size=N0, end_time=time)],
-            )
-            # In ms, the probability of staying in source is p and the
-            # probabilty of moving to the new population is 1 - p.
-            b.add_pulse(
-                source=f"deme{new_pid + 1}",
-                dest=f"deme{pid + 1}",
-                time=time,
-                proportion=1 - event.p,
-            )
-            num_demes += 1
-
-            # Expand each migration matrix with a row and column of zeros.
-            for migration_matrix in mm_list:
-                for row in migration_matrix:
-                    row.append(0)
-                migration_matrix.append([0 for _ in range(num_demes)])
-
-        ##
-        # Demographic events that affect the migration matrix
-
-        elif isinstance(event, MigrationRateChange):
-            # -eM t x
-            mm = migration_matrix_at(time)
-            for j in range(len(mm)):
-                for k in range(len(mm)):
-                    if j != k:
-                        mm[j][k] = event.x / (num_demes - 1)
-
-        elif isinstance(event, MigrationMatrixEntryChange):
-            # -m i j x
-            # -em t i j x
-            pid_i = convert_population_id(event.i)
-            pid_j = convert_population_id(event.j)
-            if pid_i == pid_j:
-                raise ValueError("Cannot set diagonal elements in migration matrix")
-            mm = migration_matrix_at(time)
-            mm[pid_i][pid_j] = event.rate
-
-        elif isinstance(event, MigrationMatrixChange):
-            # -ma M11 M12 M12 ... M21 ...
-            # -ema t npop M11 M12 M12 ... M21 ...
-            if "-ma" in event.option_strings:
-                event.npop = num_demes
-            if event.npop != num_demes:
-                raise ValueError(
-                    f"-ema 'npop' ({event.npop}) doesn't match the current "
-                    f"number of demes ({num_demes})"
-                )
-            _ = migration_matrix_at(time)
-            mm = mm_list[0] = copy.deepcopy(event.M)
-            # Ms ignores matrix entries for demes that were previously joined
-            # (-ej option), and users may deliberately put invalid values
-            # here (e.g. 'x'). So we explicitly set these rates to zero.
-            for j in joined:
+                mm = migration_matrix_at(time)
+                # Turn off migrations to/from deme i.
                 for k in range(num_demes):
-                    if j != k:
-                        mm[j][k] = 0
-                        mm[k][j] = 0
-        else:
-            assert False, f"unhandled option: {event}"
+                    if k != pop_i:
+                        mm[k][pop_i] = 0
+                        mm[pop_i][k] = 0
+
+                # Record pop_i so that this index isn't used by later events.
+                joined.add(pop_i)
+
+            elif isinstance(event, Split):
+                # -es t i p
+                # Split deme i into a new deme (num_demes + 1),
+                # with proportion p of lineages remaining in deme i,
+                # and 1-p moving to the new deme.
+                pid = convert_population_id(event.i)
+
+                # Add new deme.
+                new_pid = num_demes
+                b.add_deme(
+                    f"deme{new_pid + 1}",
+                    start_time=math.inf,
+                    epochs=[dict(end_size=N0, end_time=time)],
+                )
+                for lm in lineage_movements:
+                    lm[new_pid] = (1 - event.p) * lm[pid]
+                    lm[pid] *= event.p
+                split_join_indices.add(pid)
+
+                num_demes += 1
+
+                # Expand each migration matrix with a row and column of zeros.
+                for migration_matrix in mm_list:
+                    for row in migration_matrix:
+                        row.append(0)
+                    migration_matrix.append([0 for _ in range(num_demes)])
+
+            else:
+                assert False, f"unhandled option: {event}"
+
+        for j in split_join_indices:
+            ancestors = []
+            proportions = []
+            for k, proportion in enumerate(lineage_movements[j]):
+                if j != k and proportion > 0:
+                    ancestors.append(f"deme{k + 1}")
+                    proportions.append(proportion)
+            if len(ancestors) == 0:
+                continue
+            p_jj = lineage_movements[j][j]
+            if p_jj == 0:
+                # No ancestry left in j.
+                b.data["demes"][j]["ancestors"] = ancestors
+                b.data["demes"][j]["proportions"] = proportions
+            else:
+                # Some ancestry is retained in j, so we use pulse migrations to
+                # indicate foreign ancestry.
+                # The order of pulses will later be reversed such that realised
+                # ancestry proportions are maintained forwards in time.
+                for k, source in enumerate(ancestors):
+                    p = proportions[k] / (sum(proportions[k:]) + p_jj)
+                    b.add_pulse(
+                        source=source,
+                        dest=f"deme{j + 1}",
+                        time=time,
+                        proportion=p,
+                    )
 
     # Resolve/remove growth_rate in oldest epochs.
     for deme in b.data["demes"]:
@@ -712,18 +714,22 @@ def build_graph(args, N0: float) -> demes.Graph:
         else:
             epoch["start_size"] = epoch["end_size"]
 
-    migrations = migrations_from_mm_list(
-        mm_list, mm_end_times, [deme["name"] for deme in b.data["demes"]]
-    )
+    # Convert migration matrices into migration dictionaries.
+    b._add_migrations_from_matrices(mm_list, mm_end_times)
+
     # Rescale rates so they don't have units of 4*N0.
-    for migration in migrations:
+    for migration in b.data["migrations"]:
         migration["rate"] /= 4 * N0
-    b.data["migrations"] = migrations
+
+    # Remove demes whose existence time span is zero.
+    # These can be created by simultaneous -es/-ej commands.
+    b._remove_transient_demes()
 
     # Sort demes by their start time so that ancestors come before descendants.
-    b.data["demes"] = sorted(
-        b.data["demes"], key=operator.itemgetter("start_time"), reverse=True
-    )
+    b._sort_demes_by_ancestry()
+
+    # Reverse the order of pulses so realised ancestry proportions are correct.
+    b.data.get("pulses", []).reverse()
 
     graph = b.resolve()
     return graph
