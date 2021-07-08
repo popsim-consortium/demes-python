@@ -587,9 +587,9 @@ class TestFromMs:
                     source = f"deme{num_demes + 1}"
                     # pulse properties
                     pulse = graph.pulses[0]
-                    assert pulse.source == source
+                    assert pulse.sources[0] == source
                     assert pulse.dest == dest
-                    assert math.isclose(pulse.proportion, 1 - p)
+                    assert math.isclose(pulse.proportions[0], 1 - p)
                     assert math.isclose(pulse.time, t * 4 * N0)
                     # source deme properties
                     assert math.isinf(graph[source].start_time)
@@ -635,13 +635,13 @@ class TestFromMs:
         assert math.isclose(graph["deme3"].end_time, T * 4 * N0)
         assert len(graph.pulses) == 2
         # The order of pulses matters here.
-        assert graph.pulses[0].source == "deme3"
+        assert graph.pulses[0].sources[0] == "deme3"
         assert graph.pulses[0].dest == "deme1"
-        assert math.isclose(graph.pulses[0].proportion, 1 - 0.8)
+        assert math.isclose(graph.pulses[0].proportions[0], 1 - 0.8)
         assert math.isclose(graph.pulses[0].time, T * 4 * N0)
-        assert graph.pulses[1].source == "deme2"
+        assert graph.pulses[1].sources[0] == "deme2"
         assert graph.pulses[1].dest == "deme1"
-        assert math.isclose(graph.pulses[1].proportion, 1 - 0.7)
+        assert math.isclose(graph.pulses[1].proportions[0], 1 - 0.7)
         assert math.isclose(graph.pulses[1].time, T * 4 * N0)
 
     def test_join(self):
@@ -844,9 +844,9 @@ class TestFromMs:
         assert len(graph["deme2"].epochs) == 1
         # check pulse
         pulse = graph.pulses[0]
-        assert pulse.source == "deme2"
+        assert pulse.sources[0] == "deme2"
         assert pulse.dest == "deme1"
-        assert pulse.proportion == 1 - p
+        assert pulse.proportions[0] == 1 - p
         assert math.isclose(pulse.time, T1 * 4 * N0)
 
     def test_split_then_join_immediately(self):
@@ -870,9 +870,9 @@ class TestFromMs:
         assert len(graph["deme2"].epochs) == 1
         # check pulse
         pulse = graph.pulses[0]
-        assert pulse.source == "deme2"
+        assert pulse.sources[0] == "deme2"
         assert pulse.dest == "deme1"
-        assert pulse.proportion == 1 - p
+        assert pulse.proportions[0] == 1 - p
         assert math.isclose(pulse.time, T1 * 4 * N0)
 
     @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
@@ -888,14 +888,14 @@ class TestFromMs:
         graph = demes.from_ms(cmd, N0=N0)
         assert len(graph.demes) == 3
         assert len(graph.pulses) == 2
-        assert graph.pulses[0].source == "deme1"
+        assert graph.pulses[0].sources[0] == "deme1"
         assert graph.pulses[0].dest == "deme2"
         assert math.isclose(graph.pulses[0].time, T1 * 4 * N0)
-        assert math.isclose(graph.pulses[0].proportion, 0.4)
-        assert graph.pulses[1].source == "deme2"
+        assert math.isclose(graph.pulses[0].proportions[0], 0.4)
+        assert graph.pulses[1].sources[0] == "deme2"
         assert graph.pulses[1].dest == "deme3"
         assert math.isclose(graph.pulses[1].time, T1 * 4 * N0)
-        assert math.isclose(graph.pulses[1].proportion, 0.4)
+        assert math.isclose(graph.pulses[1].proportions[0], 0.4)
 
     @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
     def test_split_then_join_sequence_2(self):
@@ -910,14 +910,14 @@ class TestFromMs:
         graph = demes.from_ms(cmd, N0=N0)
         assert len(graph.demes) == 3
         assert len(graph.pulses) == 2
-        assert graph.pulses[0].source == "deme1"
+        assert graph.pulses[0].sources[0] == "deme1"
         assert graph.pulses[0].dest == "deme3"
         assert math.isclose(graph.pulses[0].time, T1 * 4 * N0)
-        assert math.isclose(graph.pulses[0].proportion, 0.4)
-        assert graph.pulses[1].source == "deme2"
+        assert math.isclose(graph.pulses[0].proportions[0], 0.4)
+        assert graph.pulses[1].sources[0] == "deme2"
         assert graph.pulses[1].dest == "deme3"
         assert math.isclose(graph.pulses[1].time, T1 * 4 * N0)
-        assert math.isclose(graph.pulses[1].proportion, 0.4)
+        assert math.isclose(graph.pulses[1].proportions[0], 0.4)
 
     @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
     def test_split_then_join_sequence_3(self):
@@ -932,14 +932,14 @@ class TestFromMs:
         graph = demes.from_ms(cmd, N0=N0)
         assert len(graph.demes) == 3
         assert len(graph.pulses) == 2
-        assert graph.pulses[0].source == "deme2"
+        assert graph.pulses[0].sources[0] == "deme2"
         assert graph.pulses[0].dest == "deme1"
         assert math.isclose(graph.pulses[0].time, T1 * 4 * N0)
-        assert math.isclose(graph.pulses[0].proportion, 0.4)
-        assert graph.pulses[1].source == "deme2"
+        assert math.isclose(graph.pulses[0].proportions[0], 0.4)
+        assert graph.pulses[1].sources[0] == "deme2"
         assert graph.pulses[1].dest == "deme3"
         assert math.isclose(graph.pulses[1].time, T1 * 4 * N0)
-        assert math.isclose(graph.pulses[1].proportion, 0.4)
+        assert math.isclose(graph.pulses[1].proportions[0], 0.4)
 
     @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
     def test_split_then_join_sequence_then_join(self):
@@ -1349,7 +1349,7 @@ class TestFromMs:
         assert "A" in graph
         assert "B" in graph
         assert len(graph.pulses) == 1
-        assert graph.pulses[0].source == "B"
+        assert graph.pulses[0].sources[0] == "B"
         assert graph.pulses[0].dest == "A"
 
         # bad deme names
@@ -1982,7 +1982,7 @@ class TestToMs:
         b = demes.Builder()
         b.add_deme("a", epochs=[dict(start_size=N0)])
         b.add_deme("b", epochs=[dict(start_size=N0)])
-        b.add_pulse(source="a", dest="b", time=T0, proportion=0.1)
+        b.add_pulse(sources=["a"], dest="b", time=T0, proportions=[0.1])
         graph1 = b.resolve()
         cmd = demes.to_ms(graph1, N0=N0)
         structure, events = self.parse_command(cmd)
@@ -2011,8 +2011,8 @@ class TestToMs:
         b.add_deme("a", epochs=[dict(start_size=N0)])
         b.add_deme("b", epochs=[dict(start_size=N0)])
         b.add_deme("c", epochs=[dict(start_size=N0)])
-        b.add_pulse(source="a", dest="b", time=T0, proportion=0.1)
-        b.add_pulse(source="b", dest="c", time=T0, proportion=0.1)
+        b.add_pulse(sources=["a"], dest="b", time=T0, proportions=[0.1])
+        b.add_pulse(sources=["b"], dest="c", time=T0, proportions=[0.1])
         graph1 = b.resolve()
         cmd = demes.to_ms(graph1, N0=N0)
 
@@ -2169,3 +2169,15 @@ class TestToMs:
                 ValueError, match="samples must match the number of demes"
             ):
                 demes.to_ms(graph, N0=N0, samples=bad_samples)
+
+    def test_multisource_pulse(self):
+        b = demes.Builder(defaults=dict(epoch=dict(start_size=100, end_time=0)))
+        b.add_deme("a")
+        b.add_deme("b")
+        b.add_deme("c")
+        b.add_pulse(sources=["a", "b"], dest="c", time=10, proportions=[0.2, 0.2])
+        graph = b.resolve()
+        with pytest.raises(
+            ValueError, match="pulses with only a single source are supported"
+        ):
+            demes.to_ms(graph, N0=100)

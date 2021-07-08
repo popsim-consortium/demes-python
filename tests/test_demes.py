@@ -557,51 +557,90 @@ class TestPulse:
     def test_bad_time(self):
         for time in ("inf", "100", {}, [], math.nan):
             with pytest.raises(TypeError):
-                Pulse(source="a", dest="b", time=time, proportion=0.1)
+                Pulse(sources=["a"], dest="b", time=time, proportions=[0.1])
 
         for time in (-10000, -1, -1e-9, 0, math.inf):
             with pytest.raises(ValueError):
-                Pulse(source="a", dest="b", time=time, proportion=0.1)
+                Pulse(sources=["a"], dest="b", time=time, proportions=[0.1])
 
-    def test_bad_proportion(self):
-        for proportion in ("inf", "100", {}, [], math.nan):
+    def test_bad_proportions(self):
+        for proportion in ("inf", "100", {}, math.nan):
             with pytest.raises(TypeError):
-                Pulse(source="a", dest="b", time=1, proportion=proportion)
+                Pulse(sources=["a"], dest="b", time=1, proportions=[proportion])
 
         for proportion in (-10000, -1, -1e-9, 1.2, 100, math.inf):
             with pytest.raises(ValueError):
-                Pulse(source="a", dest="b", time=1, proportion=proportion)
+                Pulse(sources=["a"], dest="b", time=1, proportions=[proportion])
 
     def test_bad_demes(self):
         for name in (None, 0, math.inf, 1e3, {}, []):
             with pytest.raises(TypeError):
-                Pulse(source=name, dest="a", time=1, proportion=0.1)
+                Pulse(sources=[name], dest="a", time=1, proportions=[0.1])
             with pytest.raises(TypeError):
-                Pulse(source="a", dest=name, time=1, proportion=0.1)
+                Pulse(sources=["a"], dest=name, time=1, proportions=[0.1])
 
         for name in ("a", "", "pop 1"):
             with pytest.raises(ValueError):
-                Pulse(source=name, dest="a", time=1, proportion=0.1)
+                Pulse(sources=[name], dest="a", time=1, proportions=[0.1])
             with pytest.raises(ValueError):
-                Pulse(source="a", dest=name, time=1, proportion=0.1)
+                Pulse(sources=["a"], dest=name, time=1, proportions=[0.1])
+
+    def test_bad_multipopulation_pulse(self):
+        with pytest.raises(ValueError):
+            Pulse(sources=["a"], dest="b", time=1, proportions=[0.4, 0.5])
+        with pytest.raises(ValueError):
+            Pulse(sources=["a", "b"], dest="c", time=1, proportions=[0.4])
+        with pytest.raises(ValueError):
+            Pulse(sources=["a", "b"], dest="c", time=1, proportions=[0.6, 0.7])
+        with pytest.raises(ValueError):
+            Pulse(
+                sources=["a", "b", "c"], dest="b", time=1, proportions=[0.5, 0.1, 0.41]
+            )
 
     def test_valid_pulse(self):
-        Pulse(source="a", dest="b", time=1, proportion=1e-9)
-        Pulse(source="a", dest="b", time=100, proportion=0.9)
+        Pulse(sources=["a"], dest="b", time=1, proportions=[1e-9])
+        Pulse(sources=["a"], dest="b", time=100, proportions=[0.9])
+        Pulse(sources=["a", "b", "c"], dest="d", time=1, proportions=[0.1, 0.2, 0.7])
 
     def test_isclose(self):
         eps = 1e-50
-        p1 = Pulse(source="a", dest="b", time=1, proportion=1e-9)
+        p1 = Pulse(sources=["a"], dest="b", time=1, proportions=[1e-9])
         assert p1.isclose(p1)
-        assert p1.isclose(Pulse(source="a", dest="b", time=1, proportion=1e-9))
-        assert p1.isclose(Pulse(source="a", dest="b", time=1 + eps, proportion=1e-9))
-        assert p1.isclose(Pulse(source="a", dest="b", time=1, proportion=1e-9 + eps))
+        assert p1.isclose(Pulse(sources=["a"], dest="b", time=1, proportions=[1e-9]))
+        assert p1.isclose(
+            Pulse(sources=["a"], dest="b", time=1 + eps, proportions=[1e-9])
+        )
+        assert p1.isclose(
+            Pulse(sources=["a"], dest="b", time=1, proportions=[1e-9 + eps])
+        )
 
-        assert not p1.isclose(Pulse(source="a", dest="c", time=1, proportion=1e-9))
-        assert not p1.isclose(Pulse(source="b", dest="a", time=1, proportion=1e-9))
-        assert not p1.isclose(Pulse(source="a", dest="b", time=1, proportion=2e-9))
         assert not p1.isclose(
-            Pulse(source="a", dest="b", time=1 + 1e-9, proportion=1e-9)
+            Pulse(sources=["a"], dest="c", time=1, proportions=[1e-9])
+        )
+        assert not p1.isclose(
+            Pulse(sources=["b"], dest="a", time=1, proportions=[1e-9])
+        )
+        assert not p1.isclose(
+            Pulse(sources=["a"], dest="b", time=1, proportions=[2e-9])
+        )
+        assert not p1.isclose(
+            Pulse(sources=["a"], dest="b", time=1 + 1e-9, proportions=[1e-9])
+        )
+
+        multipulse = Pulse(sources=["a", "b"], dest="c", time=1, proportions=[0.1, 0.2])
+        assert multipulse.isclose(
+            Pulse(sources=["b", "a"], dest="c", time=1, proportions=[0.2, 0.1])
+        )
+        assert multipulse.isclose(
+            Pulse(
+                sources=["a", "b"], dest="c", time=1, proportions=[0.1 + eps, 0.2 + eps]
+            )
+        )
+        assert not multipulse.isclose(
+            Pulse(sources=["a"], dest="c", time=1, proportions=[0.1])
+        )
+        assert not multipulse.isclose(
+            Pulse(sources=["a", "b"], dest="c", time=1, proportions=[0.2, 0.2])
         )
 
 
@@ -1904,10 +1943,10 @@ class TestGraph:
         g3.assert_close(g4)
 
         # The order in which pulses are added shouldn't matter.
-        b3.add_pulse(source="d1", dest="d2", proportion=0.01, time=100)
-        b3.add_pulse(source="d1", dest="d2", proportion=0.01, time=50)
-        b4.add_pulse(source="d1", dest="d2", proportion=0.01, time=50)
-        b4.add_pulse(source="d1", dest="d2", proportion=0.01, time=100)
+        b3.add_pulse(sources=["d1"], dest="d2", proportions=[0.01], time=100)
+        b3.add_pulse(sources=["d1"], dest="d2", proportions=[0.01], time=50)
+        b4.add_pulse(sources=["d1"], dest="d2", proportions=[0.01], time=50)
+        b4.add_pulse(sources=["d1"], dest="d2", proportions=[0.01], time=100)
         g3 = b3.resolve()
         g4 = b4.resolve()
         g3.assert_close(g4)
@@ -2011,7 +2050,7 @@ class TestGraph:
         b4 = copy.deepcopy(b2)
         b4.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
         b4.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
-        b4.add_pulse(source="d1", dest="d2", proportion=0.01, time=100)
+        b4.add_pulse(sources=["d1"], dest="d2", proportions=[0.01], time=100)
         g3 = b3.resolve()
         g4 = b4.resolve()
         assert not g3.isclose(g4)
@@ -2019,11 +2058,11 @@ class TestGraph:
         b3 = copy.deepcopy(b2)
         b3.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
         b3.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
-        b3.add_pulse(source="d2", dest="d1", proportion=0.01, time=100)
+        b3.add_pulse(sources=["d2"], dest="d1", proportions=[0.01], time=100)
         b4 = copy.deepcopy(b2)
         b4.add_deme("d1", epochs=[dict(start_size=1000, end_time=0)])
         b4.add_deme("d2", epochs=[dict(start_size=1000, end_time=0)])
-        b4.add_pulse(source="d1", dest="d2", proportion=0.01, time=100)
+        b4.add_pulse(sources=["d1"], dest="d2", proportions=[0.01], time=100)
         g3 = b3.resolve()
         g4 = b4.resolve()
         assert not g3.isclose(g4)
@@ -2050,12 +2089,12 @@ class TestGraph:
 
         # Order of pulses matters for simultaneous pulses.
         b2 = copy.deepcopy(b1)
-        b2.add_pulse(source="a", dest="b", time=100, proportion=0.1)
-        b2.add_pulse(source="b", dest="c", time=100, proportion=0.1)
+        b2.add_pulse(sources=["a"], dest="b", time=100, proportions=[0.1])
+        b2.add_pulse(sources=["b"], dest="c", time=100, proportions=[0.1])
         g2 = b2.resolve()
         b3 = copy.deepcopy(b1)
-        b3.add_pulse(source="b", dest="c", time=100, proportion=0.1)
-        b3.add_pulse(source="a", dest="b", time=100, proportion=0.1)
+        b3.add_pulse(sources=["b"], dest="c", time=100, proportions=[0.1])
+        b3.add_pulse(sources=["a"], dest="b", time=100, proportions=[0.1])
         g3 = b3.resolve()
         assert not g2.isclose(g3)
 
@@ -2131,7 +2170,7 @@ class TestGraph:
         b = Builder(defaults=dict(epoch=dict(start_size=1)))
         b.add_deme("a")
         b.add_deme("b")
-        b.add_pulse(source="a", dest="b", proportion=0.1, time=100)
+        b.add_pulse(sources=["a"], dest="b", proportions=[0.1], time=100)
         g = b.resolve()
         assert g.successors() == {"a": [], "b": []}
         assert g.predecessors() == {"a": [], "b": []}
@@ -2179,8 +2218,8 @@ class TestGraph:
         b = Builder()
         b.add_deme("a", epochs=[dict(start_size=1)])
         b.add_deme("b", epochs=[dict(start_size=1)])
-        b.add_pulse(source="a", dest="b", time=100, proportion=0.1)
-        b.add_pulse(source="a", dest="b", time=200, proportion=0.2)
+        b.add_pulse(sources=["a"], dest="b", time=100, proportions=[0.1])
+        b.add_pulse(sources=["a"], dest="b", time=200, proportions=[0.2])
         g = b.resolve()
         de = g.discrete_demographic_events()
         assert len(de) == 5
@@ -2188,8 +2227,8 @@ class TestGraph:
             assert len(de[event]) == 0
         assert self.dfsorted(de["pulses"]) == self.dfsorted(
             [
-                Pulse(source="a", dest="b", proportion=0.1, time=100),
-                Pulse(source="a", dest="b", proportion=0.2, time=200),
+                Pulse(sources=["a"], dest="b", proportions=[0.1], time=100),
+                Pulse(sources=["a"], dest="b", proportions=[0.2], time=200),
             ]
         )
 
@@ -2365,7 +2404,7 @@ class TestGraphResolution:
         b = Builder()
         b.add_deme("a", epochs=[dict(start_size=1)])
         b.add_deme("b", epochs=[dict(start_size=1)])
-        b.add_pulse(source="a", dest="b", proportion=0.1, time=100)
+        b.add_pulse(sources=["a"], dest="b", proportions=[0.1], time=100)
         b.resolve()
 
     def test_bad_data_dict(self):
@@ -2964,6 +3003,15 @@ class TestGraphResolution:
             with pytest.raises(TypeError):
                 b.resolve()
 
+        # pulses have repeated sources
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a")
+        b.add_deme("b")
+        b.add_deme("c")
+        b.add_pulse(sources=["a", "a"], dest="c", proportions=[0.1, 0.1], time=1)
+        with pytest.raises(ValueError):
+            b.resolve()
+
         # pulse is not a dict
         for data in (None, [], "string", 0, 1e-5):
             b = Builder()
@@ -2975,22 +3023,22 @@ class TestGraphResolution:
         # dest not in graph
         b = Builder()
         b.add_deme("a", epochs=[dict(start_size=100, end_time=0)])
-        b.add_pulse(source="a", dest="b", proportion=0.1, time=10)
+        b.add_pulse(sources=["a"], dest="b", proportions=[0.1], time=10)
         with pytest.raises(ValueError):
             b.resolve()
 
         # source not in graph
         b = Builder()
         b.add_deme("a", epochs=[dict(start_size=100, end_time=0)])
-        b.add_pulse(source="b", dest="a", proportion=0.1, time=10)
+        b.add_pulse(sources=["b"], dest="a", proportions=[0.1], time=10)
         with pytest.raises(ValueError):
             b.resolve()
 
-        for field in ("source", "dest", "time", "proportion"):
+        for field in ("sources", "dest", "time", "proportions"):
             b = Builder()
             b.add_deme("a", epochs=[dict(start_size=1)])
             b.add_deme("b", epochs=[dict(start_size=1)])
-            b.add_pulse(source="a", dest="b", proportion=0.1, time=100)
+            b.add_pulse(sources=["a"], dest="b", proportions=[0.1], time=100)
             del b.data["pulses"][0][field]
             with pytest.raises(KeyError):
                 b.resolve()
@@ -2999,7 +3047,7 @@ class TestGraphResolution:
         b = Builder()
         b.add_deme("deme1", epochs=[dict(start_size=1000, end_time=0)])
         b.add_deme("deme2", epochs=[dict(end_time=100, start_size=1000)])
-        b.add_pulse(source="deme1", dest="deme2", proportion=0.1, time=10)
+        b.add_pulse(sources=["deme1"], dest="deme2", proportions=[0.1], time=10)
         with pytest.raises(ValueError):
             b.resolve()
 
@@ -3010,13 +3058,13 @@ class TestGraphResolution:
 
         # Can't have pulse at the dest deme's end_time.
         b2 = copy.deepcopy(b)
-        b2.add_pulse(source="A", dest="B", time=g["B"].end_time, proportion=0.1)
+        b2.add_pulse(sources=["A"], dest="B", time=g["B"].end_time, proportions=[0.1])
         with pytest.raises(ValueError):
             b2.resolve()
 
         # Can't have pulse at the source deme's start_time.
         b2 = copy.deepcopy(b)
-        b2.add_pulse(source="B", dest="A", time=g["B"].start_time, proportion=0.1)
+        b2.add_pulse(sources=["B"], dest="A", time=g["B"].start_time, proportions=[0.1])
         with pytest.raises(ValueError):
             b2.resolve()
 
@@ -3029,22 +3077,22 @@ class TestGraphResolution:
 
         # Warn for duplicate pulses
         b2 = copy.deepcopy(b1)
-        b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
-        b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
+        b2.add_pulse(sources=["d0"], dest="d1", time=T, proportions=[0.1])
+        b2.add_pulse(sources=["d0"], dest="d1", time=T, proportions=[0.1])
         with pytest.warns(UserWarning, match="Multiple pulses.*same.*time"):
             b2.resolve()
 
         # Warn for: d0 -> d1; d1 -> d2.
         b2 = copy.deepcopy(b1)
-        b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
-        b2.add_pulse(source="d1", dest="d2", time=T, proportion=0.1)
+        b2.add_pulse(sources=["d0"], dest="d1", time=T, proportions=[0.1])
+        b2.add_pulse(sources=["d1"], dest="d2", time=T, proportions=[0.1])
         with pytest.warns(UserWarning, match="Multiple pulses.*same.*time"):
             b2.resolve()
 
         # Warn for: d0 -> d2; d1 -> d2.
         b2 = copy.deepcopy(b1)
-        b2.add_pulse(source="d0", dest="d2", time=T, proportion=0.1)
-        b2.add_pulse(source="d1", dest="d2", time=T, proportion=0.1)
+        b2.add_pulse(sources=["d0"], dest="d2", time=T, proportions=[0.1])
+        b2.add_pulse(sources=["d1"], dest="d2", time=T, proportions=[0.1])
         with pytest.warns(UserWarning, match="Multiple pulses.*same.*time"):
             b2.resolve()
 
@@ -3058,27 +3106,35 @@ class TestGraphResolution:
 
         # Shouldn't warn for: d0 -> d1; d0 -> d2.
         b2 = copy.deepcopy(b1)
-        b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
-        b2.add_pulse(source="d0", dest="d2", time=T, proportion=0.1)
-        b2.resolve()
+        b2.add_pulse(sources=["d0"], dest="d1", time=T, proportions=[0.1])
+        b2.add_pulse(sources=["d0"], dest="d2", time=T, proportions=[0.1])
+        with pytest.warns(None) as record:
+            b2.resolve()
+        assert len(record) == 0
 
         # Shouldn't warn for: d0 -> d1; d2 -> d3.
         b2 = copy.deepcopy(b1)
-        b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
-        b2.add_pulse(source="d2", dest="d3", time=T, proportion=0.1)
-        b2.resolve()
+        b2.add_pulse(sources=["d0"], dest="d1", time=T, proportions=[0.1])
+        b2.add_pulse(sources=["d2"], dest="d3", time=T, proportions=[0.1])
+        with pytest.warns(None) as record:
+            b2.resolve()
+        assert len(record) == 0
 
         # Different pulse times shouldn't warn for: d0 -> d1; d1 -> d2.
         b2 = copy.deepcopy(b1)
-        b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
-        b2.add_pulse(source="d1", dest="d2", time=2 * T, proportion=0.1)
-        b2.resolve()
+        b2.add_pulse(sources=["d0"], dest="d1", time=T, proportions=[0.1])
+        b2.add_pulse(sources=["d1"], dest="d2", time=2 * T, proportions=[0.1])
+        with pytest.warns(None) as record:
+            b2.resolve()
+        assert len(record) == 0
 
         # Different pulse times shouldn't warn for: d0 -> d2; d1 -> d2.
         b2 = copy.deepcopy(b1)
-        b2.add_pulse(source="d0", dest="d2", time=T, proportion=0.1)
-        b2.add_pulse(source="d1", dest="d2", time=2 * T, proportion=0.1)
-        b2.resolve()
+        b2.add_pulse(sources=["d0"], dest="d2", time=T, proportions=[0.1])
+        b2.add_pulse(sources=["d1"], dest="d2", time=2 * T, proportions=[0.1])
+        with pytest.warns(None) as record:
+            b2.resolve()
+        assert len(record) == 0
 
     @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
     def test_pulse_proportions_sum_greater_than_one(self):
@@ -3086,9 +3142,17 @@ class TestGraphResolution:
         b.add_deme("a")
         b.add_deme("b")
         b.add_deme("c")
-        b.add_pulse(source="b", dest="a", time=100, proportion=0.6)
-        b.add_pulse(source="c", dest="a", time=100, proportion=0.6)
+        b.add_pulse(sources=["b"], dest="a", time=100, proportions=[0.6])
+        b.add_pulse(sources=["c"], dest="a", time=100, proportions=[0.6])
         b.resolve()
+
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a")
+        b.add_deme("b")
+        b.add_deme("c")
+        b.add_pulse(sources=["b", "c"], dest="a", time=100, proportions=[0.6, 0.6])
+        with pytest.raises(ValueError):
+            b.resolve()
 
     @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
     def test_pulse_order(self):
@@ -3099,43 +3163,43 @@ class TestGraphResolution:
 
         # Pulses defined in oldest-to-youngest order have order maintained.
         b.data["pulses"] = []
-        b.add_pulse(source="a", dest="b", time=200, proportion=0.1)
-        b.add_pulse(source="b", dest="c", time=100, proportion=0.1)
+        b.add_pulse(sources=["a"], dest="b", time=200, proportions=[0.1])
+        b.add_pulse(sources=["b"], dest="c", time=100, proportions=[0.1])
         g = b.resolve()
-        assert g.pulses[0].source == "a"
+        assert g.pulses[0].sources[0] == "a"
         assert g.pulses[0].dest == "b"
-        assert g.pulses[1].source == "b"
+        assert g.pulses[1].sources[0] == "b"
         assert g.pulses[1].dest == "c"
 
         # Pulses defined out of order will be sorted oldest-to-youngest.
         b.data["pulses"] = []
-        b.add_pulse(source="b", dest="c", time=100, proportion=0.1)
-        b.add_pulse(source="a", dest="b", time=200, proportion=0.1)
+        b.add_pulse(sources=["b"], dest="c", time=100, proportions=[0.1])
+        b.add_pulse(sources=["a"], dest="b", time=200, proportions=[0.1])
         g = b.resolve()
-        assert g.pulses[0].source == "a"
+        assert g.pulses[0].sources[0] == "a"
         assert g.pulses[0].dest == "b"
-        assert g.pulses[1].source == "b"
+        assert g.pulses[1].sources[0] == "b"
         assert g.pulses[1].dest == "c"
 
         # Simultaneous pulses should be ordered as they were defined.
         b.data["pulses"] = []
-        b.add_pulse(source="a", dest="b", time=100, proportion=0.1)
-        b.add_pulse(source="b", dest="c", time=100, proportion=0.1)
+        b.add_pulse(sources=["a"], dest="b", time=100, proportions=[0.1])
+        b.add_pulse(sources=["b"], dest="c", time=100, proportions=[0.1])
         g = b.resolve()
-        assert g.pulses[0].source == "a"
+        assert g.pulses[0].sources[0] == "a"
         assert g.pulses[0].dest == "b"
-        assert g.pulses[1].source == "b"
+        assert g.pulses[1].sources[0] == "b"
         assert g.pulses[1].dest == "c"
 
         # Reverse the order of simultaneous pulses, to check it's no accident.
         # The order should still match the definitions.
         b.data["pulses"] = []
-        b.add_pulse(source="b", dest="c", time=100, proportion=0.1)
-        b.add_pulse(source="a", dest="b", time=100, proportion=0.1)
+        b.add_pulse(sources=["b"], dest="c", time=100, proportions=[0.1])
+        b.add_pulse(sources=["a"], dest="b", time=100, proportions=[0.1])
         g = b.resolve()
-        assert g.pulses[0].source == "b"
+        assert g.pulses[0].sources[0] == "b"
         assert g.pulses[0].dest == "c"
-        assert g.pulses[1].source == "a"
+        assert g.pulses[1].sources[0] == "a"
         assert g.pulses[1].dest == "b"
 
     def test_toplevel_defaults_deme(self):
@@ -3314,24 +3378,29 @@ class TestGraphResolution:
 
     @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
     def test_toplevel_defaults_pulse(self):
-        # source
-        b = Builder(defaults=dict(pulse=dict(source="a")))
+        # sources
+        b = Builder(defaults=dict(pulse=dict(sources=["a"])))
         for name in "abcd":
             b.add_deme(name, epochs=[dict(start_size=1)])
         for name in "bcd":
-            b.add_pulse(dest=name, proportion=0.1, time=100)
-        b.add_pulse(source="d", dest="a", proportion=0.2, time=50)
+            b.add_pulse(dest=name, proportions=[0.1], time=100)
+        b.add_pulse(sources=["d"], dest="a", proportions=[0.2], time=50)
         g = b.resolve()
-        assert g.pulses[0].source == g.pulses[1].source == g.pulses[2].source == "a"
-        assert g.pulses[3].source == "d"
+        assert (
+            g.pulses[0].sources[0]
+            == g.pulses[1].sources[0]
+            == g.pulses[2].sources[0]
+            == "a"
+        )
+        assert g.pulses[3].sources[0] == "d"
 
         # dest
         b = Builder(defaults=dict(pulse=dict(dest="a")))
         for name in "abcd":
             b.add_deme(name, epochs=[dict(start_size=1)])
         for name in "bcd":
-            b.add_pulse(source=name, proportion=0.1, time=100)
-        b.add_pulse(dest="d", source="a", proportion=0.2, time=50)
+            b.add_pulse(sources=[name], proportions=[0.1], time=100)
+        b.add_pulse(dest="d", sources=["a"], proportions=[0.2], time=50)
         g = b.resolve()
         assert g.pulses[0].dest == g.pulses[1].dest == g.pulses[2].dest == "a"
         assert g.pulses[3].dest == "d"
@@ -3341,27 +3410,27 @@ class TestGraphResolution:
         for name in "abcd":
             b.add_deme(name, epochs=[dict(start_size=1)])
         for name in "bcd":
-            b.add_pulse(source="a", dest=name, proportion=0.1)
-        b.add_pulse(source="d", dest="a", proportion=0.2, time=50)
+            b.add_pulse(sources=["a"], dest=name, proportions=[0.1])
+        b.add_pulse(sources=["d"], dest="a", proportions=[0.2], time=50)
         g = b.resolve()
         assert g.pulses[0].time == g.pulses[1].time == g.pulses[2].time == 100
         assert g.pulses[3].time == 50
 
-        # proportion
-        b = Builder(defaults=dict(pulse=dict(proportion=0.1)))
+        # proportions
+        b = Builder(defaults=dict(pulse=dict(proportions=[0.1])))
         for name in "abcd":
             b.add_deme(name, epochs=[dict(start_size=1)])
         for name in "bcd":
-            b.add_pulse(source="a", dest=name, time=100)
-        b.add_pulse(source="d", dest="a", time=50, proportion=0.2)
+            b.add_pulse(sources=["a"], dest=name, time=100)
+        b.add_pulse(sources=["d"], dest="a", time=50, proportions=[0.2])
         g = b.resolve()
         assert (
-            g.pulses[0].proportion
-            == g.pulses[1].proportion
-            == g.pulses[2].proportion
+            g.pulses[0].proportions[0]
+            == g.pulses[1].proportions[0]
+            == g.pulses[2].proportions[0]
             == 0.1
         )
-        assert g.pulses[3].proportion == 0.2
+        assert g.pulses[3].proportions[0] == 0.2
 
     # Test toplevel epoch defaults, including overrides.
     def test_toplevel_defaults_epoch(self):
