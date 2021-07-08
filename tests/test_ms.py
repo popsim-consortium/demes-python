@@ -10,10 +10,24 @@ cwd = pathlib.Path(__file__).parent.resolve()
 example_dir = cwd / ".." / "examples"
 
 
-class TestFromMs:
-    def N0(self, *, theta, mu, length):
-        return theta / (4 * mu * length)
+def N_ref(*, theta, mu, length):
+    """
+    Calculate N0 reference size for an ms command.
+    """
+    return theta / (4 * mu * length)
 
+
+def N_ref_macs(*, theta, mu):
+    """
+    Calculate N0 reference size for a macs command.
+    Macs has a different meaning for the '-t theta' argument.
+    Theta is the 'mutation rate per site per 4N generations'.
+    theta = mu / (4 N)
+    """
+    return theta / (4 * mu)
+
+
+class TestFromMs:
     def test_ignored_options_have_no_effect(self):
         def check(command, N0=1):
             # with pytest.warns(UserWarning, match="Ignoring unknown args"):
@@ -547,8 +561,9 @@ class TestFromMs:
         )
         check(cmd4)
 
-    def test_admixture(self):
+    def test_split(self):
         # -es t i p
+        # This is an admixture event forwards in time.
         # from_ms() creates a new deme (say, j) with end_time=t,
         # and a pulse of migration from deme j into deme i at time t.
         N0 = 100
@@ -607,7 +622,29 @@ class TestFromMs:
             with pytest.raises(ValueError):
                 demes.from_ms(cmd, N0=1)
 
-    def test_split(self):
+    @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
+    def test_split_twice_immediately(self):
+        # This represents a deme with multiple ancestors.
+        N0 = 1
+        T = 1.0
+        graph = demes.from_ms(f"-es {T} 1 0.7 -es {T} 1 0.8", N0=N0)
+        assert len(graph.demes) == 3
+        assert math.isinf(graph["deme1"].start_time)
+        assert graph["deme1"].end_time == 0
+        assert math.isclose(graph["deme2"].end_time, T * 4 * N0)
+        assert math.isclose(graph["deme3"].end_time, T * 4 * N0)
+        assert len(graph.pulses) == 2
+        # The order of pulses matters here.
+        assert graph.pulses[0].source == "deme3"
+        assert graph.pulses[0].dest == "deme1"
+        assert math.isclose(graph.pulses[0].proportion, 1 - 0.8)
+        assert math.isclose(graph.pulses[0].time, T * 4 * N0)
+        assert graph.pulses[1].source == "deme2"
+        assert graph.pulses[1].dest == "deme1"
+        assert math.isclose(graph.pulses[1].proportion, 1 - 0.7)
+        assert math.isclose(graph.pulses[1].time, T * 4 * N0)
+
+    def test_join(self):
         # -ej t i j
         # from_ms() turns this into a "branch" event where
         # deme i branches from deme j at time t.
@@ -694,18 +731,99 @@ class TestFromMs:
             "-I 3 0 0 2 -ej 1.0 1 4",
             "-I 3 0 0 2 -ej 1.0 4 1",
             "-I 3 0 0 2 -ej 1.0 4 10",
-            # can't split a deme from itself
+            # can't join a deme with itself
             "-ej 1.0 1 1",
             "-I 3 0 0 2 -ej 1.0 3 3",
-            # can't split a deme after it's already split
+            # can't join a deme after it's already joined
             "-I 3 0 0 2 -ej 1.0 1 2 -ej 2.0 1 2",
             "-I 3 0 0 2 -ej 1.0 1 2 -ej 2.0 1 3",
         ):
             with pytest.raises(ValueError):
                 demes.from_ms(bad_cmd, N0=1)
 
-    def test_admixture_and_split(self):
-        # Test that -ej and -es work together.
+    def test_join_then_join_again_immediately(self):
+        N0 = 100
+        T1 = 1.0
+        cmd = f"-I 3 2 2 2 -ej {T1} 3 2 -ej {T1} 2 1"
+        graph = demes.from_ms(cmd, N0=N0)
+        assert len(graph.demes) == 3
+        assert graph["deme1"].ancestors == []
+        assert graph["deme2"].ancestors == ["deme1"]
+        assert graph["deme3"].ancestors == ["deme1"]
+
+    def test_set_size_after_join(self):
+        # Set size of all demes after one deme has been joined.
+        N0 = 100
+        T1, T2 = 1.0, 2.0
+        cmd = f"-I 2 1 1 -ej {T1} 2 1 -eN {T2} 2"
+        graph = demes.from_ms(cmd, N0=N0)
+        assert len(graph.demes) == 2
+        assert len(graph.pulses) == 0
+        assert len(graph.migrations) == 0
+        # check deme1
+        assert math.isinf(graph["deme1"].start_time)
+        assert graph["deme1"].end_time == 0
+        assert len(graph["deme1"].epochs) == 2
+        assert math.isclose(graph["deme1"].epochs[0].start_size, N0 * 2)
+        assert math.isclose(graph["deme1"].epochs[1].start_size, N0 * 1)
+        # check deme2
+        assert math.isclose(graph["deme2"].start_time, 4 * N0 * T1)
+        assert graph["deme2"].end_time == 0
+        assert len(graph["deme2"].epochs) == 1
+        assert math.isclose(graph["deme2"].epochs[0].start_size, N0 * 1)
+
+    def test_set_growth_rate_after_join(self):
+        # Set growth rate of all demes after one deme has been joined.
+        N0 = 100
+        T1, T2 = 1.0, 2.0
+        alpha = -0.01
+        cmd = f"-I 2 1 1 -G {alpha} -ej {T1} 2 1 -eG {T2} 0"
+        graph = demes.from_ms(cmd, N0=N0)
+        assert len(graph.demes) == 2
+        assert len(graph.pulses) == 0
+        assert len(graph.migrations) == 0
+        # check deme1
+        assert math.isinf(graph["deme1"].start_time)
+        assert graph["deme1"].end_time == 0
+        assert len(graph["deme1"].epochs) == 2
+        size_at_T2 = N0 * math.exp(-alpha * T2)
+        assert math.isclose(graph["deme1"].epochs[0].start_size, size_at_T2)
+        assert math.isclose(graph["deme1"].epochs[0].end_size, size_at_T2)
+        assert math.isclose(graph["deme1"].epochs[1].start_size, size_at_T2)
+        assert math.isclose(graph["deme1"].epochs[1].end_size, N0 * 1)
+        # check deme2
+        assert math.isclose(graph["deme2"].start_time, 4 * N0 * T1)
+        assert graph["deme2"].end_time == 0
+        assert len(graph["deme2"].epochs) == 1
+        size_at_T1 = N0 * math.exp(-alpha * T1)
+        assert math.isclose(graph["deme2"].epochs[0].start_size, size_at_T1)
+        assert math.isclose(graph["deme2"].epochs[0].end_size, N0 * 1)
+
+    def test_set_migration_rate_after_join(self):
+        # Set migration rate between all demes after one deme has been joined.
+        N0 = 100
+        T1, T2 = 1.0, 2.0
+        cmd = f"-I 3 2 2 2 1.0 -ej {T1} 3 2 -eM {T2} 0"
+        graph = demes.from_ms(cmd, N0=N0)
+        assert len(graph.demes) == 3
+        assert len(graph.pulses) == 0
+        assert len(graph.migrations) == 6
+        m = 1.0 / (4 * N0 * (len(graph.demes) - 1))  # rate for island model
+        start_times = {}
+        for migration in graph.migrations:
+            assert math.isclose(migration.rate, m)
+            assert migration.end_time == 0
+            start_times[(migration.source, migration.dest)] = migration.start_time
+        assert len(start_times) == len(graph.migrations)
+        assert math.isclose(start_times[("deme1", "deme2")], T2 * 4 * N0)
+        assert math.isclose(start_times[("deme2", "deme1")], T2 * 4 * N0)
+        assert math.isclose(start_times[("deme1", "deme3")], T1 * 4 * N0)
+        assert math.isclose(start_times[("deme3", "deme1")], T1 * 4 * N0)
+        assert math.isclose(start_times[("deme2", "deme3")], T1 * 4 * N0)
+        assert math.isclose(start_times[("deme3", "deme2")], T1 * 4 * N0)
+
+    def test_split_then_join(self):
+        # Test that -es and -ej work together.
         N0 = 100
         T1, T2 = 1.0, 2.0
         p = 0.1
@@ -730,6 +848,68 @@ class TestFromMs:
         assert pulse.dest == "deme1"
         assert pulse.proportion == 1 - p
         assert math.isclose(pulse.time, T1 * 4 * N0)
+
+    def test_split_then_join_immediately(self):
+        # Test that -es followed immediately by -ej works.
+        N0 = 100
+        T1 = 1.0
+        p = 0.1
+        cmd = f"-I 2 1 1 0.5 -es {T1} 1 {p} -ej {T1} 3 2"
+        graph = demes.from_ms(cmd, N0=N0)
+        assert len(graph.demes) == 2
+        assert len(graph.pulses) == 1
+        # check deme1
+        assert graph["deme1"].ancestors == []
+        assert math.isinf(graph["deme1"].start_time)
+        assert graph["deme1"].end_time == 0
+        assert len(graph["deme1"].epochs) == 1
+        # check deme2
+        assert graph["deme2"].ancestors == []
+        assert math.isinf(graph["deme2"].start_time)
+        assert graph["deme2"].end_time == 0
+        assert len(graph["deme2"].epochs) == 1
+        # check pulse
+        pulse = graph.pulses[0]
+        assert pulse.source == "deme2"
+        assert pulse.dest == "deme1"
+        assert pulse.proportion == 1 - p
+        assert math.isclose(pulse.time, T1 * 4 * N0)
+
+    @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
+    def test_split_then_join_immediately_multiple(self):
+        # This is how one might specify multiple ancestors.
+        # deme4 has ancestry from each of deme1, deme2, deme3,
+        # and none of the ancestors go extinct when deme4 is created.
+        N0 = 100
+        T1 = 1.0
+        cmd = (
+            "-I 4 1 1 1 1 0.5 "
+            f"-es {T1} 4 0.6 -ej {T1} 5 1 "
+            f"-es {T1} 4 0.6 -ej {T1} 6 2 "
+            f"-ej {T1} 4 3"
+        )
+        graph = demes.from_ms(cmd, N0=N0)
+        assert len(graph.demes) == 4
+        assert math.isclose(graph["deme4"].start_time, T1 * 4 * N0)
+        assert graph["deme4"].end_time == 0
+        for deme_name in ("deme1", "deme2", "deme3"):
+            deme = graph[deme_name]
+            assert math.isinf(deme.start_time)
+            assert deme.end_time == 0
+
+        # Two possible resolutions make sense here:
+        # 1) deme4 has one ancestor, and there are two additional pulses of
+        #    ancesty into deme4,
+        # assert len(graph["deme4"].ancestors) == 1 and len(graph.pulses) == 2
+        # 2) alternately, deme4 has three ancestors, and there are no pulses.
+        #    This is nicer, but more difficult to implement.
+        ancestors, proportions = zip(
+            *sorted(zip(graph["deme4"].ancestors, graph["deme4"].proportions))
+        )
+        assert ancestors == ("deme1", "deme2", "deme3")
+        assert math.isclose(proportions[0], 0.4)  # deme1
+        assert math.isclose(proportions[1], 0.6 * 0.4)  # deme2
+        assert math.isclose(proportions[2], 1 - 0.4 - 0.6 * 0.4)  # deme3
 
     def test_args_from_file(self):
         # -f filename
@@ -841,7 +1021,7 @@ class TestFromMs:
     def test_msdoc_example2(self):
         # Generating an outgroup sequence.
         cmd = "ms 11 3 -t 2.0 -I 2 1 10 -ej 6.0 1 2"
-        N0 = self.N0(theta=2, mu=1, length=1)
+        N0 = N_ref(theta=2, mu=1, length=1)
         graph = demes.from_ms(cmd, N0=N0)
         assert len(graph.migrations) == 0
         assert len(graph.pulses) == 0
@@ -858,7 +1038,7 @@ class TestFromMs:
         # Instantaneous size change followed by exponential growth.
         # Figure 1.
         cmd = "ms 15 1000 -t 6.4 -G 6.93 -eG 0.2 0.0 -eN 0.3 0.5"
-        graph = demes.from_ms(cmd, N0=self.N0(theta=6.4, mu=1e-8, length=8000))
+        graph = demes.from_ms(cmd, N0=N_ref(theta=6.4, mu=1e-8, length=8000))
         assert len(graph.migrations) == 0
         assert len(graph.pulses) == 0
         assert len(graph.demes) == 1
@@ -931,7 +1111,7 @@ class TestFromMs:
             "-ej 0.09375 2 1"
         )
         graph1 = demes.from_ms(
-            cmd1, N0=self.N0(theta=11.2, mu=mu, length=sequence_length)
+            cmd1, N0=N_ref(theta=11.2, mu=mu, length=sequence_length)
         )
         verify(graph1)
 
@@ -948,9 +1128,7 @@ class TestFromMs:
             "-en 0.25 2 .2 "
             "-ej 0.375 2 1"
         )
-        graph2 = demes.from_ms(
-            cmd2, N0=self.N0(theta=2.8, mu=mu, length=sequence_length)
-        )
+        graph2 = demes.from_ms(cmd2, N0=N_ref(theta=2.8, mu=mu, length=sequence_length))
         verify(graph2)
 
         graph1.assert_close(graph2)
@@ -973,7 +1151,7 @@ class TestFromMs:
             "-em 2.0 3 4 2.5 "
             "-em 2.0 4 3 2.5"
         )
-        N0 = self.N0(theta=3, mu=1e-8, length=1)
+        N0 = N_ref(theta=3, mu=1e-8, length=1)
         graph = demes.from_ms(cmd, N0=N0)
         assert len(graph.pulses) == 0
         assert len(graph.migrations) == 10
@@ -1043,9 +1221,7 @@ class TestFromMs:
         mu = 1.25e-8
         theta = 7156
         sequence_length = 10000000
-        graph = demes.from_ms(
-            cmd, N0=self.N0(theta=theta, mu=mu, length=sequence_length)
-        )
+        graph = demes.from_ms(cmd, N0=N_ref(theta=theta, mu=mu, length=sequence_length))
         assert len(graph.migrations) == 0
         assert len(graph.pulses) == 0
         assert len(graph.demes) == 1
@@ -1138,3 +1314,285 @@ class TestFromMs:
         args.demographic_events.append(foo)
         with pytest.raises(AssertionError):
             build_graph(args, 1)
+
+
+# Less stringent tests for a broader range of models seen in the wild.
+# We just check that such models can be converted without error.
+class TestFromMsAdditionalExamples:
+    def test_durvasula_a_statistical_model(self):
+        # Durvasula & Sankararaman (2019), https://doi.org/10.1371/journal.pgen.1008175
+        # Similar use of simultaneous -es/-ej can be found in at least:
+        # * Martin, Davey & Jiggins (2015), https://doi.org/10.1093/molbev/msu269
+        # * Hibbins & Hahn (2019), https://doi.org/10.1534/genetics.118.301831
+        # * Forsythe, Sloan & Beilstein (2020), https://doi.org/10.1093/gbe/evaa053
+        demes.from_ms(
+            # This example from the ArchIE git repository (Durvasula & Sankararaman).
+            # https://github.com/sriramlab/ArchIE/blob/master/msmodified/readme
+            """
+            ms 240 1 -t 1000 -r 95.9652180334997 1000000 \
+            -I 4 120 118 1 1 -en 0.06 1 0.01 -en 0.0605 1 1 \
+            -es 0.0475 1 0.97 -ej 0.0475 5 3 -ej 0.0625 2 1 \
+            -en 0.075 3 1 -en 0.078 3 1 -ej 0.225 4 3  -ej 0.325 3 1
+            """,
+            N0=N_ref(theta=1000, mu=1.25e-8, length=1000000),
+        )
+
+    @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
+    def test_li_and_durbin(self):
+        # Li & Durbin (2011), https://doi.org/10.1038/nature10231
+        mu = 2.5e-8
+
+        # Supplement page 1.
+        demes.from_ms(
+            "ms 2 100 -t 81960 -r 13560 30000000 "
+            "-eN 0.01 0.05 -eN 0.0375 0.5 -eN 1.25 1",
+            N0=N_ref(theta=81960, mu=mu, length=30000000),
+        )
+        demes.from_ms(
+            "ms 2 100 -t 30000 -r 6000 30000000 "
+            "-eN 0.01 0.1 -eN 0.06 1 -eN 0.2 0.5 -eN 1 1 -eN 2 2",
+            N0=N_ref(theta=30000, mu=mu, length=30000000),
+        )
+        demes.from_ms(
+            "ms 2 100 -t 3000 -r 600 30000000 "
+            "-eN 0.1 5 -eN 0.6 20 -eN 2 5 -eN 10 10 -eN 20 5",
+            N0=N_ref(theta=3000, mu=mu, length=30000000),
+        )
+        demes.from_ms(
+            "ms 2 100 -t 60000 -r 12000 30000000 "
+            "-eN 0.01 0.05 -eN 0.0150 0.5 -eN 0.05 0.25 -eN 0.5 0.5",
+            N0=N_ref(theta=60000, mu=mu, length=30000000),
+        )
+        demes.from_ms(
+            """
+            ms 2 100 -t 65130.39 -r 10973.82 30000000 \
+            -eN 0.0055 0.0832 -eN 0.0089 0.0489 \
+            -eN 0.0130 0.0607 -eN 0.0177 0.1072 -eN 0.0233 0.2093 -eN 0.0299 0.3630 \
+            -eN 0.0375 0.5041 -eN 0.0465 0.5870 -eN 0.0571 0.6343 -eN 0.0695 0.6138 \
+            -eN 0.0840 0.5292 -eN 0.1010 0.4409 -eN 0.1210 0.3749 -eN 0.1444 0.3313 \
+            -eN 0.1718 0.3066 -eN 0.2040 0.2952 -eN 0.2418 0.2915 -eN 0.2860 0.2950 \
+            -eN 0.3379 0.3103 -eN 0.3988 0.3458 -eN 0.4701 0.4109 -eN 0.5538 0.5048 \
+            -eN 0.6520 0.5996 -eN 0.7671 0.6440 -eN 0.9020 0.6178 -eN 1.0603 0.5345 \
+            -eN 1.4635 1.7931
+            """,
+            N0=N_ref(theta=65130.39, mu=mu, length=30000000),
+        )
+
+        # XXX: misspecified!
+        # The so-called "sim-split" model here ends with "-n 0.06 1",
+        # which is a mistake because the first option arg must be an integer.
+        # Paraphrasing, ms does the following (ms.c line 610 onwards):
+        #          pop_idx = atoi(0.06) - 1;  // equals -1
+        #          some_array[pop_idx] = 1;   // invalid write!
+        # The resulting behaviour is thus undefined.
+        #
+        # demes.from_ms(
+        #    "ms 2 100 -t 10000 -r 2000 10000000 "
+        #    "-I 2 1 1 -n 1 1 -n 2 1 -ej 0.06 2 1 -n 0.06 1",
+        #    N0=N_ref(theta=10000, mu=mu, length=10000000),
+        # )
+
+        # The lowercase '-l' in this command is not accepted by ms, and likely
+        # should be uppercase '-L'.
+        demes.from_ms(
+            """
+            ms 2 100 -t 10000 -r 2000 10000000 -T -l \
+                -I 2 1 1 -eM 0 4 -eN 0 1 -en 0.01 1 0.1 \
+                -eM 0.06 0 -ej 0.06 2 1 -eN 0.06 1 -eN 0.2 0.5 -eN 1 1 -eN 2 2
+            """,
+            N0=N_ref(theta=10000, mu=mu, length=10000000),
+        )
+
+        # Supplement page 5.
+        demes.from_ms(
+            """
+            ms 2 100 -t 104693 -r 13862 30000000 -T -eN 0.0052 0.2504 \
+            -eN 0.0084 0.1751 -es 0.0172 1 0.5 -en 0.0172 1 0.08755 \
+            -en 0.0172 2 0.08755 -ej 0.0716 2 1 -eN 0.0716 0.1833 \
+            -eN 0.1922 0.1885 -eN 0.2277 0.2022 -eN 0.2694 0.2295 \
+            -eN 0.3183 0.2754 -eN 0.3756 0.3367 -eN 0.4428 0.3939 \
+            -eN 0.5216 0.4190 -eN 0.6141 0.4104 -eN 0.7225 0.3954 \
+            -eN 0.8496 0.3998 -eN 0.9987 0.5144 -eN 1.3785 1.8311
+            """,
+            N0=N_ref(theta=104693, mu=mu, length=30000000),
+        )
+        demes.from_ms(
+            """
+            ms 2 100 -t 104693 -r 13862 30000000 -T -eN 0.0052 0.2504 \
+            -eN 0.0084 0.1751 -es 0.0172 1 0.33333 -es 0.0172 2 0.5 \
+            -en 0.0172 1 0.08755 -en 0.0172 2 0.08755 \
+            -ej 0.0716 3 2 -ej 0.0716 2 1 \
+            -eN 0.0716 0.1833 \
+            -eN 0.1922 0.1885 -eN 0.2277 0.2022 -eN 0.2694 0.2295 \
+            -eN 0.3183 0.2754 -eN 0.3756 0.3367 -eN 0.4428 0.3939 \
+            -eN 0.5216 0.4190 -eN 0.6141 0.4104 -eN 0.7225 0.3954 \
+            -eN 0.8496 0.3998 -eN 0.9987 0.5144 -eN 1.3785 1.8311
+            """,
+            N0=N_ref(theta=104693, mu=mu, length=30000000),
+        )
+
+    def schiffels_inferring_human_population_size(self):
+        # Schiffels & Durbin (2014), https://doi.org/10.1038/ng.3015
+        mu = 1.25e-8
+        # Split simulation
+        demes.from_ms(
+            """
+            macs 4 30000000 -t 0.0007156 -r 0.0002 -I 2 2 2 -ej 0.116 2 1 -T
+            """,
+            N0=N_ref_macs(theta=0.0007156, mu=mu),
+        )
+        # Simulations with sharp population size changes (1).
+        demes.from_ms(
+            """
+            macs 4 30000000 -t 0.0007156 -r 0.0002 -eN 0.0 10.8300726663 \
+            -eN 0.00116452394261 1.08300726663 -eN 0.0174678591392 0.216601453326 \
+            -eN 0.0465809577045 1.08300726663 -eN 0.0873392956959 3.24902179989 \
+            -eN 0.232904788522 1.08300726663 -T
+            """,
+            N0=N_ref_macs(theta=0.0007156, mu=mu),
+        )
+        # Simulations with sharp population size changes (2).
+        demes.from_ms(
+            """
+            macs 4 30000000 -t 0.001 -r 0.0004 -eN 0.0 8.25 -eN 0.0025 0.825 \
+            -eN 0.0416666666667 2.475 -eN 0.166666666667 0.825 -T
+            """,
+            N0=N_ref_macs(theta=0.001, mu=mu),
+        )
+        # population split with migration
+        demes.from_ms(
+            """
+            ms 4 10000000 -t 10000 -r 4000 -I 2 2 2 -ej 0.116 2 1 -eM 0.058 16 -T
+            """,
+            N0=N_ref(theta=10000, mu=mu, length=10000000),
+        )
+        # population split with population size changes
+        demes.from_ms(
+            """
+            macs 4 30000000 -t 0.001 -r 0.0004 -I 2 2 2 -eN 0 9.5 \
+            -en 0.000833333333333 1 0.95 -en 0.0025 2 0.95 -en 0.0125 1 0.19 \
+            -en 0.0333333333333 1 0.95 -en 0.0416666666667 2 2.85 \
+            -ej 0.05 2 1 -eN 0.166666666667 0.95 -T
+            """,
+            N0=N_ref_macs(theta=0.001, mu=mu),
+        )
+
+    def test_vernot_excavating_neandertal_and_denisovan_dna(self):
+        # Vernot et al (2016), https://doi.org/10.1126/science.aad9416
+        mu = 1.25e-8
+
+        # modified Tennessen model.
+        demes.from_ms(
+            """
+            macs 2025 15000000 -i 10 -r 3.0e-04 -t 0.00069 -T \
+            -I 4 10 1006 1008 1 0 -n 4 0.205 -n 1 58.00274 -n 2 70.041 \
+            -n 3 187.55 -eg 0.9e-10 1 482.46 -eg 1.0e-10 2 570.18 \
+            -eg 1.1e-10 3 720.23 -em 1.2e-10 1 2 0.731 -em 1.3e-10 2 1 0.731 \
+            -em 1.4e-10 3 1 0.2281 -em 1.5e-10 1 3 0.2281 \
+            -em 1.6e-10 2 3 0.9094 -em 1.7e-10 3 2 0.9094 \
+            -eg 0.007 1 0 -en 0.007001 1 1.98 -eg 0.007002 2 89.7668 \
+            -eg 0.007003 3 113.3896 -eG 0.031456 0 -en 0.031457 2 0.1412 \
+            -en 0.031458 3 0.07579 -eM 0.031459 0 -ej 0.03146 3 2 \
+            -en 0.0314601 2 0.2546 -em 0.0314602 2 1 4.386 \
+            -em 0.0314603 1 2 4.386 -eM 0.0697669 0 -ej 0.069767 2 1 \
+            -en 0.0697671 1 1.98 -en 0.2025 1 1 -ej 0.9575923 4 1 \
+            -em 0.06765 2 4 32 -em 0.06840 2 4 0
+            """,
+            N0=N_ref_macs(theta=0.00069, mu=mu),
+        )
+        # modified Gravel model (1).
+        # XXX: misspecified! Possibly just an error when transcribing into
+        # the manuscript. It shows a migration change:
+        #    -em 0.314603 1 2 4.386
+        # but it is clear this should be:
+        #    -em 0.0314603 1 2 4.386
+        # This is fixed below (and was correct in the second Gravel model)
+        demes.from_ms(
+            """
+            macs 2025 15000000 -i 10 -r 3.0e-04 -t 0.00069 -T \
+            -I 4 10 1006 1008 1 0 -n 4 0.205 -n 1 2.12 -n 2 4.911 -n 3 6.703 \
+            -eg 1.0e-10 2 111.11 -eg 1.1e-10 3 140.35 -em 1.2e-10 1 2 0.731 \
+            -em 1.3e-10 2 1 0.731 -em 1.4e-10 3 1 0.228 -em 1.5e-10 1 3 0.228 \
+            -em 1.6e-10 2 3 0.9094 -em 1.7e-10 3 2 0.9094 -eG 0.031456 0 \
+            -en 0.031457 2 0.1412 -en 0.031458 3 0.07579 -eM 0.031459 0 \
+            -ej 0.03146 3 2 -en 0.0314601 2 0.2546 -em 0.0314602 2 1 4.386 \
+            -em 0.0314603 1 2 4.386 -eM 0.0697669 0 -ej 0.069767 2 1 \
+            -en 0.0697671 1 1.98 -en 0.2025 1 1 -ej 0.9575923 4 1 \
+            -em 0.06765 2 4 32 -em 0.06840 2 4 0
+            """,
+            N0=N_ref_macs(theta=0.00069, mu=mu),
+        )
+        # modified Gravel model (2).
+        demes.from_ms(
+            """
+            macs 2025 15000000 -i 10 -r 3.0e-04 -t 0.00069 -T \
+            -I 4 10 1006 1008 1 0 -n 4 0.205 -n 1 2.12 -n 2 4.911 -n 3 6.703 \
+            -eg 1.0e-10 2 78.95 -eg 1.1e-10 3 90.64 -em 1.2e-10 1 2 0.491 \
+            -em 1.3e-10 2 1 0.491 -em 1.4e-10 3 1 0.1696 -em 1.5e-10 1 3 0.1696 \
+            -em 1.6e-10 2 3 1.725 -em 1.7e-10 3 2 1.725 -eG 0.03826 0 \
+            -en 0.03827 2 0.2216 -en 0.03828 3 0.1123 -eM 0.03829 0 \
+            -ej 0.03830 3 2 -en 0.03831 2 0.3773 -em 0.03832 2 1 5.848 \
+            -em 0.03833 1 2 5.848 -eM 0.1340 0 -ej 0.1341 2 1 -en 0.1342 1 2.105 \
+            -en 0.4322 1 1 -ej 0.9575923 4 1 -em 0.06765 2 4 32 -em 0.06840 2 4 0
+            """,
+            N0=N_ref_macs(theta=0.00069, mu=mu),
+        )
+        # modified Gutenkunst model.
+        demes.from_ms(
+            """
+            macs 2025 15000000 -i 10 -r 3.0e-04 -t 0.00069 -T \
+            -I 4 10 1006 1008 1 0 -n 4 0.205 -n 1 1.685 -n 2 4.4 -n 3 8.6 \
+            -eg 1.0e-10 2 116.8 -eg 1.1e-10 3 160.6 -em 1.2e-10 1 2 0.876 \
+            -em 1.3e-10 2 1 0.876 -em 1.4e-10 3 1 0.5548 -em 1.5e-10 1 3 0.5548 \
+            -em 1.6e-10 2 3 2.8032 -em 1.7e-10 3 2 .8032 -eG 0.0290 0 \
+            -en 0.02901 2 0.1370 -en 0.02902 3 0.06986 -eM 0.02903 0 \
+            -ej 0.02904 3 2 -en 0.0290401 2 0.2877 -em 0.0290402 2 1 7.3 \
+            -em 0.0290403 1 2 7.3 -eM 0.19149 0 -ej 0.1915 2 1 \
+            -en 0.191501 1 1.685 -en 0.3014 1 1 -ej 0.9575923 4 1 \
+            -em 0.06774 2 4 34 -em 0.06849 2 4 0
+            """,
+            N0=N_ref_macs(theta=0.00069, mu=mu),
+        )
+        # modified Schaffner model.
+        demes.from_ms(
+            """
+            macs 2025 15000000 -i 10 -r 3.0e-04 -t 0.00075 -T \
+            -I 4 10 1006 1008 1 0 -n 4 0.205 -n 1 8 -n 2 8 -n 3 8 \
+            -em 1.2e-10 1 2 1.6 -em 1.3e-10 2 1 1.6 -em 1.4e-10 3 1 0.4 \
+            -em 1.5e-10 1 3 0.4 -en 0.004 1 1.92 -en 0.007 2 0.616 \
+            -en 0.008 3 0.616 -en 0.03942 2 0.0574 -en 0.03998 2 0.616 \
+            -en 0.038 3 0.058 -en 0.03997 3 0.616  -eM 0.03999 0 -ej 0.040 3 2 \
+            -en 0.04001 2 0.616 -en 0.0686 2 0.032 -en 0.0696 1 0.0996 \
+            -ej 0.07 2 1 -en 0.07001 1 1.92 -en 0.34 1 1 -ej 0.56 4 1 \
+            -em 0.04002 2 4 29 -em 0.04077 2 4 0
+            """,
+            N0=N_ref_macs(theta=0.00069, mu=mu),
+        )
+
+    def test_soraggi_powerful_inference_with_the_D_statistic(self):
+        # Soraggi, Wuif & Albrechtsen (2018), https://doi.org/10.1534/g3.117.300192
+        # msms commands use '-ms nsamples nreps', which is rejected by argparse
+        # because we define the '-m' option which is a prefix of '-ms'.
+        # The '-ms' options have been removed from the commands below.
+        demes.from_ms(
+            """
+            msms -N 10000 -I 4 10 10 10 10 0 -t 100 -r 100 1000 \
+            -em 0.2 3 1 16 -em 0.201 3 1 0 -ej 0.5 1 2 -ej 0.75 2 3 -ej 1 3 4
+            """,
+            N0=10000,
+        )
+        demes.from_ms(
+            """
+            msms -N 10000 -I 4 2 2 2 2 0 -t 100 -r 100 1000 \
+            -ej 0.5 1 2 -ej 0.75 2 3 -ej 1 3 4
+            """,
+            N0=10000,
+        )
+        demes.from_ms(
+            """
+            msms -N 10000 -I 5 10 10 10 10 10 0 -t 100 -r 100 1000 \
+            -es 0.1 1 0.9 -ej 0.2 6 5 -ej 0.25 1 2 -ej 0.5 2 3 -ej 0.75 3 4 \
+            -ej 30 4 5
+            """,
+            N0=10000,
+        )

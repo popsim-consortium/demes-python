@@ -8,6 +8,12 @@ import hypothesis.strategies as st
 
 import demes
 
+__all__ = ["graphs"]
+
+
+def __dir__():
+    return sorted(__all__)
+
 
 def prec32(x):
     """truncate x to the nearest single-precision floating point number"""

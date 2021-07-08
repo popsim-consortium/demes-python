@@ -2462,3 +2462,98 @@ class Builder:
         builder = cls()
         builder.data = data
         return builder
+
+    # Below are general-purpose functions that operate on a data dict,
+    # which are used in the ms conversion code.
+
+    def _sort_demes_by_ancestry(self) -> None:
+        """
+        Sort demes by their start time so that ancestors come before descendants.
+        """
+        self.data["demes"].sort(key=operator.itemgetter("start_time"), reverse=True)
+
+    def _add_migrations_from_matrices(
+        self, mm_list: List[List[List[float]]], end_times: List[float]
+    ) -> None:
+        """
+        Convert a list of migration matrices into a list of migration dicts.
+        """
+        assert len(mm_list) == len(end_times)
+        assert len(self.data.get("migrations", [])) == 0
+        deme_names = [deme["name"] for deme in self.data.get("demes", [])]
+        assert len(deme_names) > 0
+        migrations: List[MutableMapping] = []
+        current: Dict[Tuple[int, int], MutableMapping] = dict()
+        start_time = math.inf
+        for migration_matrix, end_time in zip(mm_list, end_times):
+            n = len(migration_matrix)
+            assert n == len(deme_names)
+            for j in range(n):
+                assert n == len(migration_matrix[j])
+                for k in range(n):
+                    if j == k:
+                        continue
+                    rate = migration_matrix[j][k]
+                    migration_dict = current.get((j, k))
+                    if migration_dict is None:
+                        if rate != 0:
+                            migration_dict = dict(
+                                source=deme_names[j],
+                                dest=deme_names[k],
+                                start_time=start_time,
+                                end_time=end_time,
+                                rate=rate,
+                            )
+                            current[(j, k)] = migration_dict
+                            migrations.append(migration_dict)
+                    else:
+                        if rate == 0:
+                            del current[(j, k)]
+                        elif migration_dict["rate"] == rate:
+                            # extend migration_dict
+                            migration_dict["end_time"] = end_time
+                        else:
+                            migration_dict = dict(
+                                source=deme_names[j],
+                                dest=deme_names[k],
+                                start_time=start_time,
+                                end_time=end_time,
+                                rate=rate,
+                            )
+                            current[(j, k)] = migration_dict
+                            migrations.append(migration_dict)
+            start_time = end_time
+        self.data["migrations"] = migrations
+
+    def _remove_transient_demes(self) -> None:
+        """
+        Remove demes that don't exist (deme.start_time == deme.end_time).
+
+        These demes are not valid, but could be created from ms commands where
+        a lineage splits and is then immediately joined.
+            ms -I 2 1 1 -es 1.0 1 0.1 -ej 1.0 3 2
+        This approach appears to be the only possible way to represent certain
+        types of demographic relationships using ms commands, such as the pulse
+        migration depicted above.
+        """
+        demes = list(self.data.get("demes", []))
+        assert len(demes) > 0
+        num_removed = 0
+        for j, deme in enumerate(demes):
+            start_time = deme["start_time"]
+            end_time = deme["epochs"][-1]["end_time"]
+            if start_time == 0 or math.isinf(start_time):
+                # errors with this caught elsewhere
+                continue
+            if start_time == end_time:
+                for pulse in self.data.get("pulses", []):
+                    assert pulse["source"] != deme["name"]
+                    assert pulse["dest"] != deme["name"]
+                for migration in self.data.get("migrations", []):
+                    assert deme["name"] not in migration.get("demes", [])
+                    assert deme["name"] != migration.get("source")
+                    assert deme["name"] != migration.get("dest")
+                for other in self.data["demes"]:
+                    assert deme["name"] not in other.get("ancestors", [])
+                del self.data["demes"][j - num_removed]
+                num_removed += 1
