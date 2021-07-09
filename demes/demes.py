@@ -2498,8 +2498,8 @@ class Builder:
                     if migration_dict is None:
                         if rate != 0:
                             migration_dict = dict(
-                                source=deme_names[j],
-                                dest=deme_names[k],
+                                source=deme_names[k],
+                                dest=deme_names[j],
                                 start_time=start_time,
                                 end_time=end_time,
                                 rate=rate,
@@ -2514,8 +2514,8 @@ class Builder:
                             migration_dict["end_time"] = end_time
                         else:
                             migration_dict = dict(
-                                source=deme_names[j],
-                                dest=deme_names[k],
+                                source=deme_names[k],
+                                dest=deme_names[j],
                                 start_time=start_time,
                                 end_time=end_time,
                                 rate=rate,

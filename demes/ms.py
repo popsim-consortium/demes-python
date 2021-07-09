@@ -5,7 +5,7 @@ import logging
 import sys
 import operator
 import itertools
-from typing import Any, List, Mapping, Set
+from typing import Any, List, Mapping, Set, Tuple
 
 import attr
 
@@ -80,6 +80,21 @@ def coerce_nargs(obj_creator, append=False):
 # from the graph building procedure.
 
 
+def float_str(a: float) -> str:
+    """
+    Convert float to string, for use in command line arguments.
+    """
+    if a < 0:
+        # Use lots of decimal places for negative numbers because argparse
+        # has problems parsing option args that are negative numbers in
+        # exponential form.
+        # https://github.com/popsim-consortium/demes-python/issues/325
+        # https://bugs.python.org/issue9334
+        return format(a, ".10f")
+    else:
+        return str(a)
+
+
 @attr.define
 class Option:
     # This attribute is set by CoerceAction.
@@ -109,6 +124,12 @@ class Structure(Option):
             *n, rate = n
         return cls(npop, n, rate)
 
+    def __str__(self):
+        s = ["-I", str(self.npop)] + [str(n) for n in self.n]
+        if self.rate > 0:
+            s += [float_str(self.rate)]
+        return " ".join(s)
+
 
 @attr.define
 class Event(Option):
@@ -124,6 +145,14 @@ class GrowthRateChange(Event):
     # -eG t alpha
     alpha = attr.ib(converter=float, validator=finite)
 
+    def __str__(self):
+        if self.t > 0:
+            s = ["-eG", float_str(self.t)]
+        else:
+            s = ["-G"]
+        s.append(float_str(self.alpha))
+        return " ".join(s)
+
 
 @attr.define
 class PopulationGrowthRateChange(Event):
@@ -132,11 +161,22 @@ class PopulationGrowthRateChange(Event):
     i = attr.ib(converter=int, validator=positive)
     alpha = attr.ib(converter=float, validator=finite)
 
+    def __str__(self):
+        if self.t > 0:
+            s = ["-eg", float_str(self.t)]
+        else:
+            s = ["-g"]
+        s.extend([str(self.i), float_str(self.alpha)])
+        return " ".join(s)
+
 
 @attr.define
 class SizeChange(Event):
     # -eN t x
     x = attr.ib(converter=float, validator=non_negative)
+
+    def __str__(self):
+        return " ".join(["-eN", float_str(self.t), float_str(self.x)])
 
 
 @attr.define
@@ -146,11 +186,22 @@ class PopulationSizeChange(Event):
     i = attr.ib(converter=int, validator=positive)
     x = attr.ib(converter=float, validator=non_negative)
 
+    def __str__(self):
+        if self.t > 0:
+            s = ["-en", float_str(self.t)]
+        else:
+            s = ["-n"]
+        s.extend([str(self.i), float_str(self.x)])
+        return " ".join(s)
+
 
 @attr.define
 class MigrationRateChange(Event):
     # -eM t x
     x = attr.ib(converter=float, validator=non_negative)
+
+    def __str__(self):
+        return " ".join(["-eM", float_str(self.t), float_str(self.x)])
 
 
 @attr.define
@@ -161,11 +212,19 @@ class MigrationMatrixEntryChange(Event):
     j = attr.ib(converter=int, validator=positive)
     rate = attr.ib(converter=float, validator=non_negative)
 
+    def __str__(self):
+        if self.t > 0:
+            s = ["-em", float_str(self.t)]
+        else:
+            s = ["-m"]
+        s.extend([str(self.i), str(self.j), float_str(self.rate)])
+        return " ".join(s)
+
 
 @attr.define
 class MigrationMatrixChange(Event):
-    # -ma M11 M12 M12 ... M21 ...
-    # -ema t npop M11 M12 M12 ... M21 ...
+    # -ma M11 M12 M13 ... M21 ...
+    # -ema t npop M11 M12 M13 ... M21 ...
     npop = attr.ib(converter=int, validator=positive)
     mm_vector = attr.ib()
 
@@ -205,6 +264,21 @@ class MigrationMatrixChange(Event):
         t, npop, *mm_vector = args
         return cls(t, npop, mm_vector)
 
+    def __str__(self):
+        if self.t > 0:
+            s = ["-ema", float_str(self.t)]
+        else:
+            s = ["-ma"]
+        s.append(str(self.npop))
+        M = self.M
+        for j in range(self.npop):
+            for k in range(self.npop):
+                if j == k:
+                    s.append("x")
+                else:
+                    s.append(float_str(M[j][k]))
+        return " ".join(s)
+
 
 @attr.define
 class Split(Event):
@@ -212,12 +286,18 @@ class Split(Event):
     i = attr.ib(converter=int, validator=positive)
     p = attr.ib(converter=float, validator=unit_interval)
 
+    def __str__(self):
+        return " ".join(["-es", float_str(self.t), str(self.i), float_str(self.p)])
+
 
 @attr.define
 class Join(Event):
     # -ej t i j
     i = attr.ib(converter=int, validator=positive)
     j = attr.ib(converter=int, validator=positive)
+
+    def __str__(self):
+        return " ".join(["-ej", float_str(self.t), str(self.i), str(self.j)])
 
 
 def build_parser(parser=None):
@@ -518,10 +598,11 @@ def build_graph(args, N0: float) -> demes.Graph:
         # same time parameter into more direct ancestry relationships.
         n = num_demes + sum(1 for event in events_group if isinstance(event, Split))
         lineage_movements = [[0] * n for _ in range(n)]
-        for j in range(n):
+        for j in range(num_demes):
             lineage_movements[j][j] = 1
-        # The indices for lineages specified in Split/Join events.
-        split_join_indices = set()
+        # The params gleaned from Split/Join events, which are used to collapse
+        # ancestry into plain old pulse migrations.
+        split_join_params: List[Tuple[int, int, float]] = []
 
         for event in events_group:
             if isinstance(event, GrowthRateChange):
@@ -627,9 +708,14 @@ def build_graph(args, N0: float) -> demes.Graph:
                 b.data["demes"][pop_i]["start_time"] = time
                 b.data["demes"][pop_i]["ancestors"] = [f"deme{pop_j + 1}"]
                 for lm in lineage_movements:
-                    lm[pop_j] = lm[pop_i]
+                    lm[pop_j] += lm[pop_i]
                     lm[pop_i] = 0
-                split_join_indices.add(pop_i)
+                for idx, (g, h, q) in reversed(list(enumerate(split_join_params))):
+                    if h == pop_i:
+                        split_join_params[idx] = (g, pop_j, q)
+                        break
+                else:
+                    split_join_params.append((pop_i, pop_j, 1))
 
                 mm = migration_matrix_at(time)
                 # Turn off migrations to/from deme i.
@@ -656,9 +742,10 @@ def build_graph(args, N0: float) -> demes.Graph:
                     epochs=[dict(end_size=N0, end_time=time)],
                 )
                 for lm in lineage_movements:
+                    assert lm[new_pid] == 0
                     lm[new_pid] = (1 - event.p) * lm[pid]
                     lm[pid] *= event.p
-                split_join_indices.add(pid)
+                split_join_params.append((pid, new_pid, 1 - event.p))
 
                 num_demes += 1
 
@@ -671,33 +758,31 @@ def build_graph(args, N0: float) -> demes.Graph:
             else:
                 assert False, f"unhandled option: {event}"
 
-        for j in split_join_indices:
+        for j, k, p in split_join_params:
             ancestors = []
             proportions = []
-            for k, proportion in enumerate(lineage_movements[j]):
-                if j != k and proportion > 0:
-                    ancestors.append(f"deme{k + 1}")
+            for o, proportion in enumerate(lineage_movements[j]):
+                if j != o and proportion > 0:
+                    ancestors.append(o)
                     proportions.append(proportion)
             if len(ancestors) == 0:
                 continue
             p_jj = lineage_movements[j][j]
             if p_jj == 0:
                 # No ancestry left in j.
-                b.data["demes"][j]["ancestors"] = ancestors
+                b.data["demes"][j]["ancestors"] = [f"deme{o + 1}" for o in ancestors]
                 b.data["demes"][j]["proportions"] = proportions
             else:
                 # Some ancestry is retained in j, so we use pulse migrations to
                 # indicate foreign ancestry.
                 # The order of pulses will later be reversed such that realised
                 # ancestry proportions are maintained forwards in time.
-                for k, source in enumerate(ancestors):
-                    p = proportions[k] / (sum(proportions[k:]) + p_jj)
-                    b.add_pulse(
-                        source=source,
-                        dest=f"deme{j + 1}",
-                        time=time,
-                        proportion=p,
-                    )
+                b.add_pulse(
+                    source=f"deme{k + 1}",
+                    dest=f"deme{j + 1}",
+                    time=time,
+                    proportion=p,
+                )
 
     # Resolve/remove growth_rate in oldest epochs.
     for deme in b.data["demes"]:
@@ -806,3 +891,133 @@ def from_ms(
         name_map = dict(zip((f"deme{j+1}" for j in range(len(deme_names))), deme_names))
         graph = remap_deme_names(graph, name_map)
     return graph
+
+
+def to_ms(graph: demes.Graph, *, N0) -> str:
+    """
+    Get ms command line arguments for the graph.
+
+    The sampling configuration in the returned string will need editing prior
+    to simulation. The order of deme IDs matches the order of demes in the graph.
+
+    :param float N0:
+        The reference population size used to translate into coalescent units.
+        See :func:`from_ms` for details.
+    :return: The ms command line.
+    :rtype: str
+    """
+    graph = graph.in_generations()
+    cmd = []
+    num_demes = len(graph.demes)
+    if num_demes > 1:
+        # Output a no-samples configuration. The user must edit this anyway,
+        # so if they blindly pass this to a simulator, it should complain.
+        samples = [0] * num_demes
+        structure = Structure.from_nargs(num_demes, *samples)
+        cmd.append(str(structure))
+
+    def get_growth_rate(epoch):
+        ret = 0
+        if epoch.size_function not in ["constant", "exponential"]:
+            raise ValueError(
+                "ms only supports constant or exponentially changing population sizes"
+            )
+        if epoch.end_size != epoch.start_size:
+            dt = epoch.time_span / (4 * N0)
+            ret = -math.log(epoch.start_size / epoch.end_size) / dt
+        return ret
+
+    events: List[Event] = []
+    for j, deme in enumerate(graph.demes, 1):
+        size = N0
+        growth_rate = 0
+        for epoch in reversed(deme.epochs):
+            if size != epoch.end_size:
+                size = epoch.end_size
+                events.append(PopulationSizeChange(epoch.end_time, j, size / N0))
+            alpha = get_growth_rate(epoch)
+            if growth_rate != alpha:
+                growth_rate = alpha
+                events.append(
+                    PopulationGrowthRateChange(epoch.end_time, j, growth_rate)
+                )
+            size = epoch.start_size
+
+    # Describing either the ancestry of a deme with multiple ancestors,
+    # or ancestry via a pulse migration, both require the use of -es/-ej to
+    # first split the deme (or pulse dest) into two and then immediately join
+    # one lineage to the ancestor (or pulse source). A split event creates
+    # a new deme with ID equal to the current number of demes plus 1,
+    # and we must know this ID in order to then join the new deme.
+    # To obtain correct IDs, we sort the combined list of demes and pulses
+    # by the deme start time or alternately the pulse time. IDs are then
+    # sequential with this ordering.
+    # Pulses are added in reverse order, so that pulses with the same time
+    # are given the correct backwards-time ordering.
+    # Pulses occurring at the same time as a deme's start time are possible,
+    # and in this case the pulse will come first (backwards in time).
+    demes_and_pulses = list(reversed(graph.pulses)) + list(graph.demes)  # type: ignore
+    demes_and_pulses.sort(
+        key=lambda d_p: d_p.start_time if isinstance(d_p, demes.Deme) else d_p.time
+    )
+    deme_id = {deme.name: j for j, deme in enumerate(graph.demes, 1)}
+
+    for deme_or_pulse in demes_and_pulses:
+        if isinstance(deme_or_pulse, demes.Deme):
+            deme = deme_or_pulse
+            for k, ancestor in enumerate(deme.ancestors):
+                anc_id = deme_id[ancestor]
+                proportion = deme.proportions[k] / sum(deme.proportions[k:])
+                if k == len(deme.ancestors) - 1:
+                    assert math.isclose(proportion, 1)
+                    events.append(Join(deme.start_time, deme_id[deme.name], anc_id))
+                else:
+                    num_demes += 1
+                    new_deme_id = num_demes
+                    e1 = Split(deme.start_time, deme_id[deme.name], 1 - proportion)
+                    e2 = Join(deme.start_time, new_deme_id, anc_id)
+                    events.extend([e1, e2])
+        else:
+            assert isinstance(deme_or_pulse, demes.Pulse)
+            pulse = deme_or_pulse
+            num_demes += 1
+            new_deme_id = num_demes
+            e1 = Split(pulse.time, deme_id[pulse.dest], 1 - pulse.proportion)
+            e2 = Join(pulse.time, new_deme_id, deme_id[pulse.source])
+            events.extend([e1, e2])
+
+    # Turn migrations off at the start_time. We schedule all start_time
+    # events first, and then all end_time events. This ensures that events
+    # for migrations with an end_time that coincides with the start_time of
+    # another migration will be scheduled later (backwards in time),
+    # and thus override the rate=0 setting.
+    for migration in graph.migrations:
+        if (
+            not math.isinf(migration.start_time)
+            and migration.start_time != graph[migration.dest].start_time
+            and migration.start_time != graph[migration.source].start_time
+        ):
+            events.append(
+                MigrationMatrixEntryChange(
+                    t=migration.start_time,
+                    i=deme_id[migration.dest],
+                    j=deme_id[migration.source],
+                    rate=0,
+                )
+            )
+    for migration in graph.migrations:
+        events.append(
+            MigrationMatrixEntryChange(
+                t=migration.end_time,
+                i=deme_id[migration.dest],
+                j=deme_id[migration.source],
+                rate=4 * N0 * migration.rate,
+            )
+        )
+
+    events.sort(key=operator.attrgetter("t"))
+    for event in events:
+        event.t /= 4 * N0
+
+    cmd.extend(str(event) for event in events)
+    return " ".join(cmd)

@@ -11,23 +11,41 @@ from . import ms
 
 class ParseCommand:
     """
-    Parse models and write them to stdout in canonical form.
+    Parse models and write them to stdout. YAML is output by default,
+    but JSON or ms commands may instead be written. See options below.
     """
 
     def __init__(self, subparsers):
         parser = subparsers.add_parser(
             "parse",
-            help=self.__doc__,
+            help="Parse models and write them to stdout in canonical form.",
             description=textwrap.dedent(self.__doc__),
         )
         parser.set_defaults(func=self)
-        parser.add_argument(
+
+        format_group = parser.add_mutually_exclusive_group()
+        format_group.add_argument(
             "-j",
             "--json",
             action="store_true",
             default=False,
-            help="Output a JSON-formatted model. YAML is output by default.",
+            help="Output a JSON-formatted model.",
         )
+        format_group.add_argument(
+            "--ms",
+            metavar="REFERENCE_SIZE",
+            type=float,
+            default=None,
+            help=(
+                "Output ms command line arguments, using the given reference "
+                "population size (N0) to translate into coalescent units "
+                "(see the 'ms' subcommand for interpretation of this value)."
+                "The sampling configuration in the output will need editing "
+                "prior to simulation. The order of deme IDs matches the "
+                "order of demes in the input model. "
+            ),
+        )
+
         parser.add_argument(
             "-s",
             "--simplified",
@@ -61,26 +79,37 @@ class ParseCommand:
     def __call__(self, args: argparse.Namespace) -> None:
         if args.json:
             output_format = "json"
+        elif args.ms:
+            output_format = "ms"
         else:
             output_format = "yaml"
+
+        if args.ms and args.simplified:
+            # Ignore this for now.
+            pass
 
         num_documents, graphs = self.load_and_count_documents(args.filename)
         if num_documents == 0:
             # Input file is empty.
             pass
         elif num_documents == 1:
-            demes.dump(
-                next(graphs),
-                sys.stdout,
-                simplified=args.simplified,
-                format=output_format,
-            )
+            graph = next(graphs)
+            if args.ms is not None:
+                print(demes.to_ms(graph, N0=args.ms))
+            else:
+                demes.dump(
+                    graph,
+                    sys.stdout,
+                    simplified=args.simplified,
+                    format=output_format,
+                )
         else:
             if output_format != "yaml":
                 raise RuntimeError(
                     "The input file contains multiple models, which is only "
-                    "supported with YAML output. If multi-model JSON output "
-                    "would be useful to you, please open an issue on github.",
+                    "supported with YAML output. If multi-model output "
+                    "would be useful to you with other formats, "
+                    "please open an issue on github.",
                 )
             demes.dump_all(graphs, sys.stdout, simplified=args.simplified)
 
@@ -132,7 +161,7 @@ class MsCommand:
     def __init__(self, subparsers):
         parser = subparsers.add_parser(
             "ms",
-            help="Build a Demes model using ms commands.",
+            help="Build a Demes model using ms command line arguments.",
             formatter_class=argparse.RawDescriptionHelpFormatter,
             description=textwrap.dedent(self.__doc__),
         )

@@ -5,6 +5,7 @@ import pytest
 import tempfile
 
 import demes
+from demes import ms
 
 cwd = pathlib.Path(__file__).parent.resolve()
 example_dir = cwd / ".." / "examples"
@@ -514,8 +515,8 @@ class TestFromMs:
             graph = demes.from_ms(cmd, N0=1000)
             assert len(graph.demes) == 3
             assert len(graph.migrations) == 1
-            assert graph.migrations[0].source == "deme3"
-            assert graph.migrations[0].dest == "deme2"
+            assert graph.migrations[0].source == "deme2"
+            assert graph.migrations[0].dest == "deme3"
 
         # Set M[3][2] = 1.0 using the -em option.
         cmd1 = (
@@ -876,7 +877,73 @@ class TestFromMs:
         assert math.isclose(pulse.time, T1 * 4 * N0)
 
     @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
-    def test_split_then_join_immediately_multiple(self):
+    def test_split_then_join_sequence_1(self):
+        # backwards in time we have: deme3 -> deme2; deme2 -> deme1
+        N0 = 100
+        T1 = 1.0
+        cmd = (
+            "-I 3 1 1 1 0.5 "
+            f"-es {T1} 3 0.6 -ej {T1} 4 2 "
+            f"-es {T1} 2 0.6 -ej {T1} 5 1 "
+        )
+        graph = demes.from_ms(cmd, N0=N0)
+        assert len(graph.demes) == 3
+        assert len(graph.pulses) == 2
+        assert graph.pulses[0].source == "deme1"
+        assert graph.pulses[0].dest == "deme2"
+        assert math.isclose(graph.pulses[0].time, T1 * 4 * N0)
+        assert math.isclose(graph.pulses[0].proportion, 0.4)
+        assert graph.pulses[1].source == "deme2"
+        assert graph.pulses[1].dest == "deme3"
+        assert math.isclose(graph.pulses[1].time, T1 * 4 * N0)
+        assert math.isclose(graph.pulses[1].proportion, 0.4)
+
+    @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
+    def test_split_then_join_sequence_2(self):
+        # backwards in time we have: deme3 -> deme2; deme3 -> deme1
+        N0 = 100
+        T1 = 1.0
+        cmd = (
+            "-I 3 1 1 1 0.5 "
+            f"-es {T1} 3 0.6 -ej {T1} 4 2 "
+            f"-es {T1} 3 0.6 -ej {T1} 5 1 "
+        )
+        graph = demes.from_ms(cmd, N0=N0)
+        assert len(graph.demes) == 3
+        assert len(graph.pulses) == 2
+        assert graph.pulses[0].source == "deme1"
+        assert graph.pulses[0].dest == "deme3"
+        assert math.isclose(graph.pulses[0].time, T1 * 4 * N0)
+        assert math.isclose(graph.pulses[0].proportion, 0.4)
+        assert graph.pulses[1].source == "deme2"
+        assert graph.pulses[1].dest == "deme3"
+        assert math.isclose(graph.pulses[1].time, T1 * 4 * N0)
+        assert math.isclose(graph.pulses[1].proportion, 0.4)
+
+    @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
+    def test_split_then_join_sequence_3(self):
+        # backwards in time we have: deme3 -> deme2; deme1 -> deme2
+        N0 = 100
+        T1 = 1.0
+        cmd = (
+            "-I 3 1 1 1 0.5 "
+            f"-es {T1} 3 0.6 -ej {T1} 4 2 "
+            f"-es {T1} 1 0.6 -ej {T1} 5 2 "
+        )
+        graph = demes.from_ms(cmd, N0=N0)
+        assert len(graph.demes) == 3
+        assert len(graph.pulses) == 2
+        assert graph.pulses[0].source == "deme2"
+        assert graph.pulses[0].dest == "deme1"
+        assert math.isclose(graph.pulses[0].time, T1 * 4 * N0)
+        assert math.isclose(graph.pulses[0].proportion, 0.4)
+        assert graph.pulses[1].source == "deme2"
+        assert graph.pulses[1].dest == "deme3"
+        assert math.isclose(graph.pulses[1].time, T1 * 4 * N0)
+        assert math.isclose(graph.pulses[1].proportion, 0.4)
+
+    @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
+    def test_split_then_join_sequence_then_join(self):
         # This is how one might specify multiple ancestors.
         # deme4 has ancestry from each of deme1, deme2, deme3,
         # and none of the ancestors go extinct when deme4 is created.
@@ -910,6 +977,7 @@ class TestFromMs:
         assert math.isclose(proportions[0], 0.4)  # deme1
         assert math.isclose(proportions[1], 0.6 * 0.4)  # deme2
         assert math.isclose(proportions[2], 1 - 0.4 - 0.6 * 0.4)  # deme3
+        assert len(graph.pulses) == 0
 
     def test_args_from_file(self):
         # -f filename
@@ -1596,3 +1664,493 @@ class TestFromMsAdditionalExamples:
             """,
             N0=10000,
         )
+
+
+class TestOptionStrings:
+    def test_structure_str(self):
+        assert str(ms.Structure.from_nargs(1, 2)) == "-I 1 2"
+        assert str(ms.Structure.from_nargs(2, 2, 2)) == "-I 2 2 2"
+        assert str(ms.Structure.from_nargs(3, 2, 2, 0, 0.1)) == "-I 3 2 2 0 0.1"
+
+    def test_growth_rate_change_str(self):
+        assert str(ms.GrowthRateChange(0, 1e-5)) == "-G 1e-05"
+        assert str(ms.GrowthRateChange(0, -1e-5)) == "-G -0.0000100000"
+        assert str(ms.GrowthRateChange(1.2, 1e-5)) == "-eG 1.2 1e-05"
+        assert str(ms.GrowthRateChange(5, -1e-5)) == "-eG 5.0 -0.0000100000"
+
+    def test_population_growth_rate_change_str(self):
+        assert str(ms.PopulationGrowthRateChange(0, 1, 1e-5)) == "-g 1 1e-05"
+        assert str(ms.PopulationGrowthRateChange(0, 2, -1e-5)) == "-g 2 -0.0000100000"
+        assert str(ms.PopulationGrowthRateChange(1.2, 3, 1e-5)) == "-eg 1.2 3 1e-05"
+        assert (
+            str(ms.PopulationGrowthRateChange(5, 4, -1e-5)) == "-eg 5.0 4 -0.0000100000"
+        )
+
+    def test_size_change_str(self):
+        assert str(ms.SizeChange(0, 2.5)) == "-eN 0.0 2.5"
+        assert str(ms.SizeChange(0.5, 5.5)) == "-eN 0.5 5.5"
+        assert str(ms.SizeChange(1, 10)) == "-eN 1.0 10.0"
+
+    def test_population_size_change_str(self):
+        assert str(ms.PopulationSizeChange(0, 1, 2.5)) == "-n 1 2.5"
+        assert str(ms.PopulationSizeChange(0, 10, 25)) == "-n 10 25.0"
+        assert str(ms.PopulationSizeChange(0.5, 2, 5.5)) == "-en 0.5 2 5.5"
+        assert str(ms.PopulationSizeChange(1, 3, 10)) == "-en 1.0 3 10.0"
+
+    def test_migration_rate_change_str(self):
+        assert str(ms.MigrationRateChange(0, 1)) == "-eM 0.0 1.0"
+        assert str(ms.MigrationRateChange(1, 2)) == "-eM 1.0 2.0"
+        assert str(ms.MigrationRateChange(1.5, 1e-5)) == "-eM 1.5 1e-05"
+
+    def test_migration_matrix_entry_change_str(self):
+        assert str(ms.MigrationMatrixEntryChange(0, 1, 2, 1e-5)) == "-m 1 2 1e-05"
+        assert str(ms.MigrationMatrixEntryChange(0, 5, 3, 15)) == "-m 5 3 15.0"
+        assert str(ms.MigrationMatrixEntryChange(1, 1, 2, 1e-5)) == "-em 1.0 1 2 1e-05"
+        assert (
+            str(ms.MigrationMatrixEntryChange(0.123, 5, 3, 15)) == "-em 0.123 5 3 15.0"
+        )
+
+    def test_migration_matrix_change_str(self):
+        assert (
+            str(ms.MigrationMatrixChange.from_nargs(0, 2, -100, 1e-5, 1e-6, -100))
+            == "-ma 2 x 1e-05 1e-06 x"
+        )
+        assert (
+            str(
+                ms.MigrationMatrixChange.from_nargs(
+                    0, 3, -100, 1e-5, 1e-6, 1e-7, -100, 1e-8, 1e-9, 1e-10, -100
+                )
+            )
+            == "-ma 3 x 1e-05 1e-06 1e-07 x 1e-08 1e-09 1e-10 x"
+        )
+        assert (
+            str(ms.MigrationMatrixChange.from_nargs(1, 2, -100, 1e-5, 1e-6, -100))
+            == "-ema 1.0 2 x 1e-05 1e-06 x"
+        )
+        assert (
+            str(
+                ms.MigrationMatrixChange.from_nargs(
+                    2.5, 3, -100, 1e-5, 1e-6, 1e-7, -100, 1e-8, 1e-9, 1e-10, -100
+                )
+            )
+            == "-ema 2.5 3 x 1e-05 1e-06 1e-07 x 1e-08 1e-09 1e-10 x"
+        )
+
+    def test_split_str(self):
+        assert str(ms.Split(0, 1, 0.2)) == "-es 0.0 1 0.2"
+        assert str(ms.Split(0.1, 6, 1e-5)) == "-es 0.1 6 1e-05"
+        assert str(ms.Split(1, 632, 1 / 3)) == "-es 1.0 632 0.3333333333333333"
+
+    def test_join_str(self):
+        assert str(ms.Join(0, 1, 2)) == "-ej 0.0 1 2"
+        assert str(ms.Join(0.1, 6, 5)) == "-ej 0.1 6 5"
+        assert str(ms.Join(1, 632, 1)) == "-ej 1.0 632 1"
+
+
+class TestToMs:
+    def parse_command(self, cmd):
+        parser = ms.build_parser()
+        args = parser.parse_args(cmd.split())
+        events = args.initial_state + args.demographic_events
+        return args.structure, events
+
+    def test_one_deme_constant_size(self):
+        N0 = 100
+        b = demes.Builder()
+        b.add_deme("a", epochs=[dict(start_size=N0)])
+        graph = b.resolve()
+        cmd = demes.to_ms(graph, N0=N0)
+        # Nothing to be done.
+        assert cmd == ""
+
+        # Set N0 differently to deme size.
+        cmd = demes.to_ms(graph, N0=N0 / 50)
+        structure, events = self.parse_command(cmd)
+        assert structure is None
+        assert len(events) == 1
+        assert isinstance(events[0], (ms.SizeChange, ms.PopulationSizeChange))
+        assert math.isclose(events[0].t, 0)
+        assert math.isclose(events[0].x, 50)
+
+    def test_one_deme_piecewise_constant(self):
+        N0, N1, N2 = 100, 200, 3000
+        T0, T1, T2 = 0, 500, 600
+        b = demes.Builder()
+        b.add_deme(
+            "a",
+            epochs=[
+                dict(start_size=N2, end_time=T2),
+                dict(start_size=N1, end_time=T1),
+                dict(start_size=N0, end_time=T0),
+            ],
+        )
+        graph1 = b.resolve()
+        cmd = demes.to_ms(graph1, N0=N0)
+        structure, events = self.parse_command(cmd)
+        assert structure is None
+        assert len(events) == 2
+        assert isinstance(events[0], (ms.SizeChange, ms.PopulationSizeChange))
+        assert math.isclose(events[0].t, T1 / (4 * N0))
+        assert math.isclose(events[0].x, N1 / N0)
+        assert isinstance(events[1], (ms.SizeChange, ms.PopulationSizeChange))
+        assert math.isclose(events[1].t, T2 / (4 * N0))
+        assert math.isclose(events[1].x, N2 / N0)
+
+        graph2 = demes.from_ms(
+            cmd, N0=N0, deme_names=[deme.name for deme in graph1.demes]
+        )
+        graph2.assert_close(graph1)
+
+    def test_one_deme_piecewise_nonconstant(self):
+        N0, N1, N2 = 100, 200, 3000
+        T0, T1, T2 = 0, 500, 600
+        b = demes.Builder()
+        b.add_deme(
+            "a",
+            epochs=[
+                dict(start_size=N2, end_time=T2),
+                dict(start_size=N2, end_size=N1, end_time=T1),
+                dict(start_size=N1, end_size=N0, end_time=T0),
+            ],
+        )
+        graph1 = b.resolve()
+        cmd = demes.to_ms(graph1, N0=N0)
+        structure, events = self.parse_command(cmd)
+        assert structure is None
+        assert len(events) == 3
+        assert isinstance(
+            events[0], (ms.GrowthRateChange, ms.PopulationGrowthRateChange)
+        )
+        assert events[0].t == 0
+        assert math.isclose(events[0].alpha, 4 * N0 * -math.log(N1 / N0) / (T1 - T0))
+        assert isinstance(
+            events[1], (ms.GrowthRateChange, ms.PopulationGrowthRateChange)
+        )
+        assert math.isclose(events[1].t, T1 / (4 * N0))
+        assert math.isclose(events[1].alpha, 4 * N0 * -math.log(N2 / N1) / (T2 - T1))
+        assert isinstance(
+            events[2], (ms.GrowthRateChange, ms.PopulationGrowthRateChange)
+        )
+        assert math.isclose(events[2].t, T2 / (4 * N0))
+        assert math.isclose(events[2].alpha, 0)
+
+        graph2 = demes.from_ms(
+            cmd, N0=N0, deme_names=[deme.name for deme in graph1.demes]
+        )
+        graph2.assert_close(graph1)
+
+    @pytest.mark.parametrize("num_demes", [2, 5, 10])
+    def test_multiple_demes_constant_size(self, num_demes):
+        N0 = 100
+        b = demes.Builder()
+        for j in range(num_demes):
+            b.add_deme(f"deme{j}", epochs=[dict(start_size=N0)])
+        graph1 = b.resolve()
+        cmd = demes.to_ms(graph1, N0=N0)
+        structure, events = self.parse_command(cmd)
+        assert structure.npop == num_demes
+        assert structure.rate == 0
+        assert len(events) == 0
+
+        graph2 = demes.from_ms(
+            cmd, N0=N0, deme_names=[deme.name for deme in graph1.demes]
+        )
+        graph2.assert_close(graph1)
+
+    @pytest.mark.parametrize("num_demes", [2, 5, 10])
+    def test_multiple_demes_with_size_change(self, num_demes):
+        N0, N1 = 100, 200
+        T0, T1 = 0, 500
+        b = demes.Builder()
+        for j in range(num_demes - 1):
+            b.add_deme(f"deme{j}", epochs=[dict(start_size=N0)])
+        b.add_deme(
+            "x",
+            epochs=[
+                dict(start_size=N1, end_time=T1),
+                dict(start_size=N0, end_time=T0),
+            ],
+        )
+        graph1 = b.resolve()
+        cmd = demes.to_ms(graph1, N0=N0)
+        structure, events = self.parse_command(cmd)
+        assert structure.npop == num_demes
+        assert structure.rate == 0
+        assert len(events) == 1
+        assert isinstance(events[0], ms.PopulationSizeChange)
+        assert events[0].i == num_demes
+        assert math.isclose(events[0].t, T1 / (4 * N0))
+        assert math.isclose(events[0].x, N1 / N0)
+
+        graph2 = demes.from_ms(
+            cmd, N0=N0, deme_names=[deme.name for deme in graph1.demes]
+        )
+        graph2.assert_close(graph1)
+
+    @pytest.mark.parametrize("num_demes", [2, 5, 10])
+    def test_multiple_demes_with_growth_rate_change(self, num_demes):
+        N0, N1 = 100, 200
+        T0, T1 = 0, 500
+        b = demes.Builder()
+        for j in range(num_demes - 1):
+            b.add_deme(f"deme{j}", epochs=[dict(start_size=N0)])
+        b.add_deme(
+            "x",
+            epochs=[
+                dict(start_size=N1, end_size=N1, end_time=T1),
+                dict(start_size=N1, end_size=N0, end_time=T0),
+            ],
+        )
+        graph1 = b.resolve()
+        cmd = demes.to_ms(graph1, N0=N0)
+        structure, events = self.parse_command(cmd)
+        assert structure.npop == num_demes
+        assert structure.rate == 0
+        assert len(events) == 2
+        assert isinstance(events[0], ms.PopulationGrowthRateChange)
+        assert events[0].i == num_demes
+        assert events[0].t == 0
+        assert math.isclose(events[0].alpha, 4 * N0 * -math.log(N1 / N0) / (T1 - T0))
+        assert isinstance(events[1], ms.PopulationGrowthRateChange)
+        assert events[1].i == num_demes
+        assert math.isclose(events[1].t, T1 / (4 * N0))
+        assert math.isclose(events[1].alpha, 0)
+
+        graph2 = demes.from_ms(
+            cmd, N0=N0, deme_names=[deme.name for deme in graph1.demes]
+        )
+        graph2.assert_close(graph1)
+
+    def test_single_ancestor(self):
+        N0 = 100
+        T0 = 50
+        b = demes.Builder()
+        b.add_deme("a", epochs=[dict(start_size=N0)])
+        b.add_deme("b", start_time=T0, ancestors=["a"], epochs=[dict(start_size=N0)])
+        graph1 = b.resolve()
+        cmd = demes.to_ms(graph1, N0=N0)
+        structure, events = self.parse_command(cmd)
+        assert structure.npop == 2
+        assert structure.rate == 0
+        assert len(events) == 1
+        assert isinstance(events[0], ms.Join)
+        assert events[0].i == 2
+        assert events[0].j == 1
+        assert math.isclose(events[0].t, T0 / (4 * N0))
+
+        graph2 = demes.from_ms(
+            cmd, N0=N0, deme_names=[deme.name for deme in graph1.demes]
+        )
+        assert graph2["a"].ancestors == []
+        assert graph2["b"].ancestors == ["a"]
+        assert math.isclose(graph2["b"].start_time, T0)
+
+    def test_multiple_ancestors(self):
+        N0 = 100
+        T0 = 50
+        b = demes.Builder()
+        b.add_deme("a", epochs=[dict(start_size=N0)])
+        b.add_deme("b", epochs=[dict(start_size=N0)])
+        b.add_deme(
+            "c",
+            start_time=T0,
+            ancestors=["a", "b"],
+            proportions=[0.1, 0.9],
+            epochs=[dict(start_size=N0)],
+        )
+        graph1 = b.resolve()
+        cmd = demes.to_ms(graph1, N0=N0)
+
+        # There are multiple ways this model could be turned into ms commands,
+        # so we just check that the ancestry matches after converting from_ms
+        # back to a demes graph.
+        graph2 = demes.from_ms(
+            cmd, N0=N0, deme_names=[deme.name for deme in graph1.demes]
+        )
+        assert graph2["a"].ancestors == []
+        assert graph2["b"].ancestors == []
+        ancestors, proportions = zip(
+            *sorted(zip(graph2["c"].ancestors, graph2["c"].proportions))
+        )
+        assert ancestors == ("a", "b")
+        assert math.isclose(proportions[0], 0.1)
+        assert math.isclose(proportions[1], 0.9)
+        assert math.isclose(graph2["c"].start_time, T0)
+
+    def test_pulse(self):
+        N0 = 100
+        T0 = 50
+        b = demes.Builder()
+        b.add_deme("a", epochs=[dict(start_size=N0)])
+        b.add_deme("b", epochs=[dict(start_size=N0)])
+        b.add_pulse(source="a", dest="b", time=T0, proportion=0.1)
+        graph1 = b.resolve()
+        cmd = demes.to_ms(graph1, N0=N0)
+        structure, events = self.parse_command(cmd)
+        assert structure.npop == 2
+        assert structure.rate == 0
+        assert len(events) == 2
+        assert isinstance(events[0], ms.Split)
+        assert events[0].i == 2
+        assert math.isclose(events[0].p, 1 - 0.1)
+        assert math.isclose(events[0].t, T0 / (4 * N0))
+        assert isinstance(events[1], ms.Join)
+        assert events[1].i == 3
+        assert events[1].j == 1
+        assert math.isclose(events[1].t, T0 / (4 * N0))
+
+        graph2 = demes.from_ms(
+            cmd, N0=N0, deme_names=[deme.name for deme in graph1.demes]
+        )
+        graph2.assert_close(graph1)
+
+    @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
+    def test_pulse_order(self):
+        N0 = 100
+        T0 = 50
+        b = demes.Builder()
+        b.add_deme("a", epochs=[dict(start_size=N0)])
+        b.add_deme("b", epochs=[dict(start_size=N0)])
+        b.add_deme("c", epochs=[dict(start_size=N0)])
+        b.add_pulse(source="a", dest="b", time=T0, proportion=0.1)
+        b.add_pulse(source="b", dest="c", time=T0, proportion=0.1)
+        graph1 = b.resolve()
+        cmd = demes.to_ms(graph1, N0=N0)
+
+        structure, events = self.parse_command(cmd)
+        assert structure.npop == 3
+        assert structure.rate == 0
+        assert len(events) == 4
+        assert isinstance(events[0], ms.Split)
+        assert isinstance(events[1], ms.Join)
+        assert isinstance(events[2], ms.Split)
+        assert isinstance(events[3], ms.Join)
+
+        graph2 = demes.from_ms(
+            cmd, N0=N0, deme_names=[deme.name for deme in graph1.demes]
+        )
+        graph2.assert_close(graph1)
+
+        # Swap order of pulses, and confirm the output order gets swapped.
+        b.data["pulses"] = [b.data["pulses"][1], b.data["pulses"][0]]
+        graph1 = b.resolve()
+        cmd = demes.to_ms(graph1, N0=N0)
+        graph2 = demes.from_ms(
+            cmd, N0=N0, deme_names=[deme.name for deme in graph1.demes]
+        )
+        graph2.assert_close(graph1)
+
+    @pytest.mark.parametrize("num_demes", [2, 5, 10])
+    def test_isolation_with_migration(self, num_demes):
+        N0 = 100
+        mig_rate = 1e-3
+        b = demes.Builder()
+        deme_names = [f"d{j}" for j in range(num_demes)]
+        for j in range(num_demes):
+            b.add_deme(deme_names[j], epochs=[dict(start_size=N0)])
+        b.add_migration(demes=deme_names, rate=mig_rate)
+        graph1 = b.resolve()
+        cmd = demes.to_ms(graph1, N0=N0)
+        structure, events = self.parse_command(cmd)
+        assert structure.npop == num_demes
+        # One possible implemention:
+        # assert structure.rate == mig_rate / (4 * N0) / (num_demes - 1)
+
+        # There are many possible ways to specify migrations, and it's not so
+        # important which is implemented. So just check the from_ms round trip.
+        graph2 = demes.from_ms(
+            cmd, N0=N0, deme_names=[deme.name for deme in graph1.demes]
+        )
+        graph2.assert_close(graph1)
+
+    def test_migration_asymmetric(self):
+        N0 = 100
+        T0, T1 = 100, 200
+        mig_rate = 1e-3
+        b = demes.Builder()
+        b.add_deme("a", epochs=[dict(start_size=N0)])
+        b.add_deme("b", epochs=[dict(start_size=N0)])
+        b.add_migration(source="a", dest="b", rate=mig_rate, start_time=T1, end_time=T0)
+        graph1 = b.resolve()
+        cmd = demes.to_ms(graph1, N0=N0)
+        structure, events = self.parse_command(cmd)
+        assert structure.npop == 2
+        assert structure.rate == 0
+        assert len(events) == 2
+        # This is tied to the implementation, which outputs '-em' events.
+        assert isinstance(events[0], (ms.MigrationMatrixEntryChange))
+        assert math.isclose(events[0].t, T0 / (4 * N0))
+        assert math.isclose(events[0].rate, mig_rate * 4 * N0)
+        assert events[0].i == 2
+        assert events[0].j == 1
+        assert isinstance(events[1], (ms.MigrationMatrixEntryChange))
+        assert math.isclose(events[1].t, T1 / (4 * N0))
+        assert math.isclose(events[1].rate, 0)
+        assert events[1].i == 2
+        assert events[1].j == 1
+
+        graph2 = demes.from_ms(
+            cmd, N0=N0, deme_names=[deme.name for deme in graph1.demes]
+        )
+        graph2.assert_close(graph1)
+
+    def test_migrations_overlapping(self):
+        N0 = 100
+        T0a, T0b = 100, 200
+        T1a, T1b = 150, 250
+        M0, M1 = 1e-3, 1e-4
+        b = demes.Builder()
+        b.add_deme("a", epochs=[dict(start_size=N0)])
+        b.add_deme("b", epochs=[dict(start_size=N0)])
+        b.add_deme("c", epochs=[dict(start_size=N0)])
+        b.add_migration(source="a", dest="b", rate=M0, start_time=T0b, end_time=T0a)
+        b.add_migration(demes=["b", "c"], rate=M1, start_time=T1b, end_time=T1a)
+        graph1 = b.resolve()
+        cmd = demes.to_ms(graph1, N0=N0)
+        structure, events = self.parse_command(cmd)
+        assert structure.npop == 3
+        assert structure.rate == 0
+        assert len(events) == (1 + 2) * 2
+
+        graph2 = demes.from_ms(
+            cmd, N0=N0, deme_names=[deme.name for deme in graph1.demes]
+        )
+        graph2.assert_close(graph1)
+
+    def test_migrations_consecutive(self):
+        N0 = 100
+        T0, T1, T2 = 100, 200, 300
+        M0, M1 = 1e-3, 1e-4
+        b = demes.Builder()
+        b.add_deme("a", epochs=[dict(start_size=N0)])
+        b.add_deme("b", epochs=[dict(start_size=N0)])
+        b.add_migration(source="a", dest="b", rate=M0, start_time=T1, end_time=T0)
+        b.add_migration(demes=["a", "b"], rate=M1, start_time=T2, end_time=T1)
+        graph1 = b.resolve()
+        cmd = demes.to_ms(graph1, N0=N0)
+        structure, events = self.parse_command(cmd)
+        assert structure.npop == 2
+        assert structure.rate == 0
+        assert len(events) == (1 + 2) * 2
+
+        graph2 = demes.from_ms(
+            cmd, N0=N0, deme_names=[deme.name for deme in graph1.demes]
+        )
+        graph2.assert_close(graph1)
+
+    def test_size_function_unsupported(self):
+        N0, N1 = 100, 200
+        T0 = 100
+        b = demes.Builder()
+        b.add_deme(
+            "a",
+            epochs=[
+                dict(start_size=N0, end_time=T0),
+                dict(start_size=N0, end_size=N1, size_function="linear"),
+            ],
+        )
+        graph1 = b.resolve()
+        with pytest.raises(
+            ValueError, match="ms only supports constant or exponential"
+        ):
+            demes.to_ms(graph1, N0=N0)
