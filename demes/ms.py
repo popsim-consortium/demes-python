@@ -893,26 +893,33 @@ def from_ms(
     return graph
 
 
-def to_ms(graph: demes.Graph, *, N0) -> str:
+def to_ms(graph: demes.Graph, *, N0, samples=None) -> str:
     """
     Get ms command line arguments for the graph.
 
-    The sampling configuration in the returned string will need editing prior
-    to simulation. The order of deme IDs matches the order of demes in the graph.
+    The order of deme IDs matches the order of demes in the graph.
 
     :param float N0:
         The reference population size used to translate into coalescent units.
         See :func:`from_ms` for details.
+    :param list(int) samples:
+        Sampling scheme that will be used with the '-I' option. This is ignored
+        for graphs with only one deme. If not specified, the sampling
+        configuration in the returned string will need editing prior to
+        simulation.
     :return: The ms command line.
     :rtype: str
     """
     graph = graph.in_generations()
     cmd = []
     num_demes = len(graph.demes)
+    if samples is not None and len(samples) != num_demes:
+        raise ValueError("samples must match the number of demes in the graph")
     if num_demes > 1:
-        # Output a no-samples configuration. The user must edit this anyway,
-        # so if they blindly pass this to a simulator, it should complain.
-        samples = [0] * num_demes
+        if samples is None:
+            # Output a no-samples configuration. The user must edit this anyway,
+            # so if they blindly pass this to a simulator, it should complain.
+            samples = [0] * num_demes
         structure = Structure.from_nargs(num_demes, *samples)
         cmd.append(str(structure))
 

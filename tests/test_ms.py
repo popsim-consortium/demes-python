@@ -2154,3 +2154,19 @@ class TestToMs:
             ValueError, match="ms only supports constant or exponential"
         ):
             demes.to_ms(graph1, N0=N0)
+
+    def test_sample_configuration(self):
+        N0 = 100
+        b = demes.Builder()
+        b.add_deme("a", epochs=[dict(start_size=N0)])
+        b.add_deme("b", epochs=[dict(start_size=N0)])
+        graph = b.resolve()
+        demes.to_ms(graph, N0=N0, samples=[2, 0])
+        demes.to_ms(graph, N0=N0, samples=[1, 1])
+        demes.to_ms(graph, N0=N0, samples=[0, 2])
+
+        for bad_samples in ([], [2], [2, 2, 2]):
+            with pytest.raises(
+                ValueError, match="samples must match the number of demes"
+            ):
+                demes.to_ms(graph, N0=N0, samples=bad_samples)
