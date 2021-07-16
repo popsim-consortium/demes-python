@@ -70,3 +70,7 @@
 ```{eval-rst}
 .. autofunction:: demes.from_ms
 ```
+
+```{eval-rst}
+.. autofunction:: demes.to_ms
+```

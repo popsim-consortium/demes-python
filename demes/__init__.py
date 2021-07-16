@@ -28,7 +28,7 @@ from .load_dump import (
     dumps,
     dump_all,
 )
-from .ms import from_ms
+from .ms import from_ms, to_ms
 
 __all__ = [
     "Builder",
@@ -50,6 +50,7 @@ __all__ = [
     "dumps",
     "dump_all",
     "from_ms",
+    "to_ms",
 ]
 
 

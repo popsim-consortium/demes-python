@@ -147,7 +147,8 @@ class TestParseCommand:
             demes.dump_all(graphs, tmpfile1, simplified=simplified)
             assert filecmp.cmp(tmpfile1, tmpfile2)
 
-    def test_json_output_with_multiple_graphs_error(self):
+    @pytest.mark.parametrize("format_args", ["-j", "--ms 1"])
+    def test_nonyaml_output_with_multiple_graphs_error(self, format_args):
         b = demes.Builder()
         b.add_deme("A", epochs=[dict(start_size=100)])
         graphs = [b.resolve()]
@@ -157,6 +158,47 @@ class TestParseCommand:
             tmpfile1 = pathlib.Path(tmpdir) / "multidoc1.yaml"
             demes.dump_all(graphs, tmpfile1)
             with pytest.raises(RuntimeError):
-                cli(f"parse -j {tmpfile1}".split())
+                cli(f"parse {format_args} {tmpfile1}".split())
             # Release tmpfile1. Needed on Windows for some reason.
             gc.collect()
+
+    def test_ms_output_trivial(self):
+        b = demes.Builder()
+        b.add_deme("A", epochs=[dict(start_size=1)])
+        graph = b.resolve()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpfile = pathlib.Path(tmpdir) / "model.yaml"
+            demes.dump(graph, tmpfile)
+            out1 = subprocess.run(
+                f"python -m demes parse --ms 1 {tmpfile}".split(),
+                check=True,
+                stdout=subprocess.PIPE,
+                encoding="utf8",
+            )
+        # No output for constant size model with matching N0.
+        assert out1.stdout.strip() == ""
+
+    def test_ms_output_roundtrip(self):
+        # Not all models are round-trippable, but this one should be.
+        N0, N1 = 100, 200
+        T0 = 300
+        b = demes.Builder()
+        b.add_deme(
+            "deme1", epochs=[dict(start_size=N1, end_time=T0), dict(start_size=N0)]
+        )
+        b.add_deme(
+            "deme2", ancestors=["deme1"], start_time=T0, epochs=[dict(start_size=N0)]
+        )
+        graph1 = b.resolve()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpfile = pathlib.Path(tmpdir) / "model.yaml"
+            demes.dump(graph1, tmpfile)
+            out = subprocess.run(
+                f"python -m demes parse --ms {N0} {tmpfile}".split(),
+                check=True,
+                stdout=subprocess.PIPE,
+                encoding="utf8",
+            )
+        assert out.stdout.strip() != ""
+        graph2 = demes.from_ms(out.stdout, N0=N0)
+        graph2.assert_close(graph1)
