@@ -1230,7 +1230,7 @@ class Graph:
     # because we're using slotted classes and can't add attributes after
     # object creation (e.g. in __attrs_post_init__()).
     _deme_map: Dict[Name, Deme] = attr.ib(
-        factory=dict, init=False, repr=False, cmp=False
+        factory=dict, init=False, repr=False, eq=False, order=False
     )
 
     def __attrs_post_init__(self):
