@@ -2082,6 +2082,9 @@ class Graph:
             except (TypeError, ValueError) as e:
                 raise e.__class__(f"pulse[{i}]: invalid pulse") from e
 
+        # Sort pulses from oldest to youngest.
+        graph.pulses.sort(key=lambda pulse: pulse.time, reverse=True)
+
         return graph
 
     def asdict(self) -> MutableMapping[str, Any]:

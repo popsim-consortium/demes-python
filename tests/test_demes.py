@@ -3072,6 +3072,54 @@ class TestGraphResolution:
         b.add_pulse(source="c", dest="a", time=100, proportion=0.6)
         b.resolve()
 
+    @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
+    def test_pulse_order(self):
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a")
+        b.add_deme("b")
+        b.add_deme("c")
+
+        # Pulses defined in oldest-to-youngest order have order maintained.
+        b.data["pulses"] = []
+        b.add_pulse(source="a", dest="b", time=200, proportion=0.1)
+        b.add_pulse(source="b", dest="c", time=100, proportion=0.1)
+        g = b.resolve()
+        assert g.pulses[0].source == "a"
+        assert g.pulses[0].dest == "b"
+        assert g.pulses[1].source == "b"
+        assert g.pulses[1].dest == "c"
+
+        # Pulses defined out of order will be sorted oldest-to-youngest.
+        b.data["pulses"] = []
+        b.add_pulse(source="b", dest="c", time=100, proportion=0.1)
+        b.add_pulse(source="a", dest="b", time=200, proportion=0.1)
+        g = b.resolve()
+        assert g.pulses[0].source == "a"
+        assert g.pulses[0].dest == "b"
+        assert g.pulses[1].source == "b"
+        assert g.pulses[1].dest == "c"
+
+        # Simultaneous pulses should be ordered as they were defined.
+        b.data["pulses"] = []
+        b.add_pulse(source="a", dest="b", time=100, proportion=0.1)
+        b.add_pulse(source="b", dest="c", time=100, proportion=0.1)
+        g = b.resolve()
+        assert g.pulses[0].source == "a"
+        assert g.pulses[0].dest == "b"
+        assert g.pulses[1].source == "b"
+        assert g.pulses[1].dest == "c"
+
+        # Reverse the order of simultaneous pulses, to check it's no accident.
+        # The order should still match the definitions.
+        b.data["pulses"] = []
+        b.add_pulse(source="b", dest="c", time=100, proportion=0.1)
+        b.add_pulse(source="a", dest="b", time=100, proportion=0.1)
+        g = b.resolve()
+        assert g.pulses[0].source == "b"
+        assert g.pulses[0].dest == "c"
+        assert g.pulses[1].source == "a"
+        assert g.pulses[1].dest == "b"
+
     def test_toplevel_defaults_deme(self):
         # description
         b = Builder(defaults=dict(deme=dict(description="Demey MacDemeFace")))
@@ -3254,7 +3302,7 @@ class TestGraphResolution:
             b.add_deme(name, epochs=[dict(start_size=1)])
         for name in "bcd":
             b.add_pulse(dest=name, proportion=0.1, time=100)
-        b.add_pulse(source="d", dest="a", proportion=0.2, time=200)
+        b.add_pulse(source="d", dest="a", proportion=0.2, time=50)
         g = b.resolve()
         assert g.pulses[0].source == g.pulses[1].source == g.pulses[2].source == "a"
         assert g.pulses[3].source == "d"
@@ -3265,7 +3313,7 @@ class TestGraphResolution:
             b.add_deme(name, epochs=[dict(start_size=1)])
         for name in "bcd":
             b.add_pulse(source=name, proportion=0.1, time=100)
-        b.add_pulse(dest="d", source="a", proportion=0.2, time=200)
+        b.add_pulse(dest="d", source="a", proportion=0.2, time=50)
         g = b.resolve()
         assert g.pulses[0].dest == g.pulses[1].dest == g.pulses[2].dest == "a"
         assert g.pulses[3].dest == "d"
