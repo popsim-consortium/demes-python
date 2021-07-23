@@ -2041,6 +2041,24 @@ class TestGraph:
         g2 = b2.resolve()
         assert not g1.isclose(g2)
 
+    @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
+    def test_isclose_pulse_ordering(self):
+        b1 = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b1.add_deme("a")
+        b1.add_deme("b")
+        b1.add_deme("c")
+
+        # Order of pulses matters for simultaneous pulses.
+        b2 = copy.deepcopy(b1)
+        b2.add_pulse(source="a", dest="b", time=100, proportion=0.1)
+        b2.add_pulse(source="b", dest="c", time=100, proportion=0.1)
+        g2 = b2.resolve()
+        b3 = copy.deepcopy(b1)
+        b3.add_pulse(source="b", dest="c", time=100, proportion=0.1)
+        b3.add_pulse(source="a", dest="b", time=100, proportion=0.1)
+        g3 = b3.resolve()
+        assert not g2.isclose(g3)
+
     def test_successors_predecessors(self):
         # single population
         b = Builder()

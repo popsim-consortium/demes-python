@@ -1289,7 +1289,6 @@ class Graph:
 
             - The graphs' ``description`` and ``doi`` attributes.
             - The order in which ``migrations`` were specified.
-            - The order in which admixture ``pulses`` were specified.
             - The order in which ``demes`` were specified.
             - The order in which a deme's ``ancestors`` were specified.
 
@@ -1329,13 +1328,12 @@ class Graph:
             abs_tol=abs_tol,
             name="migrations",
         )
-        assert_sorted_eq(
-            self.pulses,
-            other.pulses,
-            rel_tol=rel_tol,
-            abs_tol=abs_tol,
-            name="pulses",
-        )
+        assert len(self.pulses) == len(other.pulses)
+        for i, (self_pulse, other_pulse) in enumerate(zip(self.pulses, other.pulses)):
+            try:
+                self_pulse.assert_close(other_pulse, rel_tol=rel_tol, abs_tol=abs_tol)
+            except AssertionError as e:
+                raise AssertionError(f"Failed for pulses (number {i})") from e
 
     def isclose(
         self,
@@ -1353,7 +1351,6 @@ class Graph:
 
             - The graphs' ``description`` and ``doi`` attributes.
             - The order in which ``migrations`` were specified.
-            - The order in which admixture ``pulses`` were specified.
             - The order in which ``demes`` were specified.
             - The order in which a deme's ``ancestors`` were specified.
 
