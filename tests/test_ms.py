@@ -31,7 +31,6 @@ def N_ref_macs(*, theta, mu):
 class TestFromMs:
     def test_ignored_options_have_no_effect(self):
         def check(command, N0=1):
-            # with pytest.warns(UserWarning, match="Ignoring unknown args"):
             graph = demes.from_ms(command, N0=N0)
             assert len(graph.pulses) == 0
             assert len(graph.migrations) == 0

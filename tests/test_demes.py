@@ -2041,6 +2041,24 @@ class TestGraph:
         g2 = b2.resolve()
         assert not g1.isclose(g2)
 
+    @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
+    def test_isclose_pulse_ordering(self):
+        b1 = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b1.add_deme("a")
+        b1.add_deme("b")
+        b1.add_deme("c")
+
+        # Order of pulses matters for simultaneous pulses.
+        b2 = copy.deepcopy(b1)
+        b2.add_pulse(source="a", dest="b", time=100, proportion=0.1)
+        b2.add_pulse(source="b", dest="c", time=100, proportion=0.1)
+        g2 = b2.resolve()
+        b3 = copy.deepcopy(b1)
+        b3.add_pulse(source="b", dest="c", time=100, proportion=0.1)
+        b3.add_pulse(source="a", dest="b", time=100, proportion=0.1)
+        g3 = b3.resolve()
+        assert not g2.isclose(g3)
+
     def test_successors_predecessors(self):
         # single population
         b = Builder()
@@ -3002,7 +3020,7 @@ class TestGraphResolution:
         with pytest.raises(ValueError):
             b2.resolve()
 
-    def test_pulse_same_time(self):
+    def test_simultaneous_pulses_warning(self):
         b1 = Builder()
         for j in range(4):
             b1.add_deme(f"d{j}", epochs=[dict(start_size=1000)])
@@ -3013,65 +3031,112 @@ class TestGraphResolution:
         b2 = copy.deepcopy(b1)
         b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
         b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
-        with pytest.warns(UserWarning):
+        with pytest.warns(UserWarning, match="Multiple pulses.*same.*time"):
             b2.resolve()
 
         # Warn for: d0 -> d1; d1 -> d2.
         b2 = copy.deepcopy(b1)
         b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
         b2.add_pulse(source="d1", dest="d2", time=T, proportion=0.1)
-        with pytest.warns(UserWarning):
+        with pytest.warns(UserWarning, match="Multiple pulses.*same.*time"):
             b2.resolve()
 
         # Warn for: d0 -> d2; d1 -> d2.
         b2 = copy.deepcopy(b1)
         b2.add_pulse(source="d0", dest="d2", time=T, proportion=0.1)
         b2.add_pulse(source="d1", dest="d2", time=T, proportion=0.1)
-        with pytest.warns(UserWarning):
+        with pytest.warns(UserWarning, match="Multiple pulses.*same.*time"):
             b2.resolve()
+
+    @pytest.mark.filterwarnings("error:Multiple pulses.*same.*time")
+    def test_unrelated_pulses_no_warning(self):
+        b1 = Builder()
+        for j in range(4):
+            b1.add_deme(f"d{j}", epochs=[dict(start_size=1000)])
+
+        T = 100  # time of pulses
 
         # Shouldn't warn for: d0 -> d1; d0 -> d2.
         b2 = copy.deepcopy(b1)
         b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
         b2.add_pulse(source="d0", dest="d2", time=T, proportion=0.1)
-        with pytest.warns(None) as record:
-            b2.resolve()
-        assert len(record) == 0
+        b2.resolve()
 
         # Shouldn't warn for: d0 -> d1; d2 -> d3.
         b2 = copy.deepcopy(b1)
         b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
         b2.add_pulse(source="d2", dest="d3", time=T, proportion=0.1)
-        with pytest.warns(None) as record:
-            b2.resolve()
-        assert len(record) == 0
+        b2.resolve()
 
         # Different pulse times shouldn't warn for: d0 -> d1; d1 -> d2.
         b2 = copy.deepcopy(b1)
         b2.add_pulse(source="d0", dest="d1", time=T, proportion=0.1)
         b2.add_pulse(source="d1", dest="d2", time=2 * T, proportion=0.1)
-        with pytest.warns(None) as record:
-            b2.resolve()
-        assert len(record) == 0
+        b2.resolve()
 
         # Different pulse times shouldn't warn for: d0 -> d2; d1 -> d2.
         b2 = copy.deepcopy(b1)
         b2.add_pulse(source="d0", dest="d2", time=T, proportion=0.1)
         b2.add_pulse(source="d1", dest="d2", time=2 * T, proportion=0.1)
-        with pytest.warns(None) as record:
-            b2.resolve()
-        assert len(record) == 0
+        b2.resolve()
 
-    def test_pulse_proportions_sum(self):
+    @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
+    def test_pulse_proportions_sum_greater_than_one(self):
         b = Builder(defaults=dict(epoch=dict(start_size=1)))
         b.add_deme("a")
         b.add_deme("b")
         b.add_deme("c")
         b.add_pulse(source="b", dest="a", time=100, proportion=0.6)
         b.add_pulse(source="c", dest="a", time=100, proportion=0.6)
-        with pytest.warns(UserWarning):
-            with pytest.raises(ValueError):
-                b.resolve()
+        b.resolve()
+
+    @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
+    def test_pulse_order(self):
+        b = Builder(defaults=dict(epoch=dict(start_size=1)))
+        b.add_deme("a")
+        b.add_deme("b")
+        b.add_deme("c")
+
+        # Pulses defined in oldest-to-youngest order have order maintained.
+        b.data["pulses"] = []
+        b.add_pulse(source="a", dest="b", time=200, proportion=0.1)
+        b.add_pulse(source="b", dest="c", time=100, proportion=0.1)
+        g = b.resolve()
+        assert g.pulses[0].source == "a"
+        assert g.pulses[0].dest == "b"
+        assert g.pulses[1].source == "b"
+        assert g.pulses[1].dest == "c"
+
+        # Pulses defined out of order will be sorted oldest-to-youngest.
+        b.data["pulses"] = []
+        b.add_pulse(source="b", dest="c", time=100, proportion=0.1)
+        b.add_pulse(source="a", dest="b", time=200, proportion=0.1)
+        g = b.resolve()
+        assert g.pulses[0].source == "a"
+        assert g.pulses[0].dest == "b"
+        assert g.pulses[1].source == "b"
+        assert g.pulses[1].dest == "c"
+
+        # Simultaneous pulses should be ordered as they were defined.
+        b.data["pulses"] = []
+        b.add_pulse(source="a", dest="b", time=100, proportion=0.1)
+        b.add_pulse(source="b", dest="c", time=100, proportion=0.1)
+        g = b.resolve()
+        assert g.pulses[0].source == "a"
+        assert g.pulses[0].dest == "b"
+        assert g.pulses[1].source == "b"
+        assert g.pulses[1].dest == "c"
+
+        # Reverse the order of simultaneous pulses, to check it's no accident.
+        # The order should still match the definitions.
+        b.data["pulses"] = []
+        b.add_pulse(source="b", dest="c", time=100, proportion=0.1)
+        b.add_pulse(source="a", dest="b", time=100, proportion=0.1)
+        g = b.resolve()
+        assert g.pulses[0].source == "b"
+        assert g.pulses[0].dest == "c"
+        assert g.pulses[1].source == "a"
+        assert g.pulses[1].dest == "b"
 
     def test_toplevel_defaults_deme(self):
         # description
@@ -3247,6 +3312,7 @@ class TestGraphResolution:
         assert g.migrations[8].source == "x"
         assert g.migrations[8].dest == "y"
 
+    @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
     def test_toplevel_defaults_pulse(self):
         # source
         b = Builder(defaults=dict(pulse=dict(source="a")))
@@ -3254,7 +3320,7 @@ class TestGraphResolution:
             b.add_deme(name, epochs=[dict(start_size=1)])
         for name in "bcd":
             b.add_pulse(dest=name, proportion=0.1, time=100)
-        b.add_pulse(source="d", dest="a", proportion=0.2, time=200)
+        b.add_pulse(source="d", dest="a", proportion=0.2, time=50)
         g = b.resolve()
         assert g.pulses[0].source == g.pulses[1].source == g.pulses[2].source == "a"
         assert g.pulses[3].source == "d"
@@ -3265,9 +3331,8 @@ class TestGraphResolution:
             b.add_deme(name, epochs=[dict(start_size=1)])
         for name in "bcd":
             b.add_pulse(source=name, proportion=0.1, time=100)
-        b.add_pulse(dest="d", source="a", proportion=0.2, time=200)
-        with pytest.warns(UserWarning):
-            g = b.resolve()
+        b.add_pulse(dest="d", source="a", proportion=0.2, time=50)
+        g = b.resolve()
         assert g.pulses[0].dest == g.pulses[1].dest == g.pulses[2].dest == "a"
         assert g.pulses[3].dest == "d"
 

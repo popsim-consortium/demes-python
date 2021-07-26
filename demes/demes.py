@@ -1230,7 +1230,7 @@ class Graph:
     # because we're using slotted classes and can't add attributes after
     # object creation (e.g. in __attrs_post_init__()).
     _deme_map: Dict[Name, Deme] = attr.ib(
-        factory=dict, init=False, repr=False, cmp=False
+        factory=dict, init=False, repr=False, eq=False, order=False
     )
 
     def __attrs_post_init__(self):
@@ -1289,7 +1289,6 @@ class Graph:
 
             - The graphs' ``description`` and ``doi`` attributes.
             - The order in which ``migrations`` were specified.
-            - The order in which admixture ``pulses`` were specified.
             - The order in which ``demes`` were specified.
             - The order in which a deme's ``ancestors`` were specified.
 
@@ -1329,13 +1328,12 @@ class Graph:
             abs_tol=abs_tol,
             name="migrations",
         )
-        assert_sorted_eq(
-            self.pulses,
-            other.pulses,
-            rel_tol=rel_tol,
-            abs_tol=abs_tol,
-            name="pulses",
-        )
+        assert len(self.pulses) == len(other.pulses)
+        for i, (self_pulse, other_pulse) in enumerate(zip(self.pulses, other.pulses)):
+            try:
+                self_pulse.assert_close(other_pulse, rel_tol=rel_tol, abs_tol=abs_tol)
+            except AssertionError as e:
+                raise AssertionError(f"Failed for pulses (number {i})") from e
 
     def isclose(
         self,
@@ -1353,7 +1351,6 @@ class Graph:
 
             - The graphs' ``description`` and ``doi`` attributes.
             - The order in which ``migrations`` were specified.
-            - The order in which admixture ``pulses`` were specified.
             - The order in which ``demes`` were specified.
             - The order in which a deme's ``ancestors`` were specified.
 
@@ -1615,17 +1612,6 @@ class Graph:
                 "To avoid unexpected behaviour, the graph can instead "
                 "be structured to introduce a new deme at this time with "
                 "the desired ancestry proportions."
-            )
-
-        # Check for multiple pulses into dest at the same time that
-        # give a sum of proportions > 1.
-        proportion_sum = proportion
-        for pulse in self.pulses:
-            if dest == pulse.dest and pulse.time == time:
-                proportion_sum += pulse.proportion
-        if proportion_sum > 1:
-            raise ValueError(
-                f"sum of pulse proportions > 1 for dest={dest} at time={time}"
             )
 
         self.pulses.append(new_pulse)
@@ -2092,6 +2078,9 @@ class Graph:
                 )
             except (TypeError, ValueError) as e:
                 raise e.__class__(f"pulse[{i}]: invalid pulse") from e
+
+        # Sort pulses from oldest to youngest.
+        graph.pulses.sort(key=lambda pulse: pulse.time, reverse=True)
 
         return graph
 
