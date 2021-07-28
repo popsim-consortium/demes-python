@@ -33,7 +33,7 @@ migrations:
   - demes: [offshoot1, offshoot2]
     rate: 2e-5
 pulses:
-  - source: offshoot1
+  - sources: [offshoot1]
     dest: ancestral
-    proportion: 0.1
+    proportions: [0.1]
     time: 50

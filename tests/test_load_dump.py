@@ -140,25 +140,25 @@ def jacobs_papuans():
         demes=["Ghost3", "Eurasia"], rate=4.42e-4, start_time=T_Eu_bottleneck
     )
 
-    b.add_pulse(source="NeaI", dest="EastAsia", proportion=0.002, time=883)
-    b.add_pulse(source="NeaI", dest="Papua", proportion=0.002, time=1412)
-    b.add_pulse(source="NeaI", dest="Eurasia", proportion=0.011, time=1566)
-    b.add_pulse(source="NeaI", dest="Ghost1", proportion=0.024, time=1853)
+    b.add_pulse(sources=["NeaI"], dest="EastAsia", proportions=[0.002], time=883)
+    b.add_pulse(sources=["NeaI"], dest="Papua", proportions=[0.002], time=1412)
+    b.add_pulse(sources=["NeaI"], dest="Eurasia", proportions=[0.011], time=1566)
+    b.add_pulse(sources=["NeaI"], dest="Ghost1", proportions=[0.024], time=1853)
 
     m_Den_Papuan = 0.04
     p = 0.55  # S10.i p. 31
     T_Den1_Papuan_mig = 29.8e3 / generation_time
     T_Den2_Papuan_mig = 45.7e3 / generation_time
     b.add_pulse(
-        source="DenI1",
+        sources=["DenI1"],
         dest="Papua",
-        proportion=p * m_Den_Papuan,
+        proportions=[p * m_Den_Papuan],
         time=T_Den1_Papuan_mig,
     )
     b.add_pulse(
-        source="DenI2",
+        sources=["DenI2"],
         dest="Papua",
-        proportion=(1 - p) * m_Den_Papuan,
+        proportions=[(1 - p) * m_Den_Papuan],
         time=T_Den2_Papuan_mig,
     )
 
@@ -275,8 +275,8 @@ class TestLoadAndDump:
             assert f"{deme.name}" in string
         assert "pulses" in string
         for pulse in g.pulses:
-            assert "source" in string
-            assert pulse.source in string
+            assert "sources" in string
+            assert pulse.sources[0] in string
             assert "dest" in string
             assert pulse.dest in string
         assert "migrations" in string
@@ -565,10 +565,10 @@ class TestLoadAndDump:
         self.check_dump_load_roundtrip(b.resolve())
 
         b.add_pulse(
-            source="A",
+            sources=["A"],
             dest="B",
             time=T[1],
-            proportion=decimal.Decimal("0.0022"),
+            proportions=[decimal.Decimal("0.0022")],
         )
         self.check_dump_load_roundtrip(b.resolve())
 

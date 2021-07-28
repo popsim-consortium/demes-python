@@ -778,10 +778,10 @@ def build_graph(args, N0: float) -> demes.Graph:
                 # The order of pulses will later be reversed such that realised
                 # ancestry proportions are maintained forwards in time.
                 b.add_pulse(
-                    source=f"deme{k + 1}",
+                    sources=[f"deme{k + 1}"],
                     dest=f"deme{j + 1}",
                     time=time,
-                    proportion=p,
+                    proportions=[p],
                 )
 
     # Resolve/remove growth_rate in oldest epochs.
@@ -830,7 +830,7 @@ def remap_deme_names(graph: demes.Graph, names: Mapping[str, str]) -> demes.Grap
         migration.source = names[migration.source]
         migration.dest = names[migration.dest]
     for pulse in graph.pulses:
-        pulse.source = names[pulse.source]
+        pulse.sources = [names[s] for s in pulse.sources]
         pulse.dest = names[pulse.dest]
     for k, deme in list(graph._deme_map.items()):
         del graph._deme_map[k]
@@ -989,8 +989,12 @@ def to_ms(graph: demes.Graph, *, N0, samples=None) -> str:
             pulse = deme_or_pulse
             num_demes += 1
             new_deme_id = num_demes
-            e1 = Split(pulse.time, deme_id[pulse.dest], 1 - pulse.proportion)
-            e2 = Join(pulse.time, new_deme_id, deme_id[pulse.source])
+            if len(pulse.sources) > 1:
+                raise ValueError(
+                    "Currently pulses with only a single source are supported"
+                )
+            e1 = Split(pulse.time, deme_id[pulse.dest], 1 - pulse.proportions[0])
+            e2 = Join(pulse.time, new_deme_id, deme_id[pulse.sources[0]])
             events.extend([e1, e2])
 
     # Turn migrations off at the start_time. We schedule all start_time

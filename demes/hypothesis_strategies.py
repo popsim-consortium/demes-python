@@ -315,10 +315,10 @@ def pulses_lists(draw, graph, max_pulses=10):
                 )
                 ingress_proportions[(dest, time)] += proportion
                 pulse = dict(
-                    source=source,
+                    sources=[source],
                     dest=dest,
                     time=time,
-                    proportion=proportion,
+                    proportions=[proportion],
                 )
                 pulses.append(pulse)
                 n_pulses -= 1
