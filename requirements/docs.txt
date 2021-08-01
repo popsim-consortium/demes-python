@@ -1,4 +1,4 @@
 jupyter-book==0.10.2
-sphinx==3.5.4
+sphinx==4.1.2
 sphinx_issues==1.2.0
 sphinxcontrib-programoutput==0.17
