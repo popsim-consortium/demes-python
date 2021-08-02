@@ -19,7 +19,7 @@ import tests
 def jacobs_papuans():
     """
     XXX: This model is for testing only and has not been vetted for accuracy!
-         Use examples/jacobs_papuans.yml, or the PapuansOutOfAfrica_10J19 model
+         Use examples/jacobs_papuans.yaml, or the PapuansOutOfAfrica_10J19 model
          from stdpopsim instead.
     """
     generation_time = 29
@@ -167,8 +167,7 @@ def jacobs_papuans():
 
 class TestLoadAndDump:
     def test_bad_format_param(self):
-        examples_path = pathlib.Path(__file__).parent.parent / "examples"
-        ex = next(examples_path.glob("*.yml"))
+        ex = tests.example_files()[0]
         with open(ex) as f:
             ex_string = f.read()
 
@@ -295,14 +294,14 @@ class TestLoadAndDump:
         g = jacobs_papuans()
         dumps_str = demes.dumps(g, format=format, simplified=simplified)
         with tempfile.TemporaryDirectory() as tmpdir:
-            tmpfile1 = pathlib.Path(tmpdir) / "temp1.yml"
+            tmpfile1 = pathlib.Path(tmpdir) / "temp1.yaml"
             # tmpfile is os.PathLike
             demes.dump(g, tmpfile1, format=format, simplified=simplified)
             with open(tmpfile1) as f:
                 yaml_str1 = f.read()
             assert yaml_str1 == dumps_str
 
-            tmpfile2 = pathlib.Path(tmpdir) / "temp2.yml"
+            tmpfile2 = pathlib.Path(tmpdir) / "temp2.yaml"
             # tmpfile is str
             demes.dump(g, str(tmpfile2), format=format, simplified=simplified)
             with open(tmpfile2) as f:
@@ -442,7 +441,7 @@ class TestLoadAndDump:
     def test_examples_load_dump_load(self, yaml_file, format, simplified):
         g1 = demes.load(yaml_file, format="yaml")
         with tempfile.TemporaryDirectory() as tmpdir:
-            tmpfile = pathlib.Path(tmpdir) / "temp.yml"
+            tmpfile = pathlib.Path(tmpdir) / "temp.yaml"
             # dump and load files
             demes.dump(g1, tmpfile, format=format, simplified=simplified)
             g2 = demes.load(tmpfile, format=format)

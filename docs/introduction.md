@@ -1,18 +1,37 @@
+---
+jupytext:
+  formats: md:myst
+  text_representation:
+    extension: .md
+    format_name: myst
+kernelspec:
+  display_name: Python 3
+  language: python
+  name: python3
+---
+
+```{code-cell}
+:tags: [remove-cell]
+import matplotlib.pyplot  # needed to get svg support for some reason
+from IPython.display import set_matplotlib_formats
+
+set_matplotlib_formats("svg")
+```
+
 (sec_introduction)=
 
 # Introduction
 
-[git_repo]: https://github.com/popsim-consortium/demes-python
+The `demes` Python package provides an API for defining, parsing, and sharing
+[Demes](spec:sec_intro) demographic models. Applications can use
+`demes` to parse human-readable [Demes YAML files](spec:sec_tutorial)
+into fully-resolved demographic models. In addition, `demes` provides
+convenient data structures to simplify manipulation of demographic models.
+If you find an error in the documentation or a bug in the software,
+please head to our
+[git repository](https://github.com/popsim-consortium/demes-python)
+to report an issue or open a pull request.
 
-```{note}
-`Demes` is a work-in-progress, as is its documentation. If you find an error
-in the documentation or a bug in the software, or would like to help, please
-head our [git repository][git_repo] to open
-an issue or start a pull request.
-```
-
-Welcome to the documentation for `Demes`, a package for defining, parsing, and
-sharing demographic models for population genetic simulations.
 
 ## Motivation
 
@@ -20,35 +39,35 @@ Simulation is central to population genetics studies, and there are many great
 software packages out there for simulating sequencing data or computing expectations of
 diversity statistics under a wide range of demographic scenarios. This requires
 writing a formal description of the demographic model. Generally, each
-simulation software has its own syntax and style for defining the demography -
-learning curves for new software can be steep and mistakes are easy to make,
+simulation software has its own syntax and style for defining the demography.
+Learning curves for new software can be steep and mistakes are easy to make,
 especially for complex demographic scenarios.
 
-`Demes` aims to make defining demographic models more intuitive, less prone
-to error or ambiguity, and interchangeable between simulation platforms.
-Demographic models, which define populations (or _demes_), their properties, and
-relationships between them, are written in [YAML](https://yaml.org/). This means
-that models are human-readable, and that they may then be parsed and passed to any
-simulation engine that supports `demes` input.
+The [Demes Specification](spec:sec_intro) aims to make defining demographic
+models more intuitive, less prone to error or ambiguity, and readily
+interchangeable between simulation platforms.
+Demographic models, which define populations (or _demes_), their properties,
+and relationships between them, are by convention written as a
+[YAML](https://www.yaml.info/learn/index.html) file.
 
-For example, the following YAML file implements a simple two-epoch demographic
-history for a single deme, where the deme doubles in size 100 generations ago:
+## Example
 
-```{literalinclude} ../examples/two_epoch.yml
+The following YAML file implements a two-epoch demographic
+history for a single deme, where the deme doubles in size 100 generations ago.
+See the [Demes tutorial](spec:sec_tutorial) for a detailed introduction to
+writing Demes YAML files.
+
+```{literalinclude} ../examples/two_epoch.yaml
 :language: yaml
 ```
 
-The [Demes Specification](spec:sec_intro)
-documents in detail the components of a YAML demographic model and how to
-write more complex scenarios. Illustrative examples can be found in the
-[Gallery](spec:sec_gallery).
+The YAML file can be loaded using `demes`, and then visually inspected using
+the [`demesdraw`](https://github.com/grahamgower/demesdraw) Python package.
 
-## Getting started
+```{code-cell}
+import demes
+import demesdraw
 
-Install the `demes` python package using `pip`.
-
-```sh
-python -m pip install demes
+graph = demes.load("../examples/two_epoch.yaml")
+demesdraw.tubes(graph, inf_ratio=0.4);
 ```
-
-Then head over to the {ref}`Quickstart <sec_quickstart>` documentation.

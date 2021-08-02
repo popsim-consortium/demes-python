@@ -102,7 +102,7 @@ def validate_item(name, value, required_type, scope):
         )
 
 
-# We need to use this trick because None is a meaninful input value for these
+# We need to use this trick because None is a meaningful input value for these
 # pop_x functions.
 NO_DEFAULT = object()
 
@@ -238,9 +238,9 @@ class Epoch:
 
         :param other: The epoch to compare against.
         :type other: :class:`.Epoch`
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -290,9 +290,9 @@ class Epoch:
 
         :param other: The epoch to compare against.
         :type other: :class:`.Epoch`
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -351,9 +351,9 @@ class AsymmetricMigration:
         ``source``, ``dest``, ``start_time``, ``end_time``, ``rate``.
 
         :param AsymmetricMigration other: The migration to compare against.
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -385,9 +385,9 @@ class AsymmetricMigration:
         For more information see :meth:`assert_close`.
 
         :param AsymmetricMigration other: The migration to compare against.
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -466,9 +466,9 @@ class Pulse:
 
         :param other: The pulse to compare against.
         :type other: :class:`.Pulse`
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -512,9 +512,9 @@ class Pulse:
 
         :param other: The pulse to compare against.
         :type other: :class:`.Pulse`
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -580,9 +580,9 @@ class Split:
 
         :param other: The split to compare against.
         :type other: :class:`.Split`
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -611,9 +611,9 @@ class Split:
 
         :param other: The split to compare against.
         :type other: :class:`.Split`
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -664,9 +664,9 @@ class Branch:
 
         :param other: The branch to compare against.
         :type other: :class:`.Branch`
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -693,9 +693,9 @@ class Branch:
 
         :param other: The branch to compare against.
         :type other: :class:`.Branch`
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -774,9 +774,9 @@ class Merge:
 
         :param other: The merge to compare against.
         :type other: :class:`.Merge`
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -814,9 +814,9 @@ class Merge:
 
         :param other: The merge to compare against.
         :type other: :class:`.Merge`
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -895,9 +895,9 @@ class Admix:
 
         :param other: The admixture to compare against.
         :type other: :class:`.Admix`
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -938,9 +938,9 @@ class Admix:
 
         :param other: The admixture to compare against.
         :type other: :class:`.Admix`
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -960,7 +960,7 @@ class Deme:
     """
     A collection of individuals that have a common set of population parameters.
 
-    :ivar str name: A conscise string that identifies the deme.
+    :ivar str name: A concise string that identifies the deme.
     :ivar str description: A description of the deme. May be ``None``.
     :ivar float start_time: The time at which the deme begins to exist.
     :ivar list[str] ancestors: List of deme names for the deme's ancestors.
@@ -1103,9 +1103,9 @@ class Deme:
 
         :param other: The deme to compare against.
         :type other: :class:`.Deme`
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -1148,9 +1148,9 @@ class Deme:
 
         :param other: The deme to compare against.
         :type other: :class:`.Deme`
-        :param ret_tol: The relative tolerance permitted for numerical
+        :param rel_tol: The relative tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`
-        :type ret_tol: float
+        :type rel_tol: float
         :param abs_tol: The absolute tolerance permitted for numerical
                         comparisons. See documentation for :func:`math.isclose`.
         :type abs_tol: float
@@ -1280,7 +1280,7 @@ class Graph:
 
         .. code::
 
-            graph = demes.load("gutenkunst_ooa.yml")
+            graph = demes.load("gutenkunst_ooa.yaml")
             yri = graph["YRI"]
             print(yri)
 
@@ -1296,7 +1296,7 @@ class Graph:
 
         .. code::
 
-            graph = demes.load("gutenkunst_ooa.yml")
+            graph = demes.load("gutenkunst_ooa.yaml")
             if "CHB" in graph:
                 print("Deme CHB is in the graph")
 
@@ -1687,7 +1687,7 @@ class Graph:
 
         .. code::
 
-            graph = demes.load("gutenkunst_ooa.yml")
+            graph = demes.load("gutenkunst_ooa.yaml")
             mm_list, end_times = graph.migration_matrices()
             start_times = [math.inf] + end_times[:-1]
             assert len(mm_list) == len(end_times) == len(start_times)
@@ -1903,7 +1903,7 @@ class Graph:
     @classmethod
     def fromdict(cls, data: MutableMapping[str, Any]) -> "Graph":
         """
-        Return a graph from a dict representation. The inverse of asdict().
+        Return a graph from a dict representation. The inverse of :meth:`.asdict`.
         """
         if not isinstance(data, MutableMapping):
             raise TypeError("data is not a dictionary")

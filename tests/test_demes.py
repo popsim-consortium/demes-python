@@ -2756,7 +2756,7 @@ class TestGraphResolution:
         with pytest.raises(ValueError):
             b2.resolve()
 
-        # Check that end_time can be ommitted for final epoch
+        # Check that end_time can be omitted for final epoch
         b2 = copy.deepcopy(b1)
         b2.add_deme("x", start_time=100, ancestors=["a"], epochs=[dict(start_size=100)])
         b2.add_deme("y", epochs=[dict(start_size=100)])
@@ -3656,7 +3656,7 @@ class TestGraphResolution:
         assert g["e"].epochs[3].size_function == "exponential"
 
     # Test demelevel epoch defaults, including overrides.
-    # Comared with the test_toplevel_defaults_epoch() method, these tests
+    # Compared with the test_toplevel_defaults_epoch() method, these tests
     # consider only the cases where there are no toplevel epoch defaults.
     def test_demelevel_defaults_epoch(self):
         # start_size

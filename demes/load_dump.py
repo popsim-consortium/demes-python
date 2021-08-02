@@ -30,7 +30,7 @@ def _open_file_polymorph(polymorph, mode="r"):
 # cases that have been fixed in YAML v1.2. A fork of pyaml, ruamel.yaml,
 # does support YAML v1.2, and introduces a new API for parsing/emitting
 # with additional features and desirable behaviour.
-# However, neither pyyaml nor ruamel gaurantee API stability, and neither
+# However, neither pyyaml nor ruamel guarantee API stability, and neither
 # provide complete reference documentation for their APIs.
 # The YAML code in demes is limited to the following two functions,
 # which are hopefully simple enough to not suffer from API instability.
@@ -48,7 +48,7 @@ def _dump_yaml_fromdict(data, fp, multidoc=False) -> None:
     :param bool multidoc: If True, output the YAML document start line ``---``,
         and document end line ``...``, which indicate the beginning and end of
         a YAML document respectively. The start indicator is needed when
-        outputing multiple YAML documents to a single file (or file stream).
+        outputting multiple YAML documents to a single file (or file stream).
         The end indicator is not strictly needed, but may be desirable
         depending on the underlying communication channel.
     """

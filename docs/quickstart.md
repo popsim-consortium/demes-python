@@ -10,6 +10,15 @@ kernelspec:
   name: python3
 ---
 
+```{code-cell}
+:tags: [remove-cell]
+import matplotlib.pyplot  # needed to get svg support for some reason
+from myst_nb import glue
+from IPython.display import set_matplotlib_formats
+
+set_matplotlib_formats("svg")
+```
+
 (sec_quickstart)=
 
 # Quickstart
@@ -20,18 +29,39 @@ Consider the well-known
 [Gutenkunst et al. (2009)](https://doi.org/10.1371/journal.pgen.1000695)
 Out-of-Africa model of human history.
 
-```{literalinclude} ../examples/gutenkunst_ooa.yml
-:language: yaml
+```{code-cell}
+:tags: [remove-cell]
+import demes
+import demesdraw
+
+ooa_graph = demes.load("../examples/gutenkunst_ooa.yaml")
+fig, ax = demesdraw.utils.get_fig_axes(aspect=0.8, scale=1.5)
+demesdraw.tubes(ooa_graph, ax=ax, log_time=True)
+glue("demesdraw_gutenkunst_ooa", fig, display=False)
 ```
 
+`````{panels}
+:column: container
+````{tabbed} YAML
+:class-label: pt-0
+```{literalinclude} ../examples/gutenkunst_ooa.yaml
+:language: yaml
+```
+````
+````{tabbed} Drawing
+:class-label: pt-0
+```{glue:} demesdraw_gutenkunst_ooa
+```
+````
+`````
+
 This YAML file can be loaded into Python with the {func}`.load` function,
-to obtain a {class}`.Graph` instance (modify the filename as appropriate
-for your system).
+to obtain a {class}`.Graph` instance (modify the filename as appropriate).
 
 ```{code-cell}
 import demes
 
-ooa_graph = demes.load("../examples/gutenkunst_ooa.yml")
+ooa_graph = demes.load("../examples/gutenkunst_ooa.yaml")
 isinstance(ooa_graph, demes.Graph)
 ```
 
@@ -57,6 +87,8 @@ print(ceu.epochs[0])
 ```
 
 Similarly, we can inspect the interactions defined between demes.
+Note that each symmetric migration defined in the input YAML file has been
+converted into a pair of {class}`.AsymmetricMigration` objects.
 
 ```{code-cell}
 print("number of migrations:", len(ooa_graph.migrations))
@@ -65,12 +97,14 @@ for migration in ooa_graph.migrations:
     print(" ", migration)
 
 print("number of pulses:", len(ooa_graph.pulses))
+for pulse in ooa_graph.pulses:
+    print(" ", pulse)
 ```
 
 
 ## Building a Demes graph
 
-A demographic model can also be constructed by instantiating a
+A demographic model can also be constructed programmatically by instantiating a
 {class}`.Builder` object, then adding demes, migrations, and admixture
 pulses via the methods available on this class.
 
@@ -102,9 +136,9 @@ my_graph = b.resolve()
 my_graph.isclose(ooa_graph)
 ```
 
-For some demographic models, using the Python API can be far less cumbersome
-than writing the equivalent YAML file. For example, we can define a ring of
-demes, with migration between adjacent demes, as follows.
+For some demographic models, using the {class}`.Builder` API can be far less
+cumbersome than writing the equivalent YAML file. For example, we can define
+a ring of demes, with migration between adjacent demes, as follows.
 
 ```{code-cell}
 M = 10  # number of demes
@@ -121,11 +155,25 @@ b.add_migration(demes=[f"deme{M - 1}", "deme0"], rate=1e-5)
 ring_graph = b.resolve()
 ```
 
+## Plotting a Demes graph
+
+The external [`demesdraw`](https://github.com/grahamgower/demesdraw)
+library offers a way to visualise {class}`.Graph` objects, which can be
+a useful way to check that the model is what we expect.
+
+```{code-cell}
+import demesdraw
+
+w = 2.0 * demesdraw.utils.size_max(ring_graph)
+# Manually set x-axis coordinates for each deme, to improve spacing.
+positions = {deme.name: j * w for j, deme in enumerate(ring_graph.demes)}
+demesdraw.tubes(ring_graph, positions=positions);
+```
 
 ## Saving a Demes graph
 
-The graph can be written out to a new YAML file using {func}`.dump`.
+The graph can be written out to a new YAML file using the {func}`.dump` function.
 
 ```{code-cell}
-demes.dump(ring_graph, "/tmp/ring.yml")
+demes.dump(ring_graph, "/tmp/ring.yaml")
 ```

@@ -3,13 +3,13 @@ import functools
 
 import demes
 
+_cwd = pathlib.Path(__file__).parent.resolve()
+example_dir = _cwd / "../examples"
+
 
 @functools.lru_cache(maxsize=None)
 def example_files():
-    cwd = pathlib.Path(__file__).parent.resolve()
-    example_dir = cwd / "../examples"
     files = list(example_dir.glob("**/*.yaml"))
-    files += list(example_dir.glob("**/*.yml"))
     assert len(files) > 1
     return files
 
