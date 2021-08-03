@@ -53,7 +53,7 @@ class ParseCommand:
             default=False,
             help=(
                 "Output a simplified model. This is a compact representation "
-                "in which many default values are ommited. As only the "
+                "in which many default values are omitted. As only the "
                 "essential details are retained, this is usually easier for "
                 "humans to read. The simplified output is guaranteed to be a "
                 "valid Demes model that can be resolved identically to the "

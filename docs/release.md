@@ -12,14 +12,20 @@ Tag release.
 Build distribution files, and test on testpypi.
  - See https://packaging.python.org/tutorials/packaging-projects/#generating-distribution-archives
  - `python -m pip install --upgrade build twine`
+ - `rm -fr dist/`
  - `python -m build`
  - `twine check dist/*`
  - `twine upload --repository testpypi dist/*`
  - `pip uninstall demes`
- - Check it installs: `pip install --upgrade --pre --index-url https://test.pypi.org/simple/ demes`.
+ - Check it installs:
+   `pip install --upgrade --pre --extra-index-url https://test.pypi.org/simple/ demes`.
+ - Check it imports: `python -c "import demes"`.
+ - Check the CLI: `demes --help`.
+ - Check the (test) pypi splash page: https://test.pypi.org/project/demes/
 
 Upload to pypi.
  - `twine upload --repository pypi dist/*`
+ - `pip uninstall demes`
  - Check it installs: `pip install demes --upgrade --pre`.
 
 Push release.

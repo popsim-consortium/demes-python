@@ -31,7 +31,7 @@ def prec32(x):
 # Demes spec for things like time values or deme sizes.
 #
 # The numbers below are sufficiently conservative so as to avoid underflow
-# and overflow during arithmetic (although this is not gauranteed),
+# and overflow during arithmetic (although this is not guaranteed),
 # but not too conservative that the randomly generated models won't catch a
 # variety of errors in downstream application code.
 FLOAT_MAX = prec32(1e30)

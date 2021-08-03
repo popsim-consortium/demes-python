@@ -3,7 +3,8 @@
 # Development
 
 We welcome all contributors! Contributions to `demes` typically take the form
-of "pull requests" against our [git repository][git_repo].
+of "pull requests" against our
+[git repository](https://github.com/popsim-consortium/demes-python).
 
 ## Requirements
 
@@ -19,7 +20,7 @@ follows.
 ```sh
 # Clone the repository.
 git clone https://github.com/popsim-consortium/demes-python.git
-cd demes
+cd demes-python
 # Install the developer dependencies.
 python -m pip install -r requirements.txt
 # Generate the version string from the most recent git tag/commit.

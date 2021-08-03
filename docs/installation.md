@@ -2,6 +2,14 @@
 
 # Installation
 
+The `demes` library can be installed using `pip`.
+
 ```sh
-python -m pip install demes
+python3 -m pip install demes
+```
+
+Or with `conda` via the conda-forge repository.
+
+```sh
+conda install -c conda-forge demes
 ```

@@ -6,9 +6,7 @@ import tempfile
 
 import demes
 from demes import ms
-
-cwd = pathlib.Path(__file__).parent.resolve()
-example_dir = cwd / ".." / "examples"
+import tests
 
 
 def N_ref(*, theta, mu, length):
@@ -965,7 +963,7 @@ class TestFromMs:
 
         # Two possible resolutions make sense here:
         # 1) deme4 has one ancestor, and there are two additional pulses of
-        #    ancesty into deme4,
+        #    ancestry into deme4,
         # assert len(graph["deme4"].ancestors) == 1 and len(graph.pulses) == 2
         # 2) alternately, deme4 has three ancestors, and there are no pulses.
         #    This is nicer, but more difficult to implement.
@@ -1295,7 +1293,7 @@ class TestFromMs:
         assert len(graph.demes[0].epochs) == 7
 
         # Compare with zigzag in examples folder.
-        zz = demes.load(example_dir / "zigzag.yml")
+        zz = demes.load(tests.example_dir / "zigzag.yaml")
         zz.generation_time = None
         zz.demes[0].name = "deme1"
         # We use a lower tolerance than the default because the example model
@@ -1327,7 +1325,7 @@ class TestFromMs:
         assert len(graph.demes) == 3
         assert len(graph.migrations) == 8
         # TODO: more checks.
-        # We don't compare to the gutenkunst_ooa.yml file in the examples
+        # We don't compare to the gutenkunst_ooa.yaml file in the examples
         # folder because that graph introduces additional demes for the
         # ancestral and OOA populations which are not present in the original
         # ms-based demographic model.
@@ -2052,7 +2050,7 @@ class TestToMs:
         cmd = demes.to_ms(graph1, N0=N0)
         structure, events = self.parse_command(cmd)
         assert structure.npop == num_demes
-        # One possible implemention:
+        # One possible implementation:
         # assert structure.rate == mig_rate / (4 * N0) / (num_demes - 1)
 
         # There are many possible ways to specify migrations, and it's not so
