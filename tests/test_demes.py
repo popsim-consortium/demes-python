@@ -4160,3 +4160,76 @@ class TestBuilder:
         b = Builder.fromdict(graph.asdict_simplified())
         g = b.resolve()
         assert g.isclose(graph)
+
+    def test_infinite_start_time(self):
+        # deme start time
+        for start_time in (math.inf, "Infinity", None):
+            b = Builder(defaults=dict(epoch=dict(start_size=1)))
+            b.add_deme("a", start_time=start_time)
+            g = b.resolve()
+            assert g.demes[0].start_time == math.inf
+        for start_time in ("infinity", "inf"):
+            with pytest.raises(TypeError, match="must be real number, not str"):
+                b = Builder(defaults=dict(epoch=dict(start_size=1)))
+                b.add_deme("a", start_time=start_time)
+                g = b.resolve()
+        # migration start time
+        for start_time in (math.inf, "Infinity", None):
+            b = Builder(defaults=dict(epoch=dict(start_size=1)))
+            b.add_deme("a", start_time=start_time)
+            b.add_deme("b", start_time=start_time)
+            b.add_migration(demes=["a", "b"], rate=0.01, start_time=start_time)
+            g = b.resolve()
+            assert len(g.migrations) == 2
+            assert g.migrations[0].start_time == math.inf
+            assert g.migrations[1].start_time == math.inf
+        for start_time in ("infinity", "inf"):
+            with pytest.raises(TypeError, match="must be real number, not str"):
+                b = Builder(defaults=dict(epoch=dict(start_size=1)))
+                b.add_deme("a", start_time=start_time)
+                b.add_deme("b", start_time=start_time)
+                b.add_migration(demes=["a", "b"], rate=0.01, start_time=start_time)
+                g = b.resolve()
+
+    def test_infinite_start_time_yaml(self):
+        model = """time_units: generations
+demes:
+- name: a
+  start_time: Infinity
+  epochs:
+  - {end_time: 0, start_size: 1}
+"""
+        g = demes.loads(model)
+        assert g.demes[0].start_time == math.inf
+
+        model_bad = """time_units: generations
+demes:
+- name: a
+  start_time: infinity
+  epochs:
+  - {end_time: 0, start_size: 1}
+"""
+        with pytest.raises(TypeError, match="must be real number, not str"):
+            g = demes.loads(model_bad)
+
+    def test_infinities_in_defaults(self):
+        model = """time_units: generations
+defaults:
+  migration:
+    demes: [a, b]
+    start_time: Infinity
+  deme:
+    start_time: Infinity
+demes:
+- name: a
+  epochs:
+  - {start_size: 1}
+- name: b
+  epochs:
+  - {start_size: 1}
+migrations:
+- rate: 0.01"""
+        g = demes.loads(model)
+        assert g.demes[0].start_time == math.inf
+        assert g.demes[1].start_time == math.inf
+        assert g.migrations[0].start_time == math.inf
