@@ -594,6 +594,111 @@ class TestLoadAndDump:
         g2 = demes.loads(json_str, format="json")
         g2.assert_close(g1)
 
+    def test_load_with_null_deme_start_time(self):
+        model = """
+time_units: generations
+demes:
+- name: a
+  start_time: null
+  epochs:
+  - {end_time: 0, start_size: 1}
+"""
+        with pytest.raises(ValueError, match="must have a non-null value"):
+            demes.loads(model)
+
+    def test_load_with_null_deme_name(self):
+        model = """
+time_units: generations
+demes:
+- name: null
+  epochs:
+  - {end_time: 0, start_size: 1}
+"""
+        with pytest.raises(ValueError, match="must have a non-null value"):
+            demes.loads(model)
+
+    def test_load_with_null_time_unit(self):
+        model = """
+time_units: null
+demes:
+- name: a
+  epochs:
+  - {end_time: 0, start_size: 1}
+"""
+        with pytest.raises(ValueError, match="must have a non-null value"):
+            demes.loads(model)
+
+    def test_load_with_null_epochs(self):
+        model = """
+time_units: generations
+demes:
+- name: a
+  epochs:
+"""
+        with pytest.raises(ValueError, match="must have a non-null value"):
+            demes.loads(model)
+
+    def test_load_with_null_epoch_end_time(self):
+        model = """
+time_units: generations
+demes:
+- name: a
+  epochs:
+  - {end_time: null, start_size: 1}
+"""
+        with pytest.raises(ValueError, match="must have a non-null value"):
+            demes.loads(model)
+
+    def test_load_with_null_migrations(self):
+        model = """
+time_units: generations
+demes:
+- name: a
+  epochs:
+  - {start_size: 1}
+- name: b
+  epochs:
+  - {start_size: 1}
+migrations:
+"""
+        with pytest.raises(ValueError, match="must have a non-null value"):
+            demes.loads(model)
+
+    def test_load_with_null_migration_demes(self):
+        model = """
+time_units: generations
+demes:
+- name: a
+  epochs:
+  - {start_size: 1}
+- name: b
+  epochs:
+  - {start_size: 1}
+migrations:
+- demes:
+  rate: 0.01
+"""
+        with pytest.raises(ValueError, match="must have a non-null value"):
+            demes.loads(model)
+        model = """
+time_units: generations
+defaults:
+  migration:
+    demes: [a, b]
+demes:
+- name: a
+  epochs:
+  - {start_size: 1}
+- name: b
+  epochs:
+  - {start_size: 1}
+migrations:
+- demes:
+  rate: 0.01
+"""
+        with pytest.raises(ValueError, match="must have a non-null value"):
+            demes.loads(model)
+
 
 class TestMultiDocument:
     @pytest.mark.parametrize("yaml_file", tests.example_files())

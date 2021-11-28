@@ -111,6 +111,31 @@ def _unstringify_infinities(data: MutableMapping[str, Any]) -> None:
                 data["defaults"][default]["start_time"] = float(start_time)
 
 
+def _no_null_values(data: MutableMapping[str, Any]) -> None:
+    """
+    Checks for any null values in the input data.
+    """
+
+    def check_if_None(key, val):
+        if val is None:
+            raise ValueError(f"{key} must have a non-null value")
+
+    def assert_no_nulls(d):
+        for k, v in d.items():
+            if isinstance(v, dict):
+                assert_no_nulls(v)
+            elif isinstance(v, list):
+                for _ in v:
+                    if isinstance(_, dict):
+                        assert_no_nulls(_)
+                    else:
+                        check_if_None(k, v)
+            else:
+                check_if_None(k, v)
+
+    assert_no_nulls(data)
+
+
 def loads_asdict(string, *, format="yaml") -> MutableMapping[str, Any]:
     """
     Load a YAML or JSON string into a dictionary of nested objects.
@@ -149,6 +174,9 @@ def load_asdict(filename, *, format="yaml") -> MutableMapping[str, Any]:
             data = _load_yaml_asdict(f)
     else:
         raise ValueError(f"unknown format: {format}")
+    # We forbid null values in the input data.
+    # See https://github.com/popsim-consortium/demes-spec/issues/76
+    _no_null_values(data)
     # The string "Infinity" should only be present in JSON files.
     # But YAML is a superset of JSON, so we want the YAML loader to also
     # load JSON files without problem.
