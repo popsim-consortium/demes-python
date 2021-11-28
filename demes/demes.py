@@ -2220,7 +2220,7 @@ class Graph:
                 source = migration["source"]
                 dest = migration["dest"]
                 time_hi = min(self[source].start_time, self[dest].start_time)
-                time_lo = max(self[dest].end_time, self[dest].end_time)
+                time_lo = max(self[source].end_time, self[dest].end_time)
                 if migration["end_time"] == time_lo:
                     del migration["end_time"]
                 if migration["start_time"] == time_hi:

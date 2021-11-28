@@ -4045,6 +4045,23 @@ class TestGraphToDict:
         assert len(d["migrations"]) == 1
         assert dict(demes=["a", "b", "c"], rate=0.01) in d["migrations"]
 
+    def test_simplify_symmetric_migrations_demography_with_splits(self):
+        b = Builder()
+        b.add_deme("anc", epochs=[dict(start_size=1, end_time=10)])
+        b.add_deme("a", ancestors=["anc"], epochs=[dict(start_size=1)])
+        b.add_deme("b", ancestors=["anc"], epochs=[dict(start_size=1, end_time=5)])
+        b.add_deme("c", ancestors=["b"], epochs=[dict(start_size=1)])
+        b.add_deme("d", ancestors=["b"], epochs=[dict(start_size=1)])
+        b.add_migration(demes=["a", "b"], rate=0.01)
+        b.add_migration(demes=["a", "c", "d"], rate=0.01)
+        g = b.resolve()
+        d = g.asdict()
+        assert len(d["migrations"]) == 8
+        d = g.asdict_simplified()
+        assert len(d["migrations"]) == 2
+        assert dict(demes=["a", "b"], rate=0.01) in d["migrations"]
+        assert dict(demes=["a", "c", "d"], rate=0.01) in d["migrations"]
+
     def test_invalid_fields(self):
         b = Builder()
         b.add_deme("a", epochs=[dict(start_size=1)])
