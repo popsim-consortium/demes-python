@@ -104,6 +104,11 @@ def _unstringify_infinities(data: MutableMapping[str, Any]) -> None:
         start_time = migration.get("start_time")
         if start_time == _INFINITY_STR:
             migration["start_time"] = float(start_time)
+    for default in data.get("defaults", []):
+        if default in ["migration", "deme"]:
+            start_time = data["defaults"][default].get("start_time")
+            if start_time == _INFINITY_STR:
+                data["defaults"][default]["start_time"] = float(start_time)
 
 
 def loads_asdict(string, *, format="yaml") -> MutableMapping[str, Any]:

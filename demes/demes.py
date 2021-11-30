@@ -2373,6 +2373,8 @@ class Builder:
         if proportions is not None:
             deme["proportions"] = proportions
         if start_time is not None:
+            if start_time == "Infinity":
+                start_time = math.inf
             deme["start_time"] = start_time
         if epochs is not None:
             deme["epochs"] = epochs
@@ -2427,6 +2429,8 @@ class Builder:
         if dest is not NO_DEFAULT:
             migration["dest"] = dest
         if start_time is not None:
+            if start_time == "Infinity":
+                start_time = math.inf
             migration["start_time"] = start_time
         if end_time is not None:
             migration["end_time"] = end_time
