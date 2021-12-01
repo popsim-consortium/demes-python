@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.2.0 - 2021-12-01
+
+**New features:**
+
+- Add `load_all()`/`dump_all()` to support multi-document YAML.
+  ({user}`grahamgower`, {issue}`239`, {pr}`335`)
+- Add CLI.
+  ({user}`grahamgower`, {pr}`339`)
+- Add `to_ms()` function.
+  ({user}`grahamgower`, {issue}`74`, {pr}`354`)
+- Allow for "Infinity" as start times for demes and migrations in input
+  YAMLs and dicts.
+  ({user}`apragsdale`, {issue}`358`, {pr}`386`)
+
+
+**Breaking changes:**
+
+- A pulse event now allows for simultaneous sources and takes arguments
+  `sources` and `proportions` instead of `source` and `proportion`. The
+  sources and proportions must be provided as a list, even when there is
+  only a single source deme.
+  ({user}`apragsdale`, {pr}`353`)
+- Disallow null values and blank entries in input YAML models.
+  ({user}`apragsdale`, {issue}`340`, {pr}`387`)
+
+**Bug fixes:**
+
+- Fix various issues in `from_ms()` with `-es`/`-ej` commands.
+  ({user}`grahamgower`, {issue}`350`, {issue}`351`, {pr}`352`)
+- Fix some pulse edge cases when pulse events occur at the same time.
+  ({user}`grahamgower`, {issue}`328`, {issue}`357`, {pr}`362`)
+- `todict_simplified()` now properly handles symmetric migrations when the
+  end times of the demes involved differ.
+  ({user}`apragsdale`, {issue}`384`, {pr}`385`)
+
 ## 0.1.2 - 2021-06-08
 
 **New features**:
