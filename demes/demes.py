@@ -1,9 +1,10 @@
-from typing import List, Union, Optional, Dict, MutableMapping, Any, Set, Tuple
+import copy
+import collections
 import itertools
 import math
 import numbers
-import copy
 import operator
+from typing import List, Union, Optional, Dict, MutableMapping, Any, Set, Tuple
 import warnings
 
 import attr
@@ -1231,6 +1232,7 @@ class Graph:
         See also: :meth:`.in_generations`.
     :ivar list[str] doi: If the graph describes a published demography,
         the DOI(s) should be be given here as a list.
+    :ivar dict metadata: A dictionary of arbitrary additional data.
     :ivar list[Deme] demes: The demes in the demography.
     :ivar list[AsymmetricMigration] migrations: The continuous migrations for
         the demographic model.
@@ -1255,6 +1257,12 @@ class Graph:
                 attr.validators.instance_of(str), nonzero_len
             ),
             iterable_validator=attr.validators.instance_of(list),
+        ),
+    )
+    metadata: collections.abc.Mapping = attr.ib(
+        factory=dict,
+        validator=attr.validators.instance_of(
+            collections.abc.Mapping  # type: ignore[misc]
         ),
     )
     demes: List[Deme] = attr.ib(factory=list, init=False)
@@ -1919,6 +1927,7 @@ class Graph:
                 "generation_time",
                 "defaults",
                 "doi",
+                "metadata",
                 "demes",
                 "migrations",
                 "pulses",
@@ -1980,6 +1989,7 @@ class Graph:
             time_units=data.pop("time_units"),
             doi=data.pop("doi", []),
             generation_time=data.pop("generation_time", None),
+            metadata=data.pop("metadata", {}),
         )
 
         for i, deme_data in enumerate(
@@ -2315,6 +2325,7 @@ class Builder:
         generation_time: float = None,
         doi: list = None,
         defaults: dict = None,
+        metadata: dict = None,
     ):
         """
         :param str description: A human readable description of the demography.
@@ -2329,6 +2340,7 @@ class Builder:
         :param doi: If the graph describes a published demography, the DOI(s)
             should be be given here as a list.
         :type doi: list[str]
+        :param dict metadata: A dictionary of arbitrary additional data.
         """
         self.data: MutableMapping[str, Any] = dict(time_units=time_units)
         if description is not None:
@@ -2339,6 +2351,8 @@ class Builder:
             self.data["doi"] = doi
         if defaults is not None:
             self.data["defaults"] = defaults
+        if metadata is not None:
+            self.data["metadata"] = metadata
 
     def add_deme(
         self,

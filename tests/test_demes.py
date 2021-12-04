@@ -1824,6 +1824,20 @@ class TestGraph:
                 doi=[""],
             )
 
+    def test_metadata_empty(self):
+        graph = Graph(time_units="generations")
+        assert graph.metadata == {}
+
+    def test_metadata_simple(self):
+        metadata = dict(one=1, two="string", three=dict(four=[4, 4, 4, 4]))
+        graph = Graph(time_units="generations", metadata=metadata)
+        assert graph.metadata == metadata
+
+    @pytest.mark.parametrize("metadata", [None, 1, "string", [1, 2, 3]])
+    def test_bad_metadata(self, metadata):
+        with pytest.raises(TypeError):
+            Graph(time_units="generations", metadata=metadata)
+
     @pytest.mark.parametrize("graph", tests.example_graphs())
     def test_in_generations(self, graph):
         dg1 = copy.deepcopy(graph)
@@ -4233,3 +4247,23 @@ migrations:
         assert g.demes[0].start_time == math.inf
         assert g.demes[1].start_time == math.inf
         assert g.migrations[0].start_time == math.inf
+
+    def test_metadata_empty(self):
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        graph = b.resolve()
+        assert graph.metadata == {}
+
+    def test_metadata_simple(self):
+        metadata = dict(one=1, two="string", three=dict(four=[4, 4, 4, 4]))
+        b = Builder(metadata=metadata)
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        graph = b.resolve()
+        assert graph.metadata == metadata
+
+    @pytest.mark.parametrize("metadata", [1, "string", [1, 2, 3]])
+    def test_bad_metadata(self, metadata):
+        b = Builder(metadata=metadata)
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(TypeError):
+            b.resolve()
