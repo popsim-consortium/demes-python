@@ -19,10 +19,14 @@ def _open_file_polymorph(polymorph, mode="r"):
     just yield polymorph under the assumption it's a fileobj.
     """
     try:
-        with open(polymorph, mode) as f:
-            yield f
+        f = open(polymorph, mode)
     except TypeError:
-        yield polymorph
+        f = polymorph
+    try:
+        yield f
+    finally:
+        if f is not polymorph:
+            f.close()
 
 
 # NOTE: The state of Python YAML libraries in 2020 leaves much to be desired.
