@@ -122,7 +122,7 @@ class TestFromMs:
                 demes.from_ms(cmd, N0=1)
 
         for bad_sample_configuration in ("50 0 0 2", "2 0 0 0 0 0 2"):
-            cmd = "ms 2 1 -t 1.0 -I {bad_sample_configuration}"
+            cmd = f"ms 2 1 -t 1.0 -I {bad_sample_configuration}"
             with pytest.raises(ValueError):
                 demes.from_ms(cmd, N0=1)
 
@@ -1496,7 +1496,7 @@ class TestFromMsAdditionalExamples:
             N0=N_ref(theta=104693, mu=mu, length=30000000),
         )
 
-    def schiffels_inferring_human_population_size(self):
+    def test_schiffels_inferring_human_population_size(self):
         # Schiffels & Durbin (2014), https://doi.org/10.1038/ng.3015
         mu = 1.25e-8
         # Split simulation

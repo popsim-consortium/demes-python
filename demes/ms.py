@@ -26,7 +26,7 @@ class ValueErrorArgumentParser(argparse.ArgumentParser):
     """
 
     def error(self, message):
-        _, exc, traceback = sys.exc_info()
+        _, exc, _ = sys.exc_info()
         raise ValueError(str(exc))
 
 

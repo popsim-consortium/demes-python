@@ -62,7 +62,7 @@ def nonzero_len(self, attribute, value):
 def valid_deme_name(self, attribute, value):
     if not value.isidentifier():
         raise ValueError(
-            "Invalid deme name `{self.name}`. Names must be valid python identifiers. "
+            f"Invalid deme name '{value}'. Names must be valid python identifiers. "
             "We recommend choosing a name that starts with a letter or "
             "underscore, and is followed by one or more letters, numbers, "
             "or underscores."
@@ -1996,7 +1996,7 @@ class Graph:
             pop_list(data, "demes", required_type=MutableMapping, scope="toplevel")
         ):
             if "name" not in deme_data:
-                raise KeyError("demes[{i}]: required field 'name' not found")
+                raise KeyError(f"demes[{i}]: required field 'name' not found")
             deme_name = deme_data.pop("name")
             check_allowed(
                 deme_data, allowed_fields_deme_inner, f"demes[{i}] {deme_name}"
@@ -2179,7 +2179,7 @@ class Graph:
             if implied by the deme ancestor(s)'s end time(s).
             """
             for deme in data["demes"]:
-                for j, epoch in enumerate(deme["epochs"]):
+                for epoch in deme["epochs"]:
                     if epoch["size_function"] in ("constant", "exponential"):
                         del epoch["size_function"]
                     if epoch["start_size"] == epoch["end_size"]:
@@ -2276,7 +2276,7 @@ class Graph:
                                 asymmetric.remove(mig)
                                 pairs.remove(deme_pair)
                             # add to symmetric list
-                            sym_mig = dict(demes=[d for d in deme_set], rate=k[0])
+                            sym_mig = dict(demes=list(deme_set), rate=k[0])
                             if k[1] is not None:
                                 sym_mig["start_time"] = k[1]
                             if k[2] is not None:
