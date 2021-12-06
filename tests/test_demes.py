@@ -1,4 +1,5 @@
 import copy
+import io
 import math
 import typing
 import random
@@ -4215,6 +4216,8 @@ demes:
 """
         g = demes.loads(model)
         assert g.demes[0].start_time == math.inf
+        g2 = next(demes.load_all(io.StringIO(model)))
+        g2.assert_close(g)
 
         model_bad = """time_units: generations
 demes:
@@ -4224,7 +4227,10 @@ demes:
   - {end_time: 0, start_size: 1}
 """
         with pytest.raises(TypeError, match="must be real number, not str"):
-            g = demes.loads(model_bad)
+            demes.loads(model_bad)
+
+        with pytest.raises(TypeError, match="must be real number, not str"):
+            next(demes.load_all(io.StringIO(model_bad)))
 
     def test_infinities_in_defaults(self):
         model = """time_units: generations
@@ -4247,6 +4253,8 @@ migrations:
         assert g.demes[0].start_time == math.inf
         assert g.demes[1].start_time == math.inf
         assert g.migrations[0].start_time == math.inf
+        g2 = next(demes.load_all(io.StringIO(model)))
+        g2.assert_close(g)
 
     def test_metadata_empty(self):
         b = Builder()
