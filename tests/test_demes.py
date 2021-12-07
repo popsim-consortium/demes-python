@@ -5,7 +5,6 @@ import typing
 import random
 
 import pytest
-import hypothesis as hyp
 
 from demes import (
     Builder,
@@ -20,7 +19,6 @@ from demes import (
     Admix,
 )
 import demes
-import demes.hypothesis_strategies
 import tests
 
 
@@ -4165,16 +4163,6 @@ class TestBuilder:
         b = Builder()
         assert hasattr(b, "data")
         assert isinstance(b.data, typing.MutableMapping)
-
-    @hyp.given(graph=demes.hypothesis_strategies.graphs())
-    def test_back_and_forth(self, graph):
-        b = Builder.fromdict(graph.asdict())
-        g = b.resolve()
-        assert g.isclose(graph)
-
-        b = Builder.fromdict(graph.asdict_simplified())
-        g = b.resolve()
-        assert g.isclose(graph)
 
     def test_infinite_start_time(self):
         # deme start time
