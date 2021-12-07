@@ -85,12 +85,3 @@ def test_demes_dir():
     assert "ms" not in dir_demes
     assert "graphs" not in dir_demes
     assert "prec32" not in dir_demes
-
-
-@pytest.mark.xfail(PY36, reason="__dir__ does nothing on Python 3.6", strict=True)
-def test_hypothesis_strategy_dir():
-    import demes.hypothesis_strategies
-
-    dir_demes_hs = set(dir(demes.hypothesis_strategies))
-    assert "graphs" in dir_demes_hs
-    assert "prec32" not in dir_demes_hs
