@@ -5,7 +5,7 @@ how they change over time, and their relationships to one another.
 `demes` provides a self-contained and unambiguous in-memory description
 of a demographic model.
 
-Please see the [documentation](https://popsim-consortium.github.io/demes-docs/main/index.html)
+Please see the [documentation](https://popsim-consortium.github.io/demes-docs/latest/index.html)
 for more details.
 
 ## Goals
