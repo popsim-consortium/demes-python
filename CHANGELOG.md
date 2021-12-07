@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.2.1 - 2021-12-07
+
+**New features:**
+
+- Support for the `metadata` field at the toplevel of a YAML file.
+  The is a dictionary that may contain arbitrary nested data.
+  ({user}`grahamgower`, {issue}`275`, {pr}`392`).
+
+**Bug fixes:**
+
+- The string "Infinity" is now accepted when using `load_all()`,
+  just like for `load()` and `loads()`.
+  This fixes loading fully-resolved models with the CLI.
+  ({user}`grahamgower`, {issue}`394`, {pr}`395`).
+
+**Breaking changes:**
+
+- The `demes.hypothesis_strategies.graphs()` function for generating
+  a random `Graph` has been removed. This was buggy and not usable
+  as originally intended.
+  ({user}`grahamgower`, {issue}`360`, {pr}`397`).
+
 ## 0.2.0 - 2021-12-01
 
 **New features:**
