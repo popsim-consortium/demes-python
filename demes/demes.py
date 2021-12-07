@@ -1,9 +1,10 @@
-from typing import List, Union, Optional, Dict, MutableMapping, Any, Set, Tuple
+import copy
+import collections
 import itertools
 import math
 import numbers
-import copy
 import operator
+from typing import List, Union, Optional, Dict, MutableMapping, Any, Set, Tuple
 import warnings
 
 import attr
@@ -61,7 +62,7 @@ def nonzero_len(self, attribute, value):
 def valid_deme_name(self, attribute, value):
     if not value.isidentifier():
         raise ValueError(
-            "Invalid deme name `{self.name}`. Names must be valid python identifiers. "
+            f"Invalid deme name '{value}'. Names must be valid python identifiers. "
             "We recommend choosing a name that starts with a letter or "
             "underscore, and is followed by one or more letters, numbers, "
             "or underscores."
@@ -1231,6 +1232,7 @@ class Graph:
         See also: :meth:`.in_generations`.
     :ivar list[str] doi: If the graph describes a published demography,
         the DOI(s) should be be given here as a list.
+    :ivar dict metadata: A dictionary of arbitrary additional data.
     :ivar list[Deme] demes: The demes in the demography.
     :ivar list[AsymmetricMigration] migrations: The continuous migrations for
         the demographic model.
@@ -1255,6 +1257,12 @@ class Graph:
                 attr.validators.instance_of(str), nonzero_len
             ),
             iterable_validator=attr.validators.instance_of(list),
+        ),
+    )
+    metadata: collections.abc.Mapping = attr.ib(
+        factory=dict,
+        validator=attr.validators.instance_of(
+            collections.abc.Mapping  # type: ignore[misc]
         ),
     )
     demes: List[Deme] = attr.ib(factory=list, init=False)
@@ -1919,6 +1927,7 @@ class Graph:
                 "generation_time",
                 "defaults",
                 "doi",
+                "metadata",
                 "demes",
                 "migrations",
                 "pulses",
@@ -1980,13 +1989,14 @@ class Graph:
             time_units=data.pop("time_units"),
             doi=data.pop("doi", []),
             generation_time=data.pop("generation_time", None),
+            metadata=data.pop("metadata", {}),
         )
 
         for i, deme_data in enumerate(
             pop_list(data, "demes", required_type=MutableMapping, scope="toplevel")
         ):
             if "name" not in deme_data:
-                raise KeyError("demes[{i}]: required field 'name' not found")
+                raise KeyError(f"demes[{i}]: required field 'name' not found")
             deme_name = deme_data.pop("name")
             check_allowed(
                 deme_data, allowed_fields_deme_inner, f"demes[{i}] {deme_name}"
@@ -2169,7 +2179,7 @@ class Graph:
             if implied by the deme ancestor(s)'s end time(s).
             """
             for deme in data["demes"]:
-                for j, epoch in enumerate(deme["epochs"]):
+                for epoch in deme["epochs"]:
                     if epoch["size_function"] in ("constant", "exponential"):
                         del epoch["size_function"]
                     if epoch["start_size"] == epoch["end_size"]:
@@ -2266,7 +2276,7 @@ class Graph:
                                 asymmetric.remove(mig)
                                 pairs.remove(deme_pair)
                             # add to symmetric list
-                            sym_mig = dict(demes=[d for d in deme_set], rate=k[0])
+                            sym_mig = dict(demes=list(deme_set), rate=k[0])
                             if k[1] is not None:
                                 sym_mig["start_time"] = k[1]
                             if k[2] is not None:
@@ -2315,6 +2325,7 @@ class Builder:
         generation_time: float = None,
         doi: list = None,
         defaults: dict = None,
+        metadata: dict = None,
     ):
         """
         :param str description: A human readable description of the demography.
@@ -2329,6 +2340,7 @@ class Builder:
         :param doi: If the graph describes a published demography, the DOI(s)
             should be be given here as a list.
         :type doi: list[str]
+        :param dict metadata: A dictionary of arbitrary additional data.
         """
         self.data: MutableMapping[str, Any] = dict(time_units=time_units)
         if description is not None:
@@ -2339,6 +2351,8 @@ class Builder:
             self.data["doi"] = doi
         if defaults is not None:
             self.data["defaults"] = defaults
+        if metadata is not None:
+            self.data["metadata"] = metadata
 
     def add_deme(
         self,

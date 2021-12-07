@@ -3,16 +3,15 @@ import decimal
 import enum
 import fractions
 import json
+import os
 import pathlib
 import tempfile
 import textwrap
 
 import pytest
-import hypothesis as hyp
 import numpy as np
 
 import demes
-import demes.hypothesis_strategies
 import tests
 
 
@@ -489,10 +488,6 @@ class TestLoadAndDump:
                     if format == "yaml":
                         self.check_yaml_output_is_pretty(g, tmpfile, simplified)
 
-    @hyp.given(g=demes.hypothesis_strategies.graphs())
-    def test_dump_load(self, g):
-        self.check_dump_load_roundtrip(g)
-
     def test_int_subclass(self):
         # Check that subclasses of int are round-trippable.
         class Ne(enum.IntEnum):
@@ -773,3 +768,37 @@ class TestMultiDocument:
             assert tmpfile.stat().st_size == 0
             graphs = list(demes.load_all(tmpfile))
             assert len(graphs) == 0
+
+
+class TestOpenFilePolymorph:
+    def test_fileobj_doesnt_get_closed_1(self):
+        devnull = open(os.devnull)
+        with demes.load_dump._open_file_polymorph(devnull, "w") as f:
+            pass
+        assert not f.closed
+        assert not devnull.closed
+        devnull.close()
+
+    def test_fileobj_doesnt_get_closed_2(self):
+        devnull = open(os.devnull)
+        try:
+            with demes.load_dump._open_file_polymorph(devnull, "w") as f:
+                raise ValueError
+        except ValueError:
+            pass
+        assert not f.closed
+        assert not devnull.closed
+        devnull.close()
+
+    def test_no_file_descriptor_leak_1(self):
+        with demes.load_dump._open_file_polymorph(os.devnull, "w") as f:
+            pass
+        assert f.closed
+
+    def test_no_file_descriptor_leak_2(self):
+        try:
+            with demes.load_dump._open_file_polymorph(os.devnull, "w") as f:
+                raise ValueError
+        except ValueError:
+            pass
+        assert f.closed

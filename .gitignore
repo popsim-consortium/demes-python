@@ -7,4 +7,3 @@ demes/_version.py
 build/
 dist/
 demes.egg-info
-.hypothesis

@@ -19,10 +19,14 @@ def _open_file_polymorph(polymorph, mode="r"):
     just yield polymorph under the assumption it's a fileobj.
     """
     try:
-        with open(polymorph, mode) as f:
-            yield f
+        f = open(polymorph, mode)
     except TypeError:
-        yield polymorph
+        f = polymorph
+    try:
+        yield f
+    finally:
+        if f is not polymorph:
+            f.close()
 
 
 # NOTE: The state of Python YAML libraries in 2020 leaves much to be desired.
@@ -232,6 +236,13 @@ def load_all(filename) -> Generator["demes.Graph", None, None]:
     with _open_file_polymorph(filename) as f:
         with ruamel.yaml.YAML(typ="safe") as yaml:
             for data in yaml.load_all(f):
+                # We forbid null values in the input data.
+                # See https://github.com/popsim-consortium/demes-spec/issues/76
+                _no_null_values(data)
+                # The string "Infinity" should only be present in JSON files.
+                # But YAML is a superset of JSON, so we want the YAML loader to also
+                # load JSON files without problem.
+                _unstringify_infinities(data)
                 yield demes.Graph.fromdict(data)
 
 

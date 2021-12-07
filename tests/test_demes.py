@@ -1,10 +1,10 @@
 import copy
+import io
 import math
 import typing
 import random
 
 import pytest
-import hypothesis as hyp
 
 from demes import (
     Builder,
@@ -19,7 +19,6 @@ from demes import (
     Admix,
 )
 import demes
-import demes.hypothesis_strategies
 import tests
 
 
@@ -1823,6 +1822,20 @@ class TestGraph:
                 time_units="generations",
                 doi=[""],
             )
+
+    def test_metadata_empty(self):
+        graph = Graph(time_units="generations")
+        assert graph.metadata == {}
+
+    def test_metadata_simple(self):
+        metadata = dict(one=1, two="string", three=dict(four=[4, 4, 4, 4]))
+        graph = Graph(time_units="generations", metadata=metadata)
+        assert graph.metadata == metadata
+
+    @pytest.mark.parametrize("metadata", [None, 1, "string", [1, 2, 3]])
+    def test_bad_metadata(self, metadata):
+        with pytest.raises(TypeError):
+            Graph(time_units="generations", metadata=metadata)
 
     @pytest.mark.parametrize("graph", tests.example_graphs())
     def test_in_generations(self, graph):
@@ -4151,16 +4164,6 @@ class TestBuilder:
         assert hasattr(b, "data")
         assert isinstance(b.data, typing.MutableMapping)
 
-    @hyp.given(graph=demes.hypothesis_strategies.graphs())
-    def test_back_and_forth(self, graph):
-        b = Builder.fromdict(graph.asdict())
-        g = b.resolve()
-        assert g.isclose(graph)
-
-        b = Builder.fromdict(graph.asdict_simplified())
-        g = b.resolve()
-        assert g.isclose(graph)
-
     def test_infinite_start_time(self):
         # deme start time
         for start_time in (math.inf, "Infinity", None):
@@ -4201,6 +4204,8 @@ demes:
 """
         g = demes.loads(model)
         assert g.demes[0].start_time == math.inf
+        g2 = next(demes.load_all(io.StringIO(model)))
+        g2.assert_close(g)
 
         model_bad = """time_units: generations
 demes:
@@ -4210,7 +4215,10 @@ demes:
   - {end_time: 0, start_size: 1}
 """
         with pytest.raises(TypeError, match="must be real number, not str"):
-            g = demes.loads(model_bad)
+            demes.loads(model_bad)
+
+        with pytest.raises(TypeError, match="must be real number, not str"):
+            next(demes.load_all(io.StringIO(model_bad)))
 
     def test_infinities_in_defaults(self):
         model = """time_units: generations
@@ -4233,3 +4241,25 @@ migrations:
         assert g.demes[0].start_time == math.inf
         assert g.demes[1].start_time == math.inf
         assert g.migrations[0].start_time == math.inf
+        g2 = next(demes.load_all(io.StringIO(model)))
+        g2.assert_close(g)
+
+    def test_metadata_empty(self):
+        b = Builder()
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        graph = b.resolve()
+        assert graph.metadata == {}
+
+    def test_metadata_simple(self):
+        metadata = dict(one=1, two="string", three=dict(four=[4, 4, 4, 4]))
+        b = Builder(metadata=metadata)
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        graph = b.resolve()
+        assert graph.metadata == metadata
+
+    @pytest.mark.parametrize("metadata", [1, "string", [1, 2, 3]])
+    def test_bad_metadata(self, metadata):
+        b = Builder(metadata=metadata)
+        b.add_deme("a", epochs=[dict(start_size=1)])
+        with pytest.raises(TypeError):
+            b.resolve()
