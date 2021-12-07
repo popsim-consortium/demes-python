@@ -55,11 +55,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Display structure of downloaded files
-        run: ls -R
-
       - name: install
-        run: pip install demes --only-binary demes --pre -f dist/
+        run: pip install dist/demes-*.whl
 
       - name: test
         run: |
