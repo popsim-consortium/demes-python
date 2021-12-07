@@ -52,7 +52,7 @@ jobs:
           export DEST=`echo ${GITHUB_REF} | sed -e "s/refs\/heads\///g" |  sed -e "s/refs\/tags\///g"`
           rm -rf $DEST
           cp -r ../docs/_build/html $DEST
-          ln -sf $DEST latest
+          ln -sfT $DEST latest
 
       - name: Commit and push the docs
         if: (!github.event.pull_request)
