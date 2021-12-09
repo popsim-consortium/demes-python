@@ -26,11 +26,12 @@ jobs:
         run: |
           pip install -r requirements/minimal.txt
           pip install -r requirements/docs.txt
+          python -m pip install build packaging
 
       - name: Build package
         run: |
           # Generate the version string which appears in the docs.
-          python setup.py build
+          python -m build --sdist
 
       - name: Build Docs
         run: |
@@ -49,10 +50,26 @@ jobs:
         if: (!github.event.pull_request)
         run: |
           cd demes-docs
-          export DEST=`echo ${GITHUB_REF} | sed -e "s/refs\/heads\///g" |  sed -e "s/refs\/tags\///g"`
-          rm -rf $DEST
-          cp -r ../docs/_build/html $DEST
-          ln -sfT $DEST latest
+          rm -rf ${GITHUB_REF_NAME}
+          cp -r ../docs/_build/html ${GITHUB_REF_NAME}
+          rm -fr latest
+          ln -s ${GITHUB_REF_NAME} latest
+
+      - name: Check if tag is a new stable version
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        run: |
+          if [ -f stable ]; then
+            export STABLE=$(readlink stable)
+          else
+            export STABLE=0
+          fi
+          if python docs/is_new_stable.py ${STABLE} ${GITHUB_REF_NAME}; then
+            # Use for "stable" docs path.
+            echo "new stable is ${GITHUB_REF_NAME}"
+            rm -fr stable
+            ln -s ${GITHUB_REF_NAME} stable
+            echo "STABLE_PATH=stable" >> $GITHUB_ENV
+          fi
 
       - name: Commit and push the docs
         if: (!github.event.pull_request)
