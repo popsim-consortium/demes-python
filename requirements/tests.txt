@@ -2,4 +2,4 @@ numpy==1.19.5; python_version=='3.6'
 numpy==1.22.0; python_version>='3.7'
 pytest==6.2.5
 pytest-cov==3.0.0
-pytest-xdist==2.4.0
+pytest-xdist==2.5.0
