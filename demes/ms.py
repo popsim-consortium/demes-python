@@ -963,9 +963,9 @@ def to_ms(graph: demes.Graph, *, N0, samples=None) -> str:
     # are given the correct backwards-time ordering.
     # Pulses occurring at the same time as a deme's start time are possible,
     # and in this case the pulse will come first (backwards in time).
-    demes_and_pulses = list(reversed(graph.pulses)) + list(graph.demes)  # type: ignore
-    demes_and_pulses.sort(
-        key=lambda d_p: d_p.start_time if isinstance(d_p, demes.Deme) else d_p.time
+    demes_and_pulses = sorted(
+        tuple(reversed(graph.pulses)) + tuple(graph.demes),
+        key=lambda d_p: d_p.start_time if isinstance(d_p, demes.Deme) else d_p.time,
     )
     deme_id = {deme.name: j for j, deme in enumerate(graph.demes, 1)}
 
