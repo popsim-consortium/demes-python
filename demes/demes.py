@@ -213,8 +213,6 @@ class Epoch:
             raise ValueError("if start time is inf, must be a constant size epoch")
         if self.size_function == "constant" and self.start_size != self.end_size:
             raise ValueError("start_size != end_size, but size_function is constant")
-        if self.selfing_rate + self.cloning_rate > 1:
-            raise ValueError("must have selfing_rate + cloning_rate <= 1")
 
     @property
     def time_span(self):

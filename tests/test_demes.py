@@ -379,27 +379,16 @@ class TestEpoch:
                     cloning_rate=rate,
                 )
 
-    def test_bad_selfing_rate_cloning_rate_combination(self):
-        with pytest.raises(ValueError):
-            Epoch(
-                start_time=100,
-                end_time=0,
-                start_size=1,
-                end_size=1,
-                size_function="constant",
-                cloning_rate=0.5,
-                selfing_rate=0.5 + 1e-9,
-            )
-        with pytest.raises(ValueError):
-            Epoch(
-                start_time=100,
-                end_time=0,
-                start_size=1,
-                end_size=1,
-                size_function="constant",
-                cloning_rate=1,
-                selfing_rate=1,
-            )
+    def test_selfing_rate_cloning_rate_combination(self):
+        Epoch(
+            start_time=100,
+            end_time=0,
+            start_size=1,
+            end_size=1,
+            size_function="constant",
+            cloning_rate=0.6,
+            selfing_rate=0.6,
+        )
 
     def test_bad_size_function(self):
         for fn in (0, 1e5, [], {}, math.nan, "N(t) = 5 * t"):
