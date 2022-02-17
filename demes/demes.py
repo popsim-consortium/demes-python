@@ -1181,18 +1181,25 @@ class Deme:
         """
         Get the size of the deme at a given time.
 
+        If the deme doesn't exist at the given time, the value 0 is returned.
+        If the given time is infinity and the deme has an infinite start_time,
+        the deme's first epoch's start_size is returned.
+
         :param float time: The time at which the size should be calculated.
         :return: The deme size.
         :rtype: float
         """
+        if math.isinf(time) and math.isinf(self.start_time):
+            # Deme exists arbitrarily far back in time.
+            return self.epochs[0].start_size
+
+        # Get the corresponding epoch.
         for epoch in self.epochs:
-            if epoch.start_time >= time >= epoch.end_time:
+            if epoch.start_time > time >= epoch.end_time:
                 break
         else:
-            raise ValueError(
-                f"time {time} is outside deme {self.name}'s existence interval: "
-                f"({self.start_time}, {self.end_time}]"
-            )
+            # Deme doesn't exist.
+            return 0
 
         if math.isclose(time, epoch.end_time) or epoch.size_function == "constant":
             N = epoch.end_size
