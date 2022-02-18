@@ -1,0 +1,3 @@
+[submodule "demes-spec"]
+	path = demes-spec
+	url = https://github.com/popsim-consortium/demes-spec.git
