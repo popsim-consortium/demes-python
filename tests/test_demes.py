@@ -1656,7 +1656,10 @@ class TestDemeSizeAt:
     @pytest.mark.parametrize("deme", tests.example_demes())
     def test_deme_start_and_end_times(self, deme):
         N = deme.size_at(deme.start_time)
-        assert N == deme.epochs[0].start_size
+        if math.isinf(deme.start_time):
+            assert N == deme.epochs[0].start_size
+        else:
+            assert N == 0
         N = deme.size_at(deme.end_time)
         assert N == deme.epochs[-1].end_size
 
@@ -1691,15 +1694,13 @@ class TestDemeSizeAt:
                             f"No tests for size_function '{epoch.size_function}'"
                         )
 
-    def test_bad_time(self):
+    def test_deme_doesnt_exist_at_time(self):
         b = demes.Builder()
         b.add_deme("A", epochs=[dict(start_size=1, end_time=100)])
         b.add_deme("B", ancestors=["A"], epochs=[dict(start_size=1)])
         graph = b.resolve()
-        with pytest.raises(ValueError, match="existence interval"):
-            graph["A"].size_at(10)
-        with pytest.raises(ValueError, match="existence interval"):
-            graph["B"].size_at(200)
+        assert graph["A"].size_at(10) == 0
+        assert graph["B"].size_at(200) == 0
 
     def test_unknown_size_function(self):
         b = demes.Builder()
