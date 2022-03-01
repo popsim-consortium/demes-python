@@ -18,7 +18,7 @@ jobs:
           # so that the correct version string can be constructed
           # by setuptools_scm.
           fetch-depth: 0
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v3
         with:
           python-version: 3.8
 
