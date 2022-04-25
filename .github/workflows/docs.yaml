@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-deploy-docs:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
       - uses: actions/checkout@v3
@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v3
         with:
-          python-version: 3.8
+          python-version: "3.10"
 
       - name: Install dependencies
         run: |
