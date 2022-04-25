@@ -233,7 +233,7 @@ class MigrationMatrixChange(Event):
         """
         Convert the args vector into a square list-of-lists matrix.
         """
-        if len(self.mm_vector) != self.npop ** 2:
+        if len(self.mm_vector) != self.npop**2:
             raise ValueError(
                 f"Must be npop^2={self.npop**2} migration matrix entries: "
                 f"{self.mm_vector}"
