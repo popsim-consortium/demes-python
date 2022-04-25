@@ -2,7 +2,6 @@ description: The Browning et al. (2011) model of admixture in the Americas.
 doi:
   - https://doi.org/10.1371/journal.pgen.1007385
 time_units: generations
-generation_time: 25
 demes:
   - name: ancestral
     description: Equilibrium/root population

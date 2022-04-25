@@ -129,15 +129,17 @@ def _no_null_values(data: MutableMapping[str, Any]) -> None:
             if isinstance(v, dict):
                 assert_no_nulls(v)
             elif isinstance(v, list):
-                for _ in v:
-                    if isinstance(_, dict):
-                        assert_no_nulls(_)
+                for e in v:
+                    if isinstance(e, dict):
+                        assert_no_nulls(e)
                     else:
-                        check_if_None(k, v)
+                        check_if_None(k, e)
             else:
                 check_if_None(k, v)
 
-    assert_no_nulls(data)
+    # Don't look inside metadata.
+    data_no_metadata = {k: v for k, v in data.items() if k != "metadata"}
+    assert_no_nulls(data_no_metadata)
 
 
 def loads_asdict(string, *, format="yaml") -> MutableMapping[str, Any]:

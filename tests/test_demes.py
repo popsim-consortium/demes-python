@@ -1077,7 +1077,6 @@ class TestDeme:
 
         deme = Deme(
             name="a",
-            description=None,
             ancestors=["c"],
             proportions=[1],
             start_time=math.inf,
@@ -1091,7 +1090,7 @@ class TestDeme:
                 )
             ],
         )
-        assert deme.description is None
+        assert deme.description == ""
 
     def test_bad_id(self):
         for name in (None, 0, math.inf, 1e3, {}, []):
@@ -1150,23 +1149,6 @@ class TestDeme:
                         )
                     ],
                 )
-        with pytest.raises(ValueError):
-            Deme(
-                name="a",
-                description="",
-                ancestors=[],
-                proportions=[],
-                start_time=math.inf,
-                epochs=[
-                    Epoch(
-                        start_time=math.inf,
-                        end_time=0,
-                        start_size=1,
-                        end_size=1,
-                        size_function="constant",
-                    )
-                ],
-            )
 
     def test_bad_ancestors(self):
         for ancestors in (None, "c", {}):
@@ -1733,7 +1715,7 @@ class TestGraph:
 
     def test_description(self):
         Graph(description="test", time_units="generations")
-        Graph(description=None, time_units="generations")
+        Graph(description="", time_units="generations")
         Graph(time_units="generations")
 
     def test_bad_description(self):
@@ -1743,11 +1725,6 @@ class TestGraph:
                     description=description,
                     time_units="generations",
                 )
-        with pytest.raises(ValueError):
-            Graph(
-                description="",
-                time_units="generations",
-            )
 
     def test_doi(self):
         # We currently accept arbitrary strings in DOIs.
@@ -1830,7 +1807,7 @@ class TestGraph:
     @pytest.mark.parametrize("graph", tests.example_graphs())
     def test_in_generations(self, graph):
         dg1 = copy.deepcopy(graph)
-        if dg1.generation_time in (None, 1):
+        if dg1.generation_time == 1:
             # fake it
             dg1.generation_time = 6
             dg1.time_units = "years"
@@ -1850,8 +1827,9 @@ class TestGraph:
         def in_generations2(dg):
             dg = copy.deepcopy(dg)
             generation_time = dg.generation_time
-            dg.generation_time = None
+            dg.generation_time = 1
             if dg.time_units == "generations":
+                assert generation_time == 1
                 return dg
             dg.time_units = "generations"
 
@@ -1890,16 +1868,14 @@ class TestGraph:
         dg2.assert_close(dg3)
         assert dg2.asdict() == dg3.asdict()
 
-    def test_in_generations_when_time_units_are_generations(self):
-        # Check that in_generations() doesn't change the times when
-        # time_units are generations, even if the generation_time is set.
+    def test_bad_generation_time_when_time_units_are_generations(self):
+        # The generation_time should be in the same units as the time_units,
+        # so it doesn't make sense to set generation_time != 1 when time units
+        # are generations.
         b = Builder(time_units="generations", generation_time=13)
-        b.add_deme(
-            "A", epochs=[dict(start_size=2000, end_time=100), dict(start_size=100)]
-        )
-        g = b.resolve().in_generations()
-        assert g.time_units == "generations"
-        assert g["A"].epochs[0].end_time == 100
+        b.add_deme("A", epochs=[dict(start_size=1, end_time=0)])
+        with pytest.raises(ValueError, match="generation_time!=1"):
+            b.resolve()
 
     def test_isclose(self):
         b1 = Builder(description="test", time_units="generations")

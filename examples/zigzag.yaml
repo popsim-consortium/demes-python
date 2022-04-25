@@ -2,7 +2,6 @@ description: A single population model with epochs of exponential growth and dec
 doi:
   - https://doi.org/10.1038/ng.3015
 time_units: generations
-generation_time: 30
 demes:
   - name: generic
     description: All epochs wrapped into the same population, so that epoch intervals

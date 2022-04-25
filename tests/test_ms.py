@@ -1294,7 +1294,6 @@ class TestFromMs:
 
         # Compare with zigzag in examples folder.
         zz = demes.load(tests.example_dir / "zigzag.yaml")
-        zz.generation_time = None
         zz.demes[0].name = "deme1"
         # We use a lower tolerance than the default because the example model
         # uses somewhat arbitrary rounding.

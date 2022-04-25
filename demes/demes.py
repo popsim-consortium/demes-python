@@ -960,7 +960,7 @@ class Deme:
     A collection of individuals that have a common set of population parameters.
 
     :ivar str name: A concise string that identifies the deme.
-    :ivar str description: A description of the deme. May be ``None``.
+    :ivar str description: A description of the deme.
     :ivar float start_time: The time at which the deme begins to exist.
     :ivar list[str] ancestors: List of deme names for the deme's ancestors.
         This may be ``None``, indicating the deme has no ancestors.
@@ -972,11 +972,7 @@ class Deme:
     """
 
     name: Name = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_name])
-    description: Optional[str] = attr.ib(
-        validator=attr.validators.optional(
-            [attr.validators.instance_of(str), nonzero_len]
-        )
-    )
+    description: str = attr.ib(default="", validator=attr.validators.instance_of(str))
     start_time: Time = attr.ib(validator=[int_or_float, positive])
     ancestors: List[Name] = attr.ib(
         validator=attr.validators.deep_iterable(
@@ -1224,7 +1220,6 @@ class Graph:
     object to use when inspecting a model's properties.
 
     :ivar str description: A human readable description of the demography.
-        May be ``None``.
     :ivar str time_units: The units of time used for the demography. This is
         commonly ``years`` or ``generations``, but can be any string.
         This field is intended to be useful for documenting a demography,
@@ -1244,12 +1239,7 @@ class Graph:
     :ivar list[Pulse] pulses: The migration pulses for the demography.
     """
 
-    description: Optional[str] = attr.ib(
-        default=None,
-        validator=attr.validators.optional(
-            [attr.validators.instance_of(str), nonzero_len]
-        ),
-    )
+    description: str = attr.ib(default="", validator=attr.validators.instance_of(str))
     time_units: str = attr.ib(validator=[attr.validators.instance_of(str), nonzero_len])
     generation_time: Optional[Time] = attr.ib(
         default=None,
@@ -1286,6 +1276,11 @@ class Graph:
             raise ValueError(
                 'if time_units!="generations", generation_time must be specified'
             )
+        if self.generation_time is None:
+            self.generation_time = 1
+        if self.time_units == "generations" and self.generation_time != 1:
+            # This doesn't make sense. What units are the generation_time in?
+            raise ValueError('time_units=="generations", but generation_time!=1')
 
     def __getitem__(self, deme_name: Name) -> Deme:
         """
@@ -1897,20 +1892,19 @@ class Graph:
         Return a copy of the graph with times in units of generations.
         """
         graph = copy.deepcopy(self)
-        generation_time = self.generation_time
-        graph.generation_time = None
-        if graph.time_units != "generations" and generation_time is not None:
-            graph.time_units = "generations"
-            for deme in graph.demes:
-                deme.start_time /= generation_time
-                for epoch in deme.epochs:
-                    epoch.start_time /= generation_time
-                    epoch.end_time /= generation_time
-            for migration in graph.migrations:
-                migration.start_time /= generation_time
-                migration.end_time /= generation_time
-            for pulse in graph.pulses:
-                pulse.time /= generation_time
+        assert graph.generation_time is not None
+        for deme in graph.demes:
+            deme.start_time /= graph.generation_time
+            for epoch in deme.epochs:
+                epoch.start_time /= graph.generation_time
+                epoch.end_time /= graph.generation_time
+        for migration in graph.migrations:
+            migration.start_time /= graph.generation_time
+            migration.end_time /= graph.generation_time
+        for pulse in graph.pulses:
+            pulse.time /= graph.generation_time
+        graph.time_units = "generations"
+        graph.generation_time = 1
         return graph
 
     @classmethod
@@ -1990,7 +1984,7 @@ class Graph:
             raise KeyError("toplevel: required field 'time_units' not found")
 
         graph = cls(
-            description=data.pop("description", None),
+            description=data.pop("description", ""),
             time_units=data.pop("time_units"),
             doi=data.pop("doi", []),
             generation_time=data.pop("generation_time", None),
@@ -2010,7 +2004,7 @@ class Graph:
 
             deme = graph._add_deme(
                 name=deme_name,
-                description=deme_data.pop("description", None),
+                description=deme_data.pop("description", ""),
                 start_time=deme_data.pop("start_time", None),
                 ancestors=deme_data.pop("ancestors", None),
                 proportions=deme_data.pop("proportions", None),
@@ -2140,17 +2134,16 @@ class Graph:
 
         return graph
 
-    def asdict(self) -> MutableMapping[str, Any]:
+    def asdict(self, keep_empty_fields=True) -> MutableMapping[str, Any]:
         """
         Return a fully-resolved dict representation of the graph.
         """
 
         def filt(attrib, value):
             return (
-                value is not None
-                and not (hasattr(value, "__len__") and len(value) == 0)
-                and attrib.name != "_deme_map"
-            )
+                keep_empty_fields
+                or (not (hasattr(value, "__len__") and len(value) == 0))
+            ) and attrib.name != "_deme_map"
 
         def coerce_numbers(inst, attribute, value):
             # Explicitly convert numeric types to int or float, so that they
@@ -2297,7 +2290,7 @@ class Graph:
 
             data["migrations"] = symmetric + asymmetric
 
-        data = self.asdict()
+        data = self.asdict(keep_empty_fields=False)
 
         if "migrations" in data:
             simplify_migration_rates(data)
