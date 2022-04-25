@@ -21,10 +21,20 @@ follows.
 # Clone the repository.
 git clone https://github.com/popsim-consortium/demes-python.git
 cd demes-python
+# Create a virtual environment for development.
+python -m venv venv
+# Activate the environment.
+source venv/bin/activate
 # Install the developer dependencies.
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 # Generate the version string from the most recent git tag/commit.
 python setup.py build
+```
+
+```{warning}
+Due to conflicting version dependencies, it may not be possible to install
+all developer requirements on older versions of Python. If you experience
+problems, please install the latest Python version (3.10 at time of writing).
 ```
 
 ```{note}

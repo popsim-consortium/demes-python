@@ -9,10 +9,10 @@ on:
 
 jobs:
   build-deploy-docs:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           # Fetch the history for all tags and branches
           # so that the correct version string can be constructed
@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v3
         with:
-          python-version: 3.8
+          python-version: "3.10"
 
       - name: Install dependencies
         run: |
@@ -40,7 +40,7 @@ jobs:
 
       - name: Checkout docs site
         if: (!github.event.pull_request)
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: popsim-consortium/demes-docs
           token: ${{ secrets.POPSIMBOT_DEMES_DOCS_TOKEN }}
