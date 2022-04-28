@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.2.2 - 2022-04-28
+
+Better conformance to the spec. Minor discrepancies between
+demes-python and the reference implementation have been resolved.
+
+- Dropped support for Python 3.6
+  ({user}`grahamgower`, {issue}`445`, {pr}`446`)
+- Reject bad defaults, even if they're not used.
+  ({user}`grahamgower`, {issue}`443`, {pr}`430`)
+- Set encoding to UTF-8 explicitly. This fixes unicode deme names on Windows.
+  ({user}`grahamgower`, {pr}`430`)
+- `Graph.description` and `Deme.description` can no longer be `None`.
+  A missing description will now be resolved to the empty string.
+  ({user}`grahamgower`, {issue}`429`, {pr}`430`)
+- `Graph.generation_time` can no longer be `None`.
+  When `time_units` are generations, a missing `generation_time` will now
+  be resolved to 1 and other values are an error.
+  ({user}`grahamgower`, {issue}`429`, {pr}`430`)
+- Permit selfing_rate + cloning_rate >= 1.
+  Both values must be between zero and one (inclusive), but the selfing_rate
+  is now defined as conditional on sexual reproduction (which occurs at
+  rate `1 - cloning_rate`).
+  ({user}`grahamgower`, {issue}`425`, {pr}`423`)
+
 ## 0.2.1 - 2021-12-07
 
 **New features:**
