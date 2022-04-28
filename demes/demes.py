@@ -51,6 +51,11 @@ def unit_interval(self, attribute, value):
         raise ValueError(f"must have 0 <= {attribute.name} <= 1")
 
 
+def sum_less_than_one(self, attribute, value):
+    if sum(value) > 1:
+        raise ValueError(f"{attribute.name} must sum to less than one")
+
+
 def nonzero_len(self, attribute, value):
     if len(value) == 0:
         if isinstance(value, str):
@@ -95,12 +100,21 @@ def isclose_deme_proportions(
     return True
 
 
-def validate_item(name, value, required_type, scope):
+_DummyAttribute = collections.namedtuple("_DummyAttribute", ["name"])
+
+
+def validate_item(name, value, required_type, scope, validator=None):
     if not isinstance(value, required_type):
         raise TypeError(
             f"{scope}: field '{name}' must be a {required_type}; "
             f"current type is {type(value)}."
         )
+    if validator is not None:
+        if not isinstance(validator, (list, tuple)):
+            validator = [validator]
+        dummy_attribute = _DummyAttribute(f"{scope}: {name}")
+        for v in validator:
+            v(None, dummy_attribute, value)
 
 
 # We need to use this trick because None is a meaningful input value for these
@@ -140,6 +154,17 @@ def check_allowed(data, allowed_fields, scope):
                 f"{scope}: unexpected field: '{key}'. "
                 f"Allowed fields are: {allowed_fields}"
             )
+
+
+def check_defaults(defaults, allowed_fields, scope):
+    for key, value in defaults.items():
+        if key not in allowed_fields:
+            raise KeyError(
+                f"{scope}: unexpected field: '{key}'. "
+                f"Allowed fields are: {list(allowed_fields)}"
+            )
+        required_type, validator = allowed_fields[key]
+        validate_item(key, value, required_type, scope, validator=validator)
 
 
 def insert_defaults(data, defaults):
@@ -1949,7 +1974,30 @@ class Graph:
             "proportions",
         ]
         allowed_fields_deme_inner = allowed_fields_deme + ["name", "defaults", "epochs"]
-        check_allowed(deme_defaults, allowed_fields_deme, "defaults: deme")
+        check_defaults(
+            deme_defaults,
+            dict(
+                description=(str, None),
+                start_time=(numbers.Number, [int_or_float, positive]),
+                ancestors=(
+                    list,
+                    attr.validators.deep_iterable(
+                        member_validator=attr.validators.and_(
+                            attr.validators.instance_of(str), valid_deme_name
+                        ),
+                        iterable_validator=attr.validators.instance_of(list),
+                    ),
+                ),
+                proportions=(
+                    list,
+                    attr.validators.deep_iterable(
+                        member_validator=int_or_float,
+                        iterable_validator=attr.validators.instance_of(list),
+                    ),
+                ),
+            ),
+            "defaults.deme",
+        )
 
         migration_defaults = pop_object(defaults, "migration", {}, scope="defaults")
         allowed_fields_migration = [
@@ -1960,13 +2008,62 @@ class Graph:
             "end_time",
             "rate",
         ]
-        check_allowed(
-            migration_defaults, allowed_fields_migration, "defaults: migration"
+        check_defaults(
+            migration_defaults,
+            dict(
+                rate=(numbers.Number, [int_or_float, unit_interval]),
+                start_time=(numbers.Number, [int_or_float, non_negative]),
+                end_time=(numbers.Number, [int_or_float, non_negative, finite]),
+                source=(str, valid_deme_name),
+                dest=(str, valid_deme_name),
+                demes=(
+                    list,
+                    attr.validators.deep_iterable(
+                        member_validator=attr.validators.and_(
+                            attr.validators.instance_of(str), valid_deme_name
+                        ),
+                        iterable_validator=attr.validators.instance_of(list),
+                    ),
+                ),
+            ),
+            "defaults.migration",
         )
 
         pulse_defaults = pop_object(defaults, "pulse", {}, scope="defaults")
         allowed_fields_pulse = ["sources", "dest", "time", "proportions"]
-        check_allowed(pulse_defaults, allowed_fields_pulse, "defaults.pulse")
+        check_defaults(
+            pulse_defaults,
+            dict(
+                sources=(
+                    list,
+                    attr.validators.and_(
+                        attr.validators.deep_iterable(
+                            member_validator=attr.validators.and_(
+                                attr.validators.instance_of(str), valid_deme_name
+                            ),
+                            iterable_validator=attr.validators.instance_of(list),
+                        ),
+                        nonzero_len,
+                    ),
+                ),
+                dest=(str, valid_deme_name),
+                time=(numbers.Number, [int_or_float, positive, finite]),
+                proportions=(
+                    list,
+                    attr.validators.deep_iterable(
+                        member_validator=attr.validators.and_(
+                            int_or_float, unit_interval
+                        ),
+                        iterable_validator=attr.validators.and_(
+                            attr.validators.instance_of(list),
+                            nonzero_len,
+                            sum_less_than_one,
+                        ),
+                    ),
+                ),
+            ),
+            "defaults.pulse",
+        )
 
         # epoch defaults may also be specified within a Deme definition.
         global_epoch_defaults = pop_object(defaults, "epoch", {}, scope="defaults")
@@ -1978,7 +2075,15 @@ class Graph:
             "cloning_rate",
             "selfing_rate",
         ]
-        check_allowed(global_epoch_defaults, allowed_fields_epoch, "defaults: epoch")
+        allowed_epoch_defaults = dict(
+            end_time=(numbers.Number, [int_or_float, non_negative, finite]),
+            start_size=(numbers.Number, [int_or_float, positive, finite]),
+            end_size=(numbers.Number, [int_or_float, positive, finite]),
+            selfing_rate=(numbers.Number, [int_or_float, unit_interval]),
+            cloning_rate=(numbers.Number, [int_or_float, unit_interval]),
+            size_function=(str, None),
+        )
+        check_defaults(global_epoch_defaults, allowed_epoch_defaults, "defaults.epoch")
 
         if "time_units" not in data:
             raise KeyError("toplevel: required field 'time_units' not found")
@@ -1991,9 +2096,12 @@ class Graph:
             metadata=data.pop("metadata", {}),
         )
 
-        for i, deme_data in enumerate(
-            pop_list(data, "demes", required_type=MutableMapping, scope="toplevel")
-        ):
+        demes_list = pop_list(
+            data, "demes", required_type=MutableMapping, scope="toplevel"
+        )
+        if len(demes_list) == 0:
+            raise ValueError("toplevel: 'demes' must be a non-empty list")
+        for i, deme_data in enumerate(demes_list):
             if "name" not in deme_data:
                 raise KeyError(f"demes[{i}]: required field 'name' not found")
             deme_name = deme_data.pop("name")
@@ -2019,14 +2127,13 @@ class Graph:
             local_epoch_defaults = pop_object(
                 local_defaults, "epoch", {}, scope=f"demes[{i}] {deme.name}: defaults"
             )
-            epoch_defaults = global_epoch_defaults.copy()
-            epoch_defaults.update(local_epoch_defaults)
-
-            check_allowed(
-                epoch_defaults,
-                allowed_fields_epoch,
+            check_defaults(
+                local_epoch_defaults,
+                allowed_epoch_defaults,
                 f"demes[{i}] {deme.name}: defaults: epoch",
             )
+            epoch_defaults = global_epoch_defaults.copy()
+            epoch_defaults.update(local_epoch_defaults)
 
             if len(epoch_defaults) == 0 and "epochs" not in deme_data:
                 # This condition would be caught downstream, because start_size
@@ -2044,6 +2151,10 @@ class Graph:
                 required_type=MutableMapping,
                 scope=f"demes[{i}] {deme.name}",
             )
+            if len(epochs) == 0:
+                raise ValueError(
+                    f"demes[{i}] {deme.name}: 'epochs' must be a non-empty list"
+                )
             for j, epoch_data in enumerate(epochs):
                 check_allowed(
                     epoch_data,
@@ -2059,6 +2170,7 @@ class Graph:
                             f"demes[{i}] {deme.name}: epochs[{j}]: "
                             "required field 'end_time' not found"
                         )
+
                 deme._add_epoch(
                     end_time=epoch_data.pop("end_time"),
                     start_size=epoch_data.pop("start_size", None),
@@ -2067,6 +2179,10 @@ class Graph:
                     selfing_rate=epoch_data.pop("selfing_rate", 0),
                     cloning_rate=epoch_data.pop("cloning_rate", 0),
                 )
+
+            assert len(deme.epochs) > 0
+
+        assert len(graph.demes) > 0
 
         for i, migration_data in enumerate(
             pop_list(
