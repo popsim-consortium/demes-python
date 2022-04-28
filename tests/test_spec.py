@@ -29,12 +29,16 @@ def resolve_ref(filename) -> dict:
     resolver = (
         cwd / ".." / "demes-spec" / "reference_implementation" / "resolve_yaml.py"
     )
-    p = subprocess.Popen(
-        ["python3", str(resolver), filename],
+    with subprocess.Popen(
+        # "-X utf8" is needed on Windows.
+        ["python3", "-X", "utf8", str(resolver), filename],
         stdout=subprocess.PIPE,
-    )
-    assert p.stdout is not None  # pacify mypy
-    return json.load(p.stdout)
+        encoding="utf-8",
+    ) as p:
+        assert p.stdout is not None  # pacify mypy
+        stdout = p.stdout.read()
+    assert p.returncode == 0
+    return json.loads(stdout)
 
 
 def dict_isclose(d1, d2, rel_tol=1e-9, abs_tol=1e-12):

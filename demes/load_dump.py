@@ -19,7 +19,8 @@ def _open_file_polymorph(polymorph, mode="r"):
     just yield polymorph under the assumption it's a fileobj.
     """
     try:
-        f = open(polymorph, mode)
+        # We must specify utf8 explicitly for Windows.
+        f = open(polymorph, mode, encoding="utf-8")
     except TypeError:
         f = polymorph
     try:
