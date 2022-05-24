@@ -861,6 +861,20 @@ def from_ms(
 
         \\text{migration rate (per generation)} &= \\frac{M}{4 N_0}
 
+
+    .. warning::
+
+        Several programs exist that implement an ms or ms-like
+        command line interface. But discrepancies do exist
+        between ms and its clones for some command line arguments,
+        and such discrepancies alter the interpretation of the
+        demographic model.
+        This function implements the behaviour as described in
+        Hudson's ms manual. Command lines constructed for use with
+        other programs may work as desired, but users are cautioned to
+        carefully check the appropriate documentation to identify where
+        discrepancies may exist.
+
     :param str command: The ms command line.
     :param float N0:
         The reference population size (:math:`N_0`) used to translate
@@ -903,10 +917,12 @@ def to_ms(graph: demes.Graph, *, N0, samples=None) -> str:
         The reference population size used to translate into coalescent units.
         See :func:`from_ms` for details.
     :param list(int) samples:
-        Sampling scheme that will be used with the '-I' option. This is ignored
-        for graphs with only one deme. If not specified, the sampling
-        configuration in the returned string will need editing prior to
-        simulation.
+        A list of haploid sample numbers, one for each deme, in the same
+        order as the order of demes in the graph.
+        The parameter is ignored for demographic models with only one deme.
+        The given sampling scheme will be used with the ``-I`` argument.
+        If not specified, the sampling configuration in the returned string
+        will need editing prior to use.
     :return: The ms command line.
     :rtype: str
     """
