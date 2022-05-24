@@ -1,6 +1,7 @@
 """
 Functions to load and dump graphs in YAML and JSON formats.
 """
+from __future__ import annotations
 import contextlib
 import json
 import io
@@ -146,8 +147,11 @@ def _no_null_values(data: MutableMapping[str, Any]) -> None:
 def loads_asdict(string, *, format="yaml") -> MutableMapping[str, Any]:
     """
     Load a YAML or JSON string into a dictionary of nested objects.
-    The keywords and structure of the input are defined by the
-    :ref:`spec:sec_spec`.
+
+    The input is *not* resolved, and is *not* validated.
+    The returned object may be converted into a :class:`Builder`
+    using :meth:`Builder.fromdict` or converted into a :class:`Graph`
+    using :meth:`Graph.fromdict`.
 
     :param str string: The string to be loaded.
     :param str format: The format of the input string. Either "yaml" or "json".
@@ -162,8 +166,11 @@ def loads_asdict(string, *, format="yaml") -> MutableMapping[str, Any]:
 def load_asdict(filename, *, format="yaml") -> MutableMapping[str, Any]:
     """
     Load a YAML or JSON file into a dictionary of nested objects.
-    The keywords and structure of the input are defined by the
-    :ref:`spec:sec_spec`.
+
+    The input is *not* resolved, and is *not* validated.
+    The returned object may be converted into a :class:`Builder`
+    using :meth:`Builder.fromdict` or converted into a :class:`Graph`
+    using :meth:`Graph.fromdict`.
 
     :param filename: The path to the file to be loaded, or a file-like object
         with a ``read()`` method.
@@ -191,7 +198,7 @@ def load_asdict(filename, *, format="yaml") -> MutableMapping[str, Any]:
     return data
 
 
-def loads(string, *, format="yaml") -> "demes.Graph":
+def loads(string, *, format="yaml") -> demes.Graph:
     """
     Load a graph from a YAML or JSON string.
     The keywords and structure of the input are defined by the
@@ -199,14 +206,14 @@ def loads(string, *, format="yaml") -> "demes.Graph":
 
     :param str string: The string to be loaded.
     :param str format: The format of the input string. Either "yaml" or "json".
-    :return: A graph.
-    :rtype: .Graph
+    :return: A resolved and validated demographic model.
+    :rtype: demes.Graph
     """
     data = loads_asdict(string, format=format)
     return demes.Graph.fromdict(data)
 
 
-def load(filename, *, format="yaml") -> "demes.Graph":
+def load(filename, *, format="yaml") -> demes.Graph:
     """
     Load a graph from a YAML or JSON file.
     The keywords and structure of the input are defined by the
@@ -216,14 +223,14 @@ def load(filename, *, format="yaml") -> "demes.Graph":
         with a ``read()`` method.
     :type filename: Union[str, os.PathLike, FileLike]
     :param str format: The format of the input file. Either "yaml" or "json".
-    :return: A graph.
-    :rtype: .Graph
+    :return: A resolved and validated demographic model.
+    :rtype: demes.Graph
     """
     data = load_asdict(filename, format=format)
     return demes.Graph.fromdict(data)
 
 
-def load_all(filename) -> Generator["demes.Graph", None, None]:
+def load_all(filename) -> Generator[demes.Graph, None, None]:
     """
     Generate graphs from a YAML document stream. Documents must be separated by
     the YAML document start indicator, ``---``.
@@ -233,7 +240,7 @@ def load_all(filename) -> Generator["demes.Graph", None, None]:
     :param filename: The path to the file to be loaded, or a file-like object
         with a ``read()`` method.
     :type filename: Union[str, os.PathLike, FileLike]
-    :return: A generator of graphs.
+    :return: A generator of resolved and validated demographic models.
     :rtype: Generator[demes.Graph, None, None]
     """
     with _open_file_polymorph(filename) as f:
@@ -255,10 +262,13 @@ def dumps(graph, *, format="yaml", simplified=True) -> str:
     The keywords and structure of the output are defined by the
     :ref:`spec:sec_spec`.
 
-    :param .Graph graph: The graph to dump.
+    :param demes.Graph graph: The graph to dump.
     :param str format: The format of the output file. Either "yaml" or "json".
-    :param bool simplified: If True, returns a simplified graph. If False, returns
-        a fully-qualified graph.
+    :param bool simplified:
+        If True, returns a string following the :ref:`spec:sec_spec_hdm`,
+        which has many fields omitted and is thus more compact.
+        If False, returns a string that is fully-resolved following the
+        :ref:`spec:sec_spec_mdm`.
     :return: The YAML or JSON string.
     :rtype: str
     """
@@ -274,13 +284,16 @@ def dump(graph, filename, *, format="yaml", simplified=True) -> None:
     The keywords and structure of the output are defined by the
     :ref:`spec:sec_spec`.
 
-    :param .Graph graph: The graph to dump.
+    :param demes.Graph graph: The graph to dump.
     :param filename: Path to the output file, or a file-like object with a
         ``write()`` method.
     :type filename: Union[str, os.PathLike, FileLike]
     :param str format: The format of the output file. Either "yaml" or "json".
-    :param bool simplified: If True, outputs a simplified graph. If False, outputs
-        a fully-qualified graph.
+    :param bool simplified:
+        If True, the output file follows the :ref:`spec:sec_spec_hdm`,
+        which has many fields omitted and is thus more compact.
+        If False, the output file is fully-resolved and follows the
+        :ref:`spec:sec_spec_mdm`.
     """
     if simplified:
         data = graph.asdict_simplified()
@@ -306,8 +319,11 @@ def dump_all(graphs, filename, *, simplified=True) -> None:
     :param filename: Path to the output file, or a file-like object with a
         ``write()`` method.
     :type filename: Union[str, os.PathLike, FileLike]
-    :param bool simplified: If True, outputs simplified graphs. If False, outputs
-        fully-qualified graphs.
+    :param bool simplified:
+        If True, the output file follows the :ref:`spec:sec_spec_hdm`,
+        which has many fields omitted and is thus more compact.
+        If False, the output file is fully-resolved and follows the
+        :ref:`spec:sec_spec_mdm`.
     """
     with _open_file_polymorph(filename, "w") as f:
         for graph in graphs:

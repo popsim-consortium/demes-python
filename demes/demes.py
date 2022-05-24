@@ -1,3 +1,4 @@
+from __future__ import annotations
 import copy
 import collections
 import itertools
@@ -176,18 +177,29 @@ def insert_defaults(data, defaults):
 @attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Epoch:
     """
-    Population size parameters for a deme in a specified time period.
-    Times follow the forwards-in-time convention (time values increase
-    from the present towards the past). The start time of the epoch is
-    the more ancient time, and the end time is more recent, so that the
-    start time must be greater than the end time
+    Population parameters for a deme in a specified time interval.
 
-    :ivar float start_time: The start time of the epoch.
-    :ivar float ~.end_time: The end time of the epoch (must be specified).
-    :ivar float start_size: Population size at ``start_time``.
-    :ivar float end_size: Population size at ``end_time``.
+    An epoch spans the open-closed time interval ``(start_time, end_time]``,
+    where ``start_time`` is the more ancient time,
+    and ``end_time`` is more recent.
+    Time values increase from the present towards the past,
+    and ``start_time`` is strictly greater than ``end_time``.
+
+    Epoch objects are not intended to be constructed directly.
+
+    :ivar float start_time:
+        The start time of the epoch.
+        This value is greater than zero and may be infinity.
+    :ivar float end_time:
+        The end time of the epoch.
+        This value is greater than or equal to zero and finite.
+    :ivar float start_size:
+        Population size at ``start_time``.
+    :ivar float end_size:
+        Population size at ``end_time``.
         If ``start_size != end_size``, the population size changes
-        monotonically between the start and end times.
+        between the start and end times according to the
+        ``size_function``.
     :ivar str size_function: The size change function. This is either
         ``constant``, ``exponential`` or ``linear``, though it is possible
         that additional values will be added in the future.
@@ -243,6 +255,8 @@ class Epoch:
     def time_span(self):
         """
         The time span of the epoch.
+
+        :rtype: float
         """
         return self.start_time - self.end_time
 
@@ -335,15 +349,18 @@ class Epoch:
 @attr.s(auto_attribs=True, kw_only=True, slots=True)
 class AsymmetricMigration:
     """
-    Parameters for continuous asymmetric migration.
+    Continuous asymmetric migration.
+
     The source and destination demes follow the forwards-in-time convention,
     where migrants are born in the source deme and (potentially) have children
     in the dest deme.
 
+    AsymmetricMigration objects are not intended to be constructed directly.
+
     :ivar str source: The source deme for asymmetric migration.
     :ivar str dest: The destination deme for asymmetric migration.
     :ivar float start_time: The time at which the migration rate is activated.
-    :ivar float ~.end_time: The time at which the migration rate is deactivated.
+    :ivar float end_time: The time at which the migration rate is deactivated.
     :ivar float rate: The rate of migration per generation.
     """
 
@@ -430,15 +447,19 @@ class AsymmetricMigration:
 @attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Pulse:
     """
-    Parameters for a pulse of migration from one deme to another.
+    An instantaneous pulse of migration from one deme to another.
+
     Source and destination demes follow the forwards-in-time convention,
-    of migrations born in the source deme having children in the dest
-    deme. If more than one source is given, migration is concurrent, so that
-    the sum of the migrant proportions must sum to less than one.
+    where migrants are born in a source deme and (potentially) have children
+    in the dest deme.
+    If more than one source is given, migration is concurrent,
+    and the sum of the migrant proportions sums to less than or equal to one.
+
+    Pulse objects are not intended to be constructed directly.
 
     :ivar list(str) sources: The source deme(s).
     :ivar str dest: The destination deme.
-    :ivar float ~.time: The time of migration.
+    :ivar float time: The time of migration.
     :ivar list(float) proportions: Immediately following migration, the proportion(s)
         of individuals in the destination deme made up of migrant individuals or
         having parents from the source deme(s).
@@ -557,14 +578,16 @@ class Pulse:
 @attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Split:
     """
-    Parameters for a split event, in which a deme ends at a given time and
+    A split event, in which a deme ends at a given time and
     contributes ancestry to an arbitrary number of descendant demes. Note
     that there could be just a single descendant deme, in which case ``split``
-    is a bit of a misnomer...
+    is a bit of a misnomer.
+
+    Split objects are not intended to be constructed directly.
 
     :ivar str parent: The parental deme.
     :ivar list[str] children: A list of descendant demes.
-    :ivar float ~.time: The split time.
+    :ivar float time: The split time.
     """
 
     parent: Name = attr.ib(
@@ -655,12 +678,14 @@ class Split:
 @attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Branch:
     """
-    Parameters for a branch event, where a new deme branches off from a parental
+    A branch event, where a new deme branches off from a parental
     deme. The parental deme need not end at that time.
+
+    Branch objects are not intended to be constructed directly.
 
     :ivar str parent: The parental deme.
     :ivar str child: The descendant deme.
-    :ivar float ~.time: The branch time.
+    :ivar float time: The branch time.
     """
 
     parent: Name = attr.ib(
@@ -738,14 +763,16 @@ class Branch:
 @attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Merge:
     """
-    Parameters for a merge event, in which two or more demes end at some time and
+    A merge event, in which two or more demes end at some time and
     contribute to a descendant deme.
+
+    Merge objects are not intended to be constructed directly.
 
     :ivar list[str] parents: A list of parental demes.
     :ivar list[float] proportions: A list of ancestry proportions,
         in order of ``parents``.
     :ivar str child: The descendant deme.
-    :ivar float ~.time: The merge time.
+    :ivar float time: The merge time.
     """
 
     parents: List[Name] = attr.ib(
@@ -859,14 +886,16 @@ class Merge:
 @attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Admix:
     """
-    Parameters for an admixture event, where two or more demes contribute ancestry
+    An admixture event, where two or more demes contribute ancestry
     to a new deme.
+
+    Admix objects are not intended to be constructed directly.
 
     :ivar list[str] parents: A list of source demes.
     :ivar list[float] proportions: A list of ancestry proportions,
         in order of ``parents``.
     :ivar str child: The admixed deme.
-    :ivar float ~.time: The admixture time.
+    :ivar float time: The admixture time.
     """
 
     parents: List[Name] = attr.ib(
@@ -984,16 +1013,28 @@ class Deme:
     """
     A collection of individuals that have a common set of population parameters.
 
-    :ivar str name: A concise string that identifies the deme.
-    :ivar str description: A description of the deme.
-    :ivar float start_time: The time at which the deme begins to exist.
-    :ivar list[str] ancestors: List of deme names for the deme's ancestors.
-        This may be ``None``, indicating the deme has no ancestors.
-    :ivar list[float] proportions: If ``ancestors`` is not ``None``,
-        this indicates the proportions of ancestry from each ancestor.
-        This list has the same length as ``ancestors``, and must sum to 1.
-    :ivar list[Epoch] epochs: A list of epochs, which define the population
-        size(s) of the deme. The deme must be created with all epochs listed.
+
+    Deme objects are not intended to be constructed directly.
+
+    :ivar str name:
+        A concise string that identifies the deme.
+    :ivar str description:
+        A description of the deme.
+    :ivar float start_time:
+        The time at which the deme begins to exist.
+    :ivar list[str] ancestors:
+        List of deme names for the deme's ancestors.
+    :ivar list[float] proportions:
+        The proportions of ancestry from each ancestor,
+        ordered to correspond with the same order as the ancestors
+        list.
+        If there are one or more ancestors, the proportions sum to 1.
+    :ivar list[Epoch] epochs:
+        A list of epochs that span the time interval over which the
+        deme exists. Epoch time intervals are non-overlapping,
+        completely cover the deme's existence time interval,
+        and are listed in time-descending order (from the past
+        towards the present).
     """
 
     name: Name = attr.ib(validator=[attr.validators.instance_of(str), valid_deme_name])
@@ -1188,6 +1229,8 @@ class Deme:
     def end_time(self):
         """
         The end time of the deme's existence.
+
+        :rtype: float
         """
         return self.epochs[-1].end_time
 
@@ -1195,6 +1238,8 @@ class Deme:
     def time_span(self):
         """
         The time span over which the deme exists.
+
+        :rtype: float
         """
         return self.start_time - self.end_time
 
@@ -1239,29 +1284,45 @@ class Deme:
 @attr.s(auto_attribs=True, kw_only=True, slots=True)
 class Graph:
     """
-    The Graph class provides a high-level API for working with a demographic
-    model. A Graph object matches Demes' data model, with a small number of
+    The Graph class is a resolved and validated representation of a
+    demographic model.
+
+    A Graph object matches Demes' :ref:`spec:sec_spec_mdm`, with a small number of
     additional redundant attributes that make the Graph a more convenient
     object to use when inspecting a model's properties.
+    Graph objects are not intended to be constructed directly---demographic
+    models should instead be :func:`loaded from a YAML document <demes.load>`,
+    or constructed programmatically using the :class:`Builder API <demes.Builder>`.
 
-    :ivar str description: A human readable description of the demography.
-    :ivar str time_units: The units of time used for the demography. This is
+    A demographic model can be thought of as an acyclic directed graph,
+    where each deme is a vertex and each ancestor/descendant relationship
+    is a directed edge. See the :meth:`predecessors` and :meth:`successors`
+    methods for conversion to the `NetworkX <https://networkx.org/>`_
+    graphical representation.
+
+    :ivar str description:
+        A human readable description of the demography.
+    :ivar str time_units:
+        The units of time used for the demography. This is
         commonly ``years`` or ``generations``, but can be any string.
         This field is intended to be useful for documenting a demography,
         but the actual value provided here should not be relied upon.
-    :ivar float generation_time: The generation time of demes, in units given
+    :ivar float generation_time:
+        The generation time of demes, in units given
         by the ``time_units`` parameter. Concretely, dividing all times
         by ``generation_time`` will convert the graph to have time
-        units in generations.  If ``generation_time`` is ``None``, the units
-        are assumed to be in generations already.
+        units in generations.
         See also: :meth:`.in_generations`.
-    :ivar list[str] doi: If the graph describes a published demography,
-        the DOI(s) should be be given here as a list.
-    :ivar dict metadata: A dictionary of arbitrary additional data.
-    :ivar list[Deme] demes: The demes in the demography.
-    :ivar list[AsymmetricMigration] migrations: The continuous migrations for
-        the demographic model.
-    :ivar list[Pulse] pulses: The migration pulses for the demography.
+    :ivar list[str] doi:
+        A list of publications that describe the demographic model.
+    :ivar dict metadata:
+        A dictionary of arbitrary additional data.
+    :ivar list[Deme] demes:
+        The demes in the demographic model.
+    :ivar list[AsymmetricMigration] migrations:
+        The continuous asymmetric migrations for the demographic model.
+    :ivar list[Pulse] pulses:
+        The instantaneous pulse migrations for the demographic model.
     """
 
     description: str = attr.ib(default="", validator=attr.validators.instance_of(str))
@@ -1912,9 +1973,13 @@ class Graph:
             )
         return demo_events
 
-    def in_generations(self) -> "Graph":
+    def in_generations(self) -> Graph:
         """
         Return a copy of the graph with times in units of generations.
+
+        :return:
+            A demographic model with ``time_units`` in `"generations"`.
+        :rtype: Graph
         """
         graph = copy.deepcopy(self)
         assert graph.generation_time is not None
@@ -1933,9 +1998,16 @@ class Graph:
         return graph
 
     @classmethod
-    def fromdict(cls, data: MutableMapping[str, Any]) -> "Graph":
+    def fromdict(cls, data: MutableMapping[str, Any]) -> Graph:
         """
-        Return a graph from a dict representation. The inverse of :meth:`.asdict`.
+        Return a graph from a data dictionary.
+
+        :param dict data:
+            A data dictionary following either the
+            :ref:`spec:sec_spec_hdm` or the :ref:`spec:sec_spec_mdm`.
+        :return:
+            A resolved and validated demographic model.
+        :rtype: Graph
         """
         if not isinstance(data, MutableMapping):
             raise TypeError("data is not a dictionary")
@@ -2253,6 +2325,10 @@ class Graph:
     def asdict(self, keep_empty_fields=True) -> MutableMapping[str, Any]:
         """
         Return a fully-resolved dict representation of the graph.
+
+        :return:
+            A data dictionary following the :ref:`spec:sec_spec_mdm`.
+        :rtype: dict
         """
 
         def filt(attrib, value):
@@ -2285,6 +2361,10 @@ class Graph:
     def asdict_simplified(self) -> MutableMapping[str, Any]:
         """
         Return a simplified dict representation of the graph.
+
+        :return:
+            A data dictionary following the :ref:`spec:sec_spec_hdm`.
+        :rtype: dict
         """
 
         def simplify_epochs(data):
@@ -2417,18 +2497,24 @@ class Graph:
 
 class Builder:
     """
-    The Builder provides a set of convenient methods for incrementally
-    constructing a deme graph. The state of the graph is stored internally as a
-    dictionary of objects following Demes' data model, and may be converted
-    into a fully-resolved :class:`Graph` object using the :meth:`.resolve()` method.
+    The Builder class provides a set of convenient methods for
+    incrementally constructing a demographic model.
 
-    :ivar dict data: The data dictionary of the graph's current state.
-        The objects nested within this dictionary follow Demes' data model,
-        as described in the :ref:`spec:sec_spec`.
+    The state of the demographic model is stored internally as a dictionary
+    of objects following Demes' :ref:`spec:sec_spec_hdm`.
+    The content of this dictionary is *not* resolved and is *not* verified.
+    The Builder object may be converted into a resolved and validated
+    :class:`Graph` object using the :meth:`.resolve()` method.
+
+    :ivar dict data:
+        The data dictionary of the demographic model's current state.
+        The objects nested within this dictionary should follow
+        Demes' data model, as described in the :ref:`spec:sec_spec_hdm` schema.
 
         .. note::
-            Users may freely modify the data dictionary, as long as the data
-            model is not violated.
+            Users may freely modify the data dictionary, such as temporarily
+            adding or deleting fields, as long as the :ref:`spec:sec_spec_hdm`
+            is not violated when the :meth:`.resolve` method is called.
     """
 
     def __init__(
@@ -2442,19 +2528,22 @@ class Builder:
         metadata: dict = None,
     ):
         """
-        :param str description: A human readable description of the demography.
-            May be ``None``.
-        :param str time_units: The units of time used for the demography. This is
+        :param str description:
+            A human readable description of the demography.
+        :param str time_units:
+            The units of time used for the demography. This is
             commonly ``years`` or ``generations``, but can be any string.
-        :param float generation_time: The generation time of demes, in units given
-            by the ``time_units`` parameter. Concretely, dividing all times
-            by ``generation_time`` will convert the graph to have time
-            units in generations.  If ``generation_time`` is ``None``, the units
-            are assumed to be in generations already.
-        :param doi: If the graph describes a published demography, the DOI(s)
+        :param float generation_time:
+            The generation time of demes, in units given
+            by the ``time_units`` parameter.
+        :param list[str] doi:
+            If the graph describes a published demography, the DOI(s)
             should be be given here as a list.
-        :type doi: list[str]
-        :param dict metadata: A dictionary of arbitrary additional data.
+        :param dict defaults:
+            A dictionary of default values, following the
+            :ref:`spec:sec_spec_hdm` schema for defaults.
+        :param dict metadata:
+            A dictionary of arbitrary additional data.
         """
         self.data: MutableMapping[str, Any] = dict(time_units=time_units)
         if description is not None:
@@ -2480,18 +2569,24 @@ class Builder:
         defaults: dict = None,
     ):
         """
-        Add a deme. Ancestor demes must be added before their children.
+        Append a deme to the "demes" list field of the data dictionary.
+
+        If the data dictionary doesn't contain the "demes" field,
+        it will be added.
 
         :param str name: A string identifier for the deme.
-        :param str description: A description of the deme. May be ``None``.
+        :param str description: A description of the deme.
         :param list[str] ancestors: List of deme names for the deme's ancestors.
-            This may be ``None``, indicating the deme has no ancestors.
-        :param list[float] proportions: If ``ancestors`` is not ``None``,
-            this indicates the proportions of ancestry from each ancestor.
+        :param list[float] proportions:
+            The proportions of ancestry from each ancestor.
             This list has the same length as ``ancestors``, and must sum to 1.
         :param float start_time: The deme's start time.
-        :param list[dict] epochs: List of epoch dictionaries. Each dictionary
-            follows the data model for an epoch.
+        :param list[dict] epochs:
+            List of epoch dictionaries. Each dictionary
+            follows the :ref:`spec:sec_spec_hdm` schema for an epoch object.
+        :param dict defaults:
+            A dictionary of default deme values, following the
+            :ref:`spec:sec_spec_hdm` schema for deme defaults.
         """
         deme: MutableMapping[str, Any] = dict(name=name)
         if description is not None:
@@ -2527,25 +2622,35 @@ class Builder:
         end_time: float = None,
     ):
         """
-        Add continuous symmetric migrations between all pairs of demes in a list,
-        or alternately, add asymmetric migration from one deme to another.
-        Source and destination demes follow the forwards-in-time convention,
-        so that the migration rate refers to the movement of individuals from
-        the ``source`` deme to the ``dest`` deme.
+        Append a period of continuous migration to the "migrations" list field
+        of the data dictionary.
 
-        :param list[str] demes: list of deme names. Migration is symmetric
-            between all pairs of demes in this list. If not specified,
-            migration will be asymmetric (and ``source`` and ``dest`` must
-            be given).
-        :param str source: The name of the source deme.
-        :param str dest: The name of the destination deme.
-        :param float rate: The rate of migration per generation.
-        :param float start_time: The time at which the migration rate is enabled.
-            If ``None``, the start time is defined by the earliest time at
-            which the demes coexist.
-        :param float end_time: The time at which the migration rate is disabled.
-            If ``None``, the end time is defined by the latest time at which
-            the demes coexist.
+        If the data dictionary doesn't contain the "migrations" field,
+        it will be added.
+        Continuous migrations may be either symmetric or asymmetric.
+        For symmetric migrations, a list of deme names must be provided in the
+        ``demes`` field, and the ``source`` and ``dest`` fields must not
+        be used.
+        For asymmetric migrations, the ``source`` and ``dest`` fields must
+        be provided and the ``demes`` field must not be used.
+        Source and destination demes refer to individuals migrating
+        forwards in time.
+
+        :param list[str] demes:
+            List of deme names. If specified, migration is symmetric
+            between all pairs of demes in this list.
+        :param str source:
+            The name of the source deme. If specified, migration is asymmetric
+            from this deme.
+        :param str dest:
+            The name of the destination deme. If specified, migration is
+            asymmetric into this deme.
+        :param float rate:
+            The rate of migration per generation.
+        :param float start_time:
+            The time at which the migration rate is enabled.
+        :param float end_time:
+            The time at which the migration rate is disabled.
         """
         migration: MutableMapping[str, Any] = dict()
         if rate is not None:
@@ -2576,15 +2681,24 @@ class Builder:
         time: float = None,
     ):
         """
-        Add a pulse of migration at a fixed time.
-        Source and destination demes follow the forwards-in-time convention.
+        Append a pulse of migration at a fixed time to the "pulses" list
+        field of the data dictionary.
 
-        :param list(str) source: The name of the source deme(s).
-        :param str dest: The name of the destination deme.
-        :param list(float) proportion: At the instant after migration, this is the
-            expected proportion(s) of individuals in the destination deme made up
+        If the data dictionary doesn't contain the "pulses" field,
+        it will be added.
+        Source and destination demes refer to individuals migrating
+        forwards in time.
+
+        :param list(str) sources:
+            A list of names of the source deme(s).
+        :param str dest:
+            The name of the destination deme.
+        :param list(float) proportion:
+            At the instant after migration, this is the expected proportion(s)
+            of individuals in the destination deme made up
             of individuals from the source deme(s).
-        :param float time: The time at which migrations occur.
+        :param float time:
+            The time at which migrations occur.
         """
         pulse: MutableMapping[str, Any] = dict()
         if sources is not None:
@@ -2602,7 +2716,7 @@ class Builder:
 
     def resolve(self):
         """
-        Resolve the data dictionary into a Graph.
+        Resolve the Builder's data dictionary into a Graph.
 
         :return: The fully-resolved Graph.
         :rtype: Graph
@@ -2614,9 +2728,11 @@ class Builder:
         """
         Make a Builder object from an existing data dictionary.
 
-        :param MutableMapping data: The data dictionary to initialise the
-            graph's state. The objects nested within this dictionary must
-            follow Demes' data model, as described in the :ref:`spec:sec_spec`.
+        :param MutableMapping data:
+            The data dictionary to initialise the Builder's state.
+            The objects nested within this dictionary should follow
+            Demes' :ref:`spec:sec_spec_hdm`, but see the note for
+            :attr:`.Builder.data`.
 
         :return: The new Builder object.
         :rtype: Builder

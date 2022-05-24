@@ -164,10 +164,7 @@ a useful way to check that the model is what we expect.
 ```{code-cell}
 import demesdraw
 
-w = 2.0 * demesdraw.utils.size_max(ring_graph)
-# Manually set x-axis coordinates for each deme, to improve spacing.
-positions = {deme.name: j * w for j, deme in enumerate(ring_graph.demes)}
-demesdraw.tubes(ring_graph, positions=positions);
+demesdraw.tubes(ring_graph)
 ```
 
 ## Saving a Demes graph

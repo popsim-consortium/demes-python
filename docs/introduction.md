@@ -69,5 +69,5 @@ import demes
 import demesdraw
 
 graph = demes.load("../examples/two_epoch.yaml")
-demesdraw.tubes(graph, inf_ratio=0.4);
+demesdraw.tubes(graph)
 ```

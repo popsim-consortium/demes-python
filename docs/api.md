@@ -19,7 +19,9 @@
 
 ```{eval-rst}
 .. autoclass:: demes.Builder
-   :members:
+    :members:
+
+    .. automethod:: __init__
 ```
 
 ## Working with Demes graphs

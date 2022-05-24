@@ -39,7 +39,7 @@ class ParseCommand:
             help=(
                 "Output ms command line arguments, using the given reference "
                 "population size (N0) to translate into coalescent units "
-                "(see the 'ms' subcommand for interpretation of this value)."
+                "(see the 'ms' subcommand for interpretation of this value). "
                 "The sampling configuration in the output will need editing "
                 "prior to simulation. The order of deme IDs matches the "
                 "order of demes in the input model. "
@@ -61,9 +61,8 @@ class ParseCommand:
                 "and how simplification is performed, may change over time. "
                 "Thus users should not rely on details of the output such as "
                 "presence or absence of specific fields, or other details "
-                "that do not alter how the model is resolved into a "
-                "fully-qualified model. "
-                "A fully-qualified model is output by default."
+                "that do not alter how the model is resolved. "
+                "A fully-resolved model is output by default."
             ),
         )
         parser.add_argument(
