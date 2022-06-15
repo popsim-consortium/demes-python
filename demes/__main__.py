@@ -146,7 +146,7 @@ class MsCommand:
     size N0 according to the following rules:
 
      - time (in generations) = 4 * N0 * t,
-     - deme size (haploid individuals) = N0 * x,
+     - deme size (diploid individuals) = N0 * x,
      - migration rate (per generation) = m / (4 * N0).
 
     Deme IDs are 1-based, and migration matrix entry M[i, j] is the

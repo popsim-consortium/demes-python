@@ -857,10 +857,12 @@ def from_ms(
 
         \\text{time (in generations)} &= 4 N_0 t
 
-        \\text{deme size (haploid individuals)} &= N_0 x
+        \\text{deme size (diploid individuals)} &= N_0 x
 
         \\text{migration rate (per generation)} &= \\frac{M}{4 N_0}
 
+    .. seealso::
+        The :ref:`sec_cli_ms` command line interface.
 
     .. warning::
 
@@ -874,6 +876,9 @@ def from_ms(
         other programs may work as desired, but users are cautioned to
         carefully check the appropriate documentation to identify where
         discrepancies may exist.
+
+        The ms manual may be obtained from
+        http://home.uchicago.edu/~rhudson1/source/mksamples.html
 
     :param str command: The ms command line.
     :param float N0:
@@ -912,6 +917,9 @@ def to_ms(graph: demes.Graph, *, N0, samples=None) -> str:
     Get ms command line arguments for the graph.
 
     The order of deme IDs matches the order of demes in the graph.
+
+    .. seealso::
+        The ``--ms`` option of the :ref:`sec_cli_parse` command line interface.
 
     :param float N0:
         The reference population size used to translate into coalescent units.
