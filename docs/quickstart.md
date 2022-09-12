@@ -40,15 +40,14 @@ demesdraw.tubes(ooa_graph, ax=ax, log_time=True)
 glue("demesdraw_gutenkunst_ooa", fig, display=False)
 ```
 
-`````{panels}
-:column: container
-````{tabbed} YAML
+`````{tab-set}
+````{tab-item} YAML
 :class-label: pt-0
 ```{literalinclude} ../examples/gutenkunst_ooa.yaml
 :language: yaml
 ```
 ````
-````{tabbed} Drawing
+````{tab-item} Drawing
 :class-label: pt-0
 ```{glue:} demesdraw_gutenkunst_ooa
 ```
