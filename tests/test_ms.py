@@ -1364,18 +1364,16 @@ class TestFromMs:
         parser = build_parser()
 
         class Foo:
-            t: float
+            def __init__(self, t):
+                self.t = t
 
-        foo = Foo()
-        foo.t = 0
         args = parser.parse_args("-I 2 1 1".split())
-        args.initial_state.append(foo)
+        args.initial_state.append(Foo(0))
         with pytest.raises(AssertionError):
             build_graph(args, 1)
 
-        foo.t = 1.0
         args = parser.parse_args("-I 2 1 1".split())
-        args.demographic_events.append(foo)
+        args.demographic_events.append(Foo(1.0))
         with pytest.raises(AssertionError):
             build_graph(args, 1)
 

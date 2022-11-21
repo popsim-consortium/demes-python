@@ -1343,7 +1343,7 @@ class Graph:
     metadata: collections.abc.Mapping = attr.ib(
         factory=dict,
         validator=attr.validators.instance_of(
-            collections.abc.Mapping  # type: ignore[misc]
+            collections.abc.Mapping  # type: ignore[type-abstract]
         ),
     )
     demes: List[Deme] = attr.ib(factory=list, init=False)
@@ -2520,12 +2520,12 @@ class Builder:
     def __init__(
         self,
         *,
-        description: str = None,
+        description: str | None = None,
         time_units: str = "generations",
-        generation_time: float = None,
-        doi: list = None,
-        defaults: dict = None,
-        metadata: dict = None,
+        generation_time: float | None = None,
+        doi: list | None = None,
+        defaults: dict | None = None,
+        metadata: dict | None = None,
     ):
         """
         :param str description:
@@ -2561,12 +2561,12 @@ class Builder:
         self,
         name: str,
         *,
-        description: str = None,
-        ancestors: list = None,
-        proportions: list = None,
-        start_time: float = None,
-        epochs: list = None,
-        defaults: dict = None,
+        description: str | None = None,
+        ancestors: list | None = None,
+        proportions: list | None = None,
+        start_time: float | None = None,
+        epochs: list | None = None,
+        defaults: dict | None = None,
     ):
         """
         Append a deme to the "demes" list field of the data dictionary.
@@ -2611,15 +2611,15 @@ class Builder:
     def add_migration(
         self,
         *,
-        rate: float = None,
+        rate: float | None = None,
         # We use a special NO_DEFAULT value here, to distinguish between the user
         # not specifying anything, and specifying the value None (which may be
         # necessary to override a 'defaults' value set in the data dictionary).
         demes: list = NO_DEFAULT,  # type: ignore
         source: str = NO_DEFAULT,  # type: ignore
         dest: str = NO_DEFAULT,  # type: ignore
-        start_time: float = None,
-        end_time: float = None,
+        start_time: float | None = None,
+        end_time: float | None = None,
     ):
         """
         Append a period of continuous migration to the "migrations" list field
@@ -2675,10 +2675,10 @@ class Builder:
     def add_pulse(
         self,
         *,
-        sources: List[str] = None,
-        dest: str = None,
-        proportions: List[float] = None,
-        time: float = None,
+        sources: List[str] | None = None,
+        dest: str | None = None,
+        proportions: List[float] | None = None,
+        time: float | None = None,
     ):
         """
         Append a pulse of migration at a fixed time to the "pulses" list
