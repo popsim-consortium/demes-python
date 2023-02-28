@@ -403,7 +403,6 @@ class TestFromMs:
                         f"-em {T2} 1 2 {rate*2}",
                         f"-ema {T2} 2 0 {rate*2} 0 0",
                     ):
-
                         cmd = f"-I 2 0 2 {on1} {off} {on2}"
                         graph = demes.from_ms(cmd, N0=N0)
                         assert len(graph.migrations) == 2

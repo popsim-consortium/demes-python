@@ -1432,7 +1432,7 @@ class Graph:
         def assert_sorted_eq(aa, bb, *, rel_tol, abs_tol, name):
             # Order-agnostic equality check.
             assert len(aa) == len(bb)
-            for (a, b) in zip(sorted(aa), sorted(bb)):
+            for a, b in zip(sorted(aa), sorted(bb)):
                 try:
                     a.assert_close(b, rel_tol=rel_tol, abs_tol=abs_tol)
                 except AssertionError as e:
