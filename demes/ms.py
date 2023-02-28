@@ -1,3 +1,4 @@
+from __future__ import annotations
 import copy
 import math
 import argparse
@@ -842,7 +843,7 @@ def from_ms(
     command: str,
     *,
     N0: float,
-    deme_names: List[str] = None,
+    deme_names: List[str] | None = None,
 ) -> demes.Graph:
     """
     Convert an ms demographic model into a demes graph.
