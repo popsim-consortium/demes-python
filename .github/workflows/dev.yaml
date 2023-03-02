@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-20.04, windows-2022, macos-11]
-        python-version: ["3.10"]
+        python-version: ["3.11"]
 
     steps:
       - name: checkout
@@ -28,4 +28,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: install developer dependencies
-        run: pip install -r requirements.txt
+        run:
+          pip install --upgrade pip
+          pip install -r requirements.txt
