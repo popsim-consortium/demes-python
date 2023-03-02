@@ -6,4 +6,5 @@ sections:
 - file: api
 - file: cli
 - file: development
+- file: CITATION
 - file: CHANGELOG
