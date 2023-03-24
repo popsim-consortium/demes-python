@@ -1997,6 +1997,26 @@ class Graph:
         graph.generation_time = 1
         return graph
 
+    def rename_demes(self, deme_dict={}):
+        """
+        Rename demes according to a dictionary
+        """
+        graph = copy.deepcopy(self)
+        if not isinstance(deme_dict, dict):
+            raise TypeError("name dict")
+        for k, v in deme_dict.items():
+            for c in graph.demes:
+                if c.name == k:
+                    c.name = (v,)
+                if c.ancestors is not []:
+                    c.ancestors = list(map(lambda x: x.replace(k, v), c.ancestors))
+            for m in graph.migrations:
+                if m.source == k:
+                    m.source = v
+                if m.dest == k:
+                    m.dest = (v,)
+        return graph
+
     @classmethod
     def fromdict(cls, data: MutableMapping[str, Any]) -> Graph:
         """
