@@ -1997,24 +1997,30 @@ class Graph:
         graph.generation_time = 1
         return graph
 
-    def rename_demes(self, deme_dict={}):
+    def rename_demes(self, rename: MutableMapping[str, str]) -> Graph:
         """
-        Rename demes according to a dictionary
+        Rename demes according to a dictionary.
+
+        :param dict rename:
+            A dictionary with deme names and new names.
+        :return:
+            A demographic model with renamed demes.
+        :rtype: Graph
         """
         graph = copy.deepcopy(self)
-        if not isinstance(deme_dict, dict):
-            raise TypeError("name dict")
-        for k, v in deme_dict.items():
+        if not isinstance(rename, MutableMapping):
+            raise TypeError("rename_dict is not a dictionary")
+        for k, v in rename.items():
             for c in graph.demes:
                 if c.name == k:
-                    c.name = (v,)
+                    c.name = v
                 if c.ancestors is not []:
                     c.ancestors = list(map(lambda x: x.replace(k, v), c.ancestors))
             for m in graph.migrations:
                 if m.source == k:
                     m.source = v
                 if m.dest == k:
-                    m.dest = (v,)
+                    m.dest = v
         return graph
 
     @classmethod
