@@ -8,3 +8,4 @@ build/
 dist/
 demes.egg-info
 .python-version
+htmlcov/

@@ -1877,6 +1877,14 @@ class TestGraph:
         with pytest.raises(ValueError, match="generation_time!=1"):
             b.resolve()
 
+    @pytest.mark.parametrize("graph", tests.example_graphs())
+    def test_rename_demes(self, graph):
+        rev_graph = graph.rename_demes(names={})
+        graph.assert_close(rev_graph)
+        for b in [[], set(), "X", 1, 1.0]:
+            with pytest.raises(ValueError, match="names is not a mapping!"):
+                graph.rename_demes(names=b)
+
     def test_isclose(self):
         b1 = Builder(description="test", time_units="generations")
         b2 = copy.deepcopy(b1)

@@ -1997,30 +1997,34 @@ class Graph:
         graph.generation_time = 1
         return graph
 
-    def rename_demes(self, rename: MutableMapping[str, str]) -> Graph:
+    def rename_demes(self, names: MutableMapping[str, str]) -> Graph:
         """
         Rename demes according to a dictionary.
 
-        :param dict rename:
+        :param dict names:
             A dictionary with deme names and new names.
         :return:
             A demographic model with renamed demes.
         :rtype: Graph
         """
         graph = copy.deepcopy(self)
-        if not isinstance(rename, MutableMapping):
-            raise TypeError("rename_dict is not a dictionary")
-        for k, v in rename.items():
-            for c in graph.demes:
-                if c.name == k:
-                    c.name = v
-                if c.ancestors is not []:
-                    c.ancestors = list(map(lambda x: x.replace(k, v), c.ancestors))
-            for m in graph.migrations:
-                if m.source == k:
-                    m.source = v
-                if m.dest == k:
-                    m.dest = v
+        if not isinstance(names, MutableMapping):
+            raise ValueError("names is not a mapping!")
+        for deme in graph.demes:
+            if deme.name not in names:
+                names[deme.name] = deme.name
+        for deme in graph.demes:
+            deme.name = names[deme.name]
+            deme.ancestors = [names[ancestor] for ancestor in deme.ancestors]
+        for migration in graph.migrations:
+            migration.source = names[migration.source]
+            migration.dest = names[migration.dest]
+        for pulse in graph.pulses:
+            pulse.sources = [names[s] for s in pulse.sources]
+            pulse.dest = names[pulse.dest]
+        for k, deme in list(graph._deme_map.items()):
+            del graph._deme_map[k]
+            graph._deme_map[names[k]] = deme
         return graph
 
     @classmethod
