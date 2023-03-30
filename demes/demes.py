@@ -5,7 +5,7 @@ import itertools
 import math
 import numbers
 import operator
-from typing import List, Union, Optional, Dict, MutableMapping, Any, Set, Tuple
+from typing import List, Union, Optional, Dict, MutableMapping, Mapping, Any, Set, Tuple
 import warnings
 
 import attr
@@ -1997,9 +1997,9 @@ class Graph:
         graph.generation_time = 1
         return graph
 
-    def rename_demes(self, names: MutableMapping[str, str]) -> Graph:
+    def rename_demes(self, names: Mapping[str, str]) -> Graph:
         """
-        Rename demes according to a dictionary.
+        Rename demes according to a dictionary that may contain a partial set of demes.
 
         :param dict names:
             A dictionary with deme names and new names.
@@ -2007,24 +2007,29 @@ class Graph:
             A demographic model with renamed demes.
         :rtype: Graph
         """
+        if not isinstance(names, Mapping):
+            raise TypeError("names is not a dictionary")
         graph = copy.deepcopy(self)
-        if not isinstance(names, MutableMapping):
-            raise ValueError("names is not a mapping!")
         for deme in graph.demes:
-            if deme.name not in names:
-                names[deme.name] = deme.name
-        for deme in graph.demes:
-            deme.name = names[deme.name]
-            deme.ancestors = [names[ancestor] for ancestor in deme.ancestors]
+            if deme.name in names:
+                deme.name = names[deme.name]
+                deme.ancestors = [
+                    names[ancestor] if ancestor in names else ancestor
+                    for ancestor in deme.ancestors
+                ]
         for migration in graph.migrations:
-            migration.source = names[migration.source]
-            migration.dest = names[migration.dest]
+            if migration.source in names:
+                migration.source = names[migration.source]
+            if migration.dest in names:
+                migration.dest = names[migration.dest]
         for pulse in graph.pulses:
-            pulse.sources = [names[s] for s in pulse.sources]
-            pulse.dest = names[pulse.dest]
+            pulse.sources = [names[s] if s in names else s for s in pulse.sources]
+            if pulse.dest in names:
+                pulse.dest = names[pulse.dest]
         for k, deme in list(graph._deme_map.items()):
-            del graph._deme_map[k]
-            graph._deme_map[names[k]] = deme
+            if k in names:
+                del graph._deme_map[k]
+                graph._deme_map[names[k]] = deme
         return graph
 
     @classmethod

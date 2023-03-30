@@ -1882,8 +1882,20 @@ class TestGraph:
         rev_graph = graph.rename_demes(names={})
         graph.assert_close(rev_graph)
         for b in [[], set(), "X", 1, 1.0]:
-            with pytest.raises(ValueError, match="names is not a mapping!"):
+            with pytest.raises(TypeError, match="names is not a dictionary"):
                 graph.rename_demes(names=b)
+        # 1. Rename all of the demes at once ...
+        name_dict = {d.name: f"{d.name}X" for d in graph.demes}
+        rev_graph = graph.rename_demes(names=name_dict)
+        deme_names = [d.name for d in rev_graph.demes]
+        for _, v in name_dict.items():
+            assert v in deme_names
+        # 2. Rename a single deme
+        name_dict_small = {graph.demes[0].name: f"{graph.demes[0].name}Y"}
+        rev_graph = graph.rename_demes(names=name_dict_small)
+        deme_names = [d.name for d in rev_graph.demes]
+        for _, v in name_dict_small.items():
+            assert v in deme_names
 
     def test_isclose(self):
         b1 = Builder(description="test", time_units="generations")
