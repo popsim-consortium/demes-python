@@ -2013,10 +2013,7 @@ class Graph:
         for deme in graph.demes:
             if deme.name in names:
                 deme.name = names[deme.name]
-                deme.ancestors = [
-                    names[ancestor] if ancestor in names else ancestor
-                    for ancestor in deme.ancestors
-                ]
+            deme.ancestors = [names[a] if a in names else a for a in deme.ancestors]
         for migration in graph.migrations:
             if migration.source in names:
                 migration.source = names[migration.source]

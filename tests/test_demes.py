@@ -1878,24 +1878,53 @@ class TestGraph:
             b.resolve()
 
     @pytest.mark.parametrize("graph", tests.example_graphs())
-    def test_rename_demes(self, graph):
+    def test_bad_rename_demes(self, graph):
         rev_graph = graph.rename_demes(names={})
         graph.assert_close(rev_graph)
         for b in [[], set(), "X", 1, 1.0]:
             with pytest.raises(TypeError, match="names is not a dictionary"):
                 graph.rename_demes(names=b)
-        # 1. Rename all of the demes at once ...
+
+    @pytest.mark.parametrize("graph", tests.example_graphs())
+    def test_rename_all_demes(self, graph):
         name_dict = {d.name: f"{d.name}X" for d in graph.demes}
         rev_graph = graph.rename_demes(names=name_dict)
-        deme_names = [d.name for d in rev_graph.demes]
-        for _, v in name_dict.items():
-            assert v in deme_names
-        # 2. Rename a single deme
+        for deme in rev_graph.demes:
+            assert (deme.name not in name_dict) and (deme.name in name_dict.values())
+            for ancestor in deme.ancestors:
+                assert (ancestor not in name_dict) and (ancestor in name_dict.values())
+        for migration in rev_graph.migrations:
+            assert (migration.source not in name_dict) and (
+                migration.source in name_dict.values()
+            )
+            assert (migration.dest not in name_dict) and (
+                migration.dest in name_dict.values()
+            )
+        for pulse in rev_graph.pulses:
+            for s in pulse.sources:
+                assert (s not in name_dict) and (s in name_dict.values())
+            assert pulse.dest not in name_dict
+            assert pulse.dest in name_dict.values()
+
+    @pytest.mark.parametrize("graph", tests.example_graphs())
+    def test_rename_single_deme(self, graph):
         name_dict_small = {graph.demes[0].name: f"{graph.demes[0].name}Y"}
         rev_graph = graph.rename_demes(names=name_dict_small)
-        deme_names = [d.name for d in rev_graph.demes]
-        for _, v in name_dict_small.items():
-            assert v in deme_names
+        rename_cnt = 0
+        for deme in rev_graph.demes:
+            assert deme.name not in name_dict_small
+            if deme.name in name_dict_small.values():
+                rename_cnt += 1
+            for ancestor in deme.ancestors:
+                assert ancestor not in name_dict_small
+        for migration in rev_graph.migrations:
+            assert migration.source not in name_dict_small
+            assert migration.dest not in name_dict_small
+        for pulse in rev_graph.pulses:
+            for s in pulse.sources:
+                assert s not in name_dict_small
+            assert pulse.dest not in name_dict_small
+        assert rename_cnt == 1
 
     def test_isclose(self):
         b1 = Builder(description="test", time_units="generations")
