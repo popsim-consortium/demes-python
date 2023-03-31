@@ -6,7 +6,7 @@ import logging
 import sys
 import operator
 import itertools
-from typing import Any, List, MutableMapping, Set, Tuple
+from typing import Any, List, Mapping, Set, Tuple
 
 import attr
 
@@ -821,9 +821,7 @@ def build_graph(args, N0: float) -> demes.Graph:
     return graph
 
 
-def remap_deme_names(
-    graph: demes.Graph, names: MutableMapping[str, str]
-) -> demes.Graph:
+def remap_deme_names(graph: demes.Graph, names: Mapping[str, str]) -> demes.Graph:
     assert sorted(names.keys()) == sorted(deme.name for deme in graph.demes)
     graph = graph.rename_demes(names)
     return graph
