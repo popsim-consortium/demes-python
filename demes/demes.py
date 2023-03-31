@@ -5,7 +5,7 @@ import itertools
 import math
 import numbers
 import operator
-from typing import List, Union, Optional, Dict, MutableMapping, Any, Set, Tuple
+from typing import List, Union, Optional, Dict, MutableMapping, Mapping, Any, Set, Tuple
 import warnings
 
 import attr
@@ -1995,6 +1995,38 @@ class Graph:
             pulse.time /= graph.generation_time
         graph.time_units = "generations"
         graph.generation_time = 1
+        return graph
+
+    def rename_demes(self, names: Mapping[str, str]) -> Graph:
+        """
+        Rename demes according to a dictionary that may contain a partial set of demes.
+
+        :param dict names:
+            A dictionary with deme names and new names.
+        :return:
+            A demographic model with renamed demes.
+        :rtype: Graph
+        """
+        if not isinstance(names, Mapping):
+            raise TypeError("names is not a dictionary")
+        graph = copy.deepcopy(self)
+        for deme in graph.demes:
+            if deme.name in names:
+                deme.name = names[deme.name]
+            deme.ancestors = [names[a] if a in names else a for a in deme.ancestors]
+        for migration in graph.migrations:
+            if migration.source in names:
+                migration.source = names[migration.source]
+            if migration.dest in names:
+                migration.dest = names[migration.dest]
+        for pulse in graph.pulses:
+            pulse.sources = [names[s] if s in names else s for s in pulse.sources]
+            if pulse.dest in names:
+                pulse.dest = names[pulse.dest]
+        for k, deme in list(graph._deme_map.items()):
+            if k in names:
+                del graph._deme_map[k]
+                graph._deme_map[names[k]] = deme
         return graph
 
     @classmethod

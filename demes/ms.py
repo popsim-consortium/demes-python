@@ -823,19 +823,7 @@ def build_graph(args, N0: float) -> demes.Graph:
 
 def remap_deme_names(graph: demes.Graph, names: Mapping[str, str]) -> demes.Graph:
     assert sorted(names.keys()) == sorted(deme.name for deme in graph.demes)
-    graph = copy.deepcopy(graph)
-    for deme in graph.demes:
-        deme.name = names[deme.name]
-        deme.ancestors = [names[ancestor] for ancestor in deme.ancestors]
-    for migration in graph.migrations:
-        migration.source = names[migration.source]
-        migration.dest = names[migration.dest]
-    for pulse in graph.pulses:
-        pulse.sources = [names[s] for s in pulse.sources]
-        pulse.dest = names[pulse.dest]
-    for k, deme in list(graph._deme_map.items()):
-        del graph._deme_map[k]
-        graph._deme_map[names[k]] = deme
+    graph = graph.rename_demes(names)
     return graph
 
 
