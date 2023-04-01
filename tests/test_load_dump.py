@@ -575,6 +575,16 @@ class TestLoadAndDump:
         )
         self.check_dump_load_roundtrip(b.resolve())
 
+    def test_str_subclass(self):
+        # Check that numpy.str_ are round-trippable.
+        b = demes.Builder(defaults=dict(epoch=dict(start_size=1)))
+        names = np.array(["a", "b"])
+        b.add_deme(names[0])
+        b.add_deme(names[1], ancestors=[names[0]], start_time=50)
+        b.add_pulse(sources=[names[0]], dest=names[1], time=10, proportions=[0.1])
+        b.add_migration(source=names[0], dest=names[1], rate=1e-3)
+        self.check_dump_load_roundtrip(b.resolve())
+
     def test_json_infinities_get_stringified(self):
         b = demes.Builder()
         b.add_deme("a", epochs=[dict(start_size=1)])

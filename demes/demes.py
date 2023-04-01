@@ -2369,21 +2369,27 @@ class Graph:
                 or (not (hasattr(value, "__len__") and len(value) == 0))
             ) and attrib.name != "_deme_map"
 
-        def coerce_numbers(inst, attribute, value):
-            # Explicitly convert numeric types to int or float, so that they
+        def coerce_types(inst, attribute, value):
+            # Explicitly convert numeric and string types, so that they
             # don't cause problems for the YAML and JSON serialisers.
-            # E.g. numpy int32/int64 are part of Python's numeric tower as
+            # Numpy int32/int64 are part of Python's numeric tower as
             # subclasses of numbers.Integral, similarly numpy's float32/float64
             # are subclasses of numbers.Real. There are yet other numeric types,
             # such as the standard library's decimal.Decimal, which are not part
             # of the numeric tower, but provide a __float__() method.
-            if isinstance(value, numbers.Integral):
+            # Likewise, string subclasses such as numpy.str_ aren't recognised
+            # by the YAML serialiser, so we explicitly convert them to str.
+            # We check for 'str' first, because numpy.str_ also has a
+            # __float__() method.
+            if isinstance(value, str):
+                value = str(value)
+            elif isinstance(value, numbers.Integral):
                 value = int(value)
             elif isinstance(value, numbers.Real) or hasattr(value, "__float__"):
                 value = float(value)
             return value
 
-        data = attr.asdict(self, filter=filt, value_serializer=coerce_numbers)
+        data = attr.asdict(self, filter=filt, value_serializer=coerce_types)
         # translate to spec data model
         for deme in data["demes"]:
             for epoch in deme["epochs"]:
