@@ -3,9 +3,8 @@
 
 title: Demes manual
 author: PopSim Consortium
-copyright: "2021"
+copyright: "2021-2023"
 only_build_toc_files: true
-# logo: logo.png
 
 execute:
   execute_notebooks: cache
@@ -14,19 +13,6 @@ repository:
   url: https://github.com/popsim-consortium/demes-python
   branch: main
   path_to_book: docs
-
-launch_buttons:
-  # Disable binder launch button on pages with python code.
-  binderhub_url: ""
-
-html:
-  use_issues_button: true
-  use_repository_button: true
-  use_edit_page_button: true
-  # Do not edit this - the version placeholder is replaced by the
-  # current version during a distribution build in the Makefile
-  extra_navbar: demes __DEMES_VERSION__
-  extra_footer: demes __DEMES_VERSION__
 
 sphinx:
     extra_extensions:
@@ -49,3 +35,18 @@ sphinx:
 
       # Don't use fully-qualified type names. E.g. demes.demes.Graph
       autodoc_typehints: none
+
+      html_show_sphinx: false
+      # https://piccolo-theme.readthedocs.io/
+      html_theme: "piccolo_theme"
+      # some custom css to fix piccolo/notebook in dark modes
+      html_static_path: ["_static"]
+      html_css_files: ["custom.css"]
+
+      html_theme_options:
+          globaltoc_collapse: false
+          globaltoc_maxdepth: -1
+          globaltoc_includehidden: true
+
+          ## piccolo_theme options
+          source_url: https://github.com/popsim-consortium/demes-python

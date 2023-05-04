@@ -37,7 +37,7 @@ jobs:
       - name: Build Docs
         run: |
           cd docs
-          make dist
+          make
 
       - name: Checkout docs site
         if: (!github.event.pull_request)
