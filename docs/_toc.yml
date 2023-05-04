@@ -1,6 +1,7 @@
 format: jb-article
-root: introduction
+root: index
 sections:
+- file: introduction
 - file: installation
 - file: quickstart
 - file: api

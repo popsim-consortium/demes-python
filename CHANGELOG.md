@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.3 - 2023-05-04
+
+- Fixed the use of numpy strings for deme names.
+  ({user}`terhorst`, {user}`grahamgower`, {issue}`495`, {pr}`505`)
+- Added `Graph.rename_demes()` method to return a graph with renamed demes.
+  ({user}`aabiddanda`, {pr}`499`)
+
 ## 0.2.2 - 2022-04-28
 
 Better conformance to the spec. Minor discrepancies between

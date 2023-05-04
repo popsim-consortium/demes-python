@@ -7,10 +7,5 @@ DEMES_VERSION:=$(shell PYTHONPATH=${PYTHONPATH} \
 dev:
 	./build.sh
 
-dist:
-	@echo Building distribution for demes version ${DEMES_VERSION}
-	sed -i s/__DEMES_VERSION__/${DEMES_VERSION}/g _config.yml
-	./build.sh
-
 clean:
 	rm -fR _build
