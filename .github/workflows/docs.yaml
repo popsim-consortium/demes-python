@@ -25,8 +25,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements/minimal.txt
-          pip install -r requirements/docs.txt
+          pip install -r requirements_minimal_CI.txt
+          pip install -r requirements_docs_CI.txt
           python -m pip install build packaging
 
       - name: Build package
@@ -40,7 +40,7 @@ jobs:
           make
 
       - name: Checkout docs site
-        if: (!github.event.pull_request)
+      # if: (!github.event.pull_request)
         uses: actions/checkout@v3
         with:
           repository: popsim-consortium/demes-docs
