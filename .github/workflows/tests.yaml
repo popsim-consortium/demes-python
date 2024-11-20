@@ -43,8 +43,8 @@ jobs:
 
       - name: install dependencies
         run: |
-          pip install -r requirements/minimal.txt
-          pip install -r requirements/tests.txt
+          pip install -r requirements_minimal_CI.txt
+          pip install -r requirements_tests_CI.txt
 
       # Check that demes installs as expected.
       # Also check the "demes" CLI entry point.
