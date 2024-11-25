@@ -52,6 +52,11 @@ def unit_interval(self, attribute, value):
         raise ValueError(f"must have 0 <= {attribute.name} <= 1")
 
 
+def unit_interval_exclusive_lo(self, attribute, value):
+    if not (0 < value <= 1):
+        raise ValueError(f"must have 0 < {attribute.name} <= 1")
+
+
 def sum_less_than_one(self, attribute, value):
     if sum(value) > 1:
         raise ValueError(f"{attribute.name} must sum to less than one")
@@ -480,7 +485,9 @@ class Pulse:
     time: Time = attr.ib(validator=[int_or_float, positive, finite])
     proportions: List[Proportion] = attr.ib(
         validator=attr.validators.deep_iterable(
-            member_validator=attr.validators.and_(int_or_float, unit_interval),
+            member_validator=attr.validators.and_(
+                int_or_float, unit_interval_exclusive_lo
+            ),
             iterable_validator=attr.validators.instance_of(list),
         )
     )
@@ -2095,7 +2102,7 @@ class Graph:
                 proportions=(
                     list,
                     attr.validators.deep_iterable(
-                        member_validator=int_or_float,
+                        member_validator=[int_or_float, unit_interval_exclusive_lo],
                         iterable_validator=attr.validators.instance_of(list),
                     ),
                 ),
@@ -2156,7 +2163,7 @@ class Graph:
                     list,
                     attr.validators.deep_iterable(
                         member_validator=attr.validators.and_(
-                            int_or_float, unit_interval
+                            int_or_float, unit_interval_exclusive_lo
                         ),
                         iterable_validator=attr.validators.and_(
                             attr.validators.instance_of(list),
