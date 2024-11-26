@@ -1,6 +1,7 @@
 """
 Functions to load and dump graphs in YAML and JSON formats.
 """
+
 from __future__ import annotations
 import contextlib
 import json

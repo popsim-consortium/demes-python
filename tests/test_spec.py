@@ -2,6 +2,7 @@
 Check that we do the right thing with the demes-spec test cases,
 by comparing against the reference implementation.
 """
+
 import math
 import json
 import operator

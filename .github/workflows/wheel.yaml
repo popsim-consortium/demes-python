@@ -9,16 +9,16 @@ on:
 
 jobs:
   wheel_build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.12"
 
       - name: install dependencies
         run: |
-          pip install -r requirements/minimal.txt
+          pip install -r requirements_minimal_CI.txt
           pip install build
 
       - name: build wheel
