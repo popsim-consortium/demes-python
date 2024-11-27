@@ -3124,7 +3124,7 @@ class TestGraphResolution:
         with pytest.warns(UserWarning, match="Multiple pulses.*same.*time"):
             b2.resolve()
 
-    @pytest.mark.filterwarnings("error:Multiple pulses.*same.*time")
+    @pytest.mark.filterwarnings("error")
     def test_unrelated_pulses_no_warning(self):
         b1 = Builder()
         for j in range(4):
@@ -3136,33 +3136,25 @@ class TestGraphResolution:
         b2 = copy.deepcopy(b1)
         b2.add_pulse(sources=["d0"], dest="d1", time=T, proportions=[0.1])
         b2.add_pulse(sources=["d0"], dest="d2", time=T, proportions=[0.1])
-        with pytest.warns(None) as record:
-            b2.resolve()
-        assert len(record) == 0
+        b2.resolve()
 
         # Shouldn't warn for: d0 -> d1; d2 -> d3.
         b2 = copy.deepcopy(b1)
         b2.add_pulse(sources=["d0"], dest="d1", time=T, proportions=[0.1])
         b2.add_pulse(sources=["d2"], dest="d3", time=T, proportions=[0.1])
-        with pytest.warns(None) as record:
-            b2.resolve()
-        assert len(record) == 0
+        b2.resolve()
 
         # Different pulse times shouldn't warn for: d0 -> d1; d1 -> d2.
         b2 = copy.deepcopy(b1)
         b2.add_pulse(sources=["d0"], dest="d1", time=T, proportions=[0.1])
         b2.add_pulse(sources=["d1"], dest="d2", time=2 * T, proportions=[0.1])
-        with pytest.warns(None) as record:
-            b2.resolve()
-        assert len(record) == 0
+        b2.resolve()
 
         # Different pulse times shouldn't warn for: d0 -> d2; d1 -> d2.
         b2 = copy.deepcopy(b1)
         b2.add_pulse(sources=["d0"], dest="d2", time=T, proportions=[0.1])
         b2.add_pulse(sources=["d1"], dest="d2", time=2 * T, proportions=[0.1])
-        with pytest.warns(None) as record:
-            b2.resolve()
-        assert len(record) == 0
+        b2.resolve()
 
     @pytest.mark.filterwarnings("ignore:Multiple pulses.*same.*time")
     def test_pulse_proportions_sum_greater_than_one(self):
