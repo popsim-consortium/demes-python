@@ -67,7 +67,7 @@ jobs:
             | demes parse --ms 1 -
 
   pypi_upload:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     needs: ['wheel_test']
     steps:
       - name: download wheel
