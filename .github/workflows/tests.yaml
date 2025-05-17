@@ -8,7 +8,7 @@ on:
 
 jobs:
   canceller:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     steps:
       - name: cancel previous runs
         uses: styfle/cancel-workflow-action@0.12.1
