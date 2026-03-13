@@ -3,6 +3,7 @@ import tempfile
 import pathlib
 import filecmp
 import gc
+import sys
 
 import pytest
 
@@ -13,24 +14,30 @@ from demes.__main__ import cli
 class TestTopLevel:
     def test_help(self):
         out1 = subprocess.run(
-            "python -m demes -h".split(), check=True, stdout=subprocess.PIPE
+            f"{sys.executable} -m demes -h".split(), check=True, stdout=subprocess.PIPE
         )
         out2 = subprocess.run(
-            "python -m demes --help".split(), check=True, stdout=subprocess.PIPE
+            f"{sys.executable} -m demes --help".split(),
+            check=True,
+            stdout=subprocess.PIPE,
         )
         assert out1.stdout == out2.stdout
 
     def test_no_arguments_produces_help_output(self):
         # If no params are given, the output is the same as --help.
         # But the returncode should be non-zero.
-        out1 = subprocess.run("python -m demes -h".split(), stdout=subprocess.PIPE)
-        out2 = subprocess.run("python -m demes".split(), stdout=subprocess.PIPE)
+        out1 = subprocess.run(
+            f"{sys.executable} -m demes -h".split(), stdout=subprocess.PIPE
+        )
+        out2 = subprocess.run(
+            f"{sys.executable} -m demes".split(), stdout=subprocess.PIPE
+        )
         assert out1.stdout == out2.stdout
         assert out2.returncode != 0
 
     def test_version(self):
         out = subprocess.run(
-            "python -m demes --version".split(),
+            f"{sys.executable} -m demes --version".split(),
             stdout=subprocess.PIPE,
             encoding="utf8",
         )
@@ -40,10 +47,14 @@ class TestTopLevel:
 class TestMsCommand:
     def test_help(self):
         out1 = subprocess.run(
-            "python -m demes ms -h".split(), check=True, stdout=subprocess.PIPE
+            f"{sys.executable} -m demes ms -h".split(),
+            check=True,
+            stdout=subprocess.PIPE,
         )
         out2 = subprocess.run(
-            "python -m demes ms --help".split(), check=True, stdout=subprocess.PIPE
+            f"{sys.executable} -m demes ms --help".split(),
+            check=True,
+            stdout=subprocess.PIPE,
         )
         assert out1.stdout == out2.stdout
 
@@ -54,7 +65,9 @@ class TestMsCommand:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpfile = pathlib.Path(tmpdir) / "model.yaml"
             with open(tmpfile, "w") as f:
-                subprocess.run("python -m demes ms -N0 1".split(), check=True, stdout=f)
+                subprocess.run(
+                    f"{sys.executable} -m demes ms -N0 1".split(), check=True, stdout=f
+                )
             graph2 = demes.load(tmpfile)
         graph1.assert_close(graph2)
 
@@ -64,7 +77,7 @@ class TestMsCommand:
             with open(tmpfile, "w") as f:
                 subprocess.run(
                     (
-                        "python -m demes "
+                        f"{sys.executable} -m demes "
                         "ms -N0 20000 -G 6.93 -eG 0.2 0.0 -eN 0.3 0.5"
                     ).split(),
                     check=True,
@@ -80,17 +93,21 @@ class TestMsCommand:
 class TestParseCommand:
     def test_help(self):
         out1 = subprocess.run(
-            "python -m demes parse -h".split(), check=True, stdout=subprocess.PIPE
+            f"{sys.executable} -m demes parse -h".split(),
+            check=True,
+            stdout=subprocess.PIPE,
         )
         out2 = subprocess.run(
-            "python -m demes parse --help".split(), check=True, stdout=subprocess.PIPE
+            f"{sys.executable} -m demes parse --help".split(),
+            check=True,
+            stdout=subprocess.PIPE,
         )
         assert out1.stdout == out2.stdout
 
     def test_empty_file(self):
         # An empty file should produce no output.
         out1 = subprocess.run(
-            "python -m demes parse -".split(),
+            f"{sys.executable} -m demes parse -".split(),
             check=True,
             stdout=subprocess.PIPE,
             stdin=subprocess.DEVNULL,
@@ -112,7 +129,7 @@ class TestParseCommand:
                 stxt = "-s" if simplified else ""
                 jtxt = "-j" if output_format == "json" else ""
                 subprocess.run(
-                    f"python -m demes parse {stxt} {jtxt} {tmpfile1}".split(),
+                    f"{sys.executable} -m demes parse {stxt} {jtxt} {tmpfile1}".split(),
                     check=True,
                     stdout=f,
                 )
@@ -136,7 +153,7 @@ class TestParseCommand:
             with open(tmpfile2, "w") as f:
                 stxt = "-s" if simplified else ""
                 subprocess.run(
-                    f"python -m demes parse {stxt} {tmpfile1}".split(),
+                    f"{sys.executable} -m demes parse {stxt} {tmpfile1}".split(),
                     check=True,
                     stdout=f,
                 )
@@ -170,7 +187,7 @@ class TestParseCommand:
             tmpfile = pathlib.Path(tmpdir) / "model.yaml"
             demes.dump(graph, tmpfile)
             out1 = subprocess.run(
-                f"python -m demes parse --ms 1 {tmpfile}".split(),
+                f"{sys.executable} -m demes parse --ms 1 {tmpfile}".split(),
                 check=True,
                 stdout=subprocess.PIPE,
                 encoding="utf8",
@@ -194,7 +211,7 @@ class TestParseCommand:
             tmpfile = pathlib.Path(tmpdir) / "model.yaml"
             demes.dump(graph1, tmpfile)
             out = subprocess.run(
-                f"python -m demes parse --ms {N0} {tmpfile}".split(),
+                f"{sys.executable} -m demes parse --ms {N0} {tmpfile}".split(),
                 check=True,
                 stdout=subprocess.PIPE,
                 encoding="utf8",

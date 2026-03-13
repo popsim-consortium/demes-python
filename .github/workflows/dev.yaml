@@ -29,5 +29,7 @@ jobs:
 
       - name: install developer dependencies
         run: |
+          # NOTE: production use of this command
+          # would be python -m pip ...
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -e . --group test --group lint --group docs

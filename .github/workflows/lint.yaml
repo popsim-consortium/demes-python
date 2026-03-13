@@ -15,14 +15,17 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          activate-environment: true
+          version: "latest"
+          python-version: ${{ matrix.python }}
+
+      - name: Install python dependencies
         run: |
-          pip install -r requirements_minimal_CI.txt
-          pip install -r requirements_lint_CI.txt
-          # Mypy also checks types in the tests/ folder
-          pip install -r requirements_tests_CI.txt
-          pip install build
-          python -m build .
+          # uv sync install the project into the venv
+          uv sync --frozen --group lint
 
       - name: black
         run: black --check .

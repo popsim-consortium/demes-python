@@ -1,3 +1,76 @@
 [build-system]
 # We need setup.cfg support, which setuptools introduced in 30.3.0.
 requires = ["setuptools>=30.3.0", "wheel", "setuptools_scm"]
+
+[project]
+name = "demes"
+authors = [
+    {name = "PopSim Consortium", email =  "krthornt@uci.edu"}
+]
+description = "tools for describing demographic models"
+readme = {file = "README.md", content-type = "text/markdown"}
+license = {text = "ISC"}
+classifiers = [
+    "Development Status :: 5 - Stable",
+    "License :: OSI Approved :: ISC License (ISCL)",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Bio-Informatics"
+]
+
+requires-python = ">=3.10"
+
+dynamic = ["version"]
+
+dependencies = [
+    "attrs>=20.3.0",
+    "ruamel.yaml>=0.15.78"
+]
+
+[project.urls]
+Repository = "https://github.com/popsim-consortium/demes-python"
+Documentation = "https://popsim-consortium.github.io/demes-docs/"
+Issues = "https://github.com/popsim-consortium/demes-python/issues"
+
+[project.scripts]
+demes = "demes.__main__:cli"
+
+[dependency-groups]
+test = [
+    "numpy",
+    "pytest==8.3.3",
+    "pytest-cov",
+    "pytest-xdist"
+]
+
+lint = [
+    "black==24.10.0",
+    "flake8==7.1.1",
+    "mypy==1.13.0",
+    {include-group = "test"},
+]
+
+docs = [
+    "demesdraw",
+    "jupyter-book==0.15.1",
+    "piccolo_theme",
+    "sphinx_issues",
+    "sphinxcontrib-programoutput",
+# Below here are hacks to make the docs
+# build until we can deal w/updating
+# jupyter-book
+    "ipython==8.29.0"
+]
+
+[tool.setuptools_scm]
+write_to = "demes/_version.py"
+
+# NOTE to future developers
+# mypy can be configured here, and perhaps
+# "should" be.
+# For now, we've left its config in setup.cfg
+#
+# flake8 cannot be configured here unless we
+# introduce a dependency on flake8-pyproject.
