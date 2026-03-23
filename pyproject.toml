@@ -67,6 +67,9 @@ docs = [
 [tool.setuptools_scm]
 write_to = "demes/_version.py"
 
+[tool.coverage.run]
+patch = ["subprocess"]
+
 # NOTE to future developers
 # mypy can be configured here, and perhaps
 # "should" be.
