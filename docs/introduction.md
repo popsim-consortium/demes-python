@@ -23,8 +23,8 @@ set_matplotlib_formats("svg")
 # Introduction
 
 The `demes` Python package provides an API for defining, parsing, and sharing
-[Demes](spec:sec_intro) demographic models. Applications can use
-`demes` to parse human-readable [Demes YAML files](spec:sec_tutorial)
+[Demes](sec_intro) demographic models. Applications can use
+`demes` to parse human-readable [Demes YAML files](sec_tutorial)
 into fully-resolved demographic models. In addition, `demes` provides
 convenient data structures to simplify manipulation of demographic models.
 If you find an error in the documentation or a bug in the software,
@@ -43,7 +43,7 @@ simulation software has its own syntax and style for defining the demography.
 Learning curves for new software can be steep and mistakes are easy to make,
 especially for complex demographic scenarios.
 
-The [Demes Specification](spec:sec_intro) aims to make defining demographic
+The [Demes Specification](sec_intro) aims to make defining demographic
 models more intuitive, less prone to error or ambiguity, and readily
 interchangeable between simulation platforms.
 Demographic models, which define populations (or _demes_), their properties,
@@ -54,7 +54,7 @@ and relationships between them, are by convention written as a
 
 The following YAML file implements a two-epoch demographic
 history for a single deme, where the deme doubles in size 100 generations ago.
-See the [Demes tutorial](spec:sec_tutorial) for a detailed introduction to
+See the [Demes tutorial](sec_tutorial) for a detailed introduction to
 writing Demes YAML files.
 
 ```{literalinclude} ../examples/two_epoch.yaml

@@ -54,14 +54,13 @@ lint = [
 
 docs = [
     "demesdraw",
-    "jupyter-book==0.15.1",
+    "jupyter-book<2",
     "piccolo_theme",
     "sphinx_issues",
     "sphinxcontrib-programoutput",
-# Below here are hacks to make the docs
-# build until we can deal w/updating
-# jupyter-book
-    "ipython==8.29.0"
+# WARNING: ipython 9 removes functions
+# that the docs here and in demes-spec use
+    "ipython<9"
 ]
 
 [tool.setuptools_scm]
