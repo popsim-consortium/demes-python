@@ -10,9 +10,6 @@ on:
 jobs:
   build-deploy-docs:
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        python-version: ["3.12", "3.14"]
 
     steps:
       - uses: actions/checkout@v3
@@ -23,14 +20,14 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.14"
 
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v7
         with:
           activate-environment: true
           version: "latest"
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ matrix.python }}
 
       - name: Install python dependencies
         run: |
