@@ -1349,9 +1349,7 @@ class Graph:
     )
     metadata: collections.abc.Mapping = attr.ib(
         factory=dict,
-        validator=attr.validators.instance_of(
-            collections.abc.Mapping  # type: ignore[type-abstract]
-        ),
+        validator=attr.validators.instance_of(collections.abc.Mapping),
     )
     demes: List[Deme] = attr.ib(factory=list, init=False)
     migrations: List[AsymmetricMigration] = attr.ib(factory=list, init=False)

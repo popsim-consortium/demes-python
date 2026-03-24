@@ -8,6 +8,7 @@ import json
 import operator
 import pathlib
 import subprocess
+import sys
 
 import pytest
 
@@ -32,7 +33,7 @@ def resolve_ref(filename) -> dict:
     )
     with subprocess.Popen(
         # "-X utf8" is needed on Windows.
-        ["python3", "-X", "utf8", str(resolver), filename],
+        [sys.executable, "-X", "utf8", str(resolver), filename],
         stdout=subprocess.PIPE,
         encoding="utf-8",
     ) as p:

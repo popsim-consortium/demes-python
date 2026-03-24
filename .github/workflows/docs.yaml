@@ -22,17 +22,19 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements_minimal_CI.txt
-          pip install -r requirements_docs_CI.txt
-          python -m pip install build packaging
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          activate-environment: true
+          version: "latest"
+          python-version: ${{ matrix.python }}
 
-      - name: Build package
+      - name: Install python dependencies
         run: |
-          # Generate the version string which appears in the docs.
-          python -m build --sdist
+          # uv sync install the project into the venv
+          # NOTE: we do not specify -p here, so
+          # we rely on python-version above
+          uv sync --frozen --group docs
 
       - name: Build Docs
         run: |

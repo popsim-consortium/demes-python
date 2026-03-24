@@ -1,5 +1,0 @@
-demesdraw
-jupyter-book==0.15.1
-piccolo_theme
-sphinx_issues
-sphinxcontrib-programoutput

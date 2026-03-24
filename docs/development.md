@@ -11,36 +11,70 @@ of "pull requests" against our
 `Demes` aims to have minimal dependencies when used as a library by other
 projects. However, additional dependencies are required during development, as
 developers regularly run the test suite, build the documentation, and assess
-whether their code changes conform to style guidelines. The `requirements.txt`
+whether their code changes conform to style guidelines. The `pyproject.toml`
 file in the top-level folder lists all development dependencies, which can
-be installed using `pip`. In the following documentation, we assume the reader
+be installed using `uv`.
+In the following documentation, we assume the reader
 has cloned the source repository and installed the developer requirements as
 follows.
+
+To install `uv`, take one of the following paths:
+
+* Follow that project's [documentation](https://docs.astral.sh/uv/).
+* Use the package manager of your choice on your operating system.
+
+Then:
 
 ```sh
 # Clone the repository.
 git clone https://github.com/popsim-consortium/demes-python.git
 cd demes-python
-# Create a virtual environment for development.
-python -m venv venv
-# Activate the environment.
-source venv/bin/activate
-# Install the developer dependencies.
-pip install -r requirements.txt
-# Generate the version string from the most recent git tag/commit.
-python setup.py build
+# update the demes-spec submodule
+git submodule update --init
+# Use uv to install dependencies and build the demes package:
+uv sync --all-groups
 ```
 
-```{warning}
-Due to conflicting version dependencies, it may not be possible to install
-all developer requirements on older versions of Python. If you experience
-problems, please install the latest Python version (3.10 at time of writing).
+You may now do things like run the test suite:
+
+```sh
+uv run python -m pytest tests
 ```
+
+The `--all-groups` flag will install all build dependencies,
+runtime dependencies, and developer dependencies listed in
+`dependency-groups` in `pyproject.toml`.
+If you want to only install specific dependency groups, do
+so following the `uv` [documentation](https://docs.astral.sh/uv/).
 
 ```{note}
-Non-developer requirements are listed in the `install_requires` section
-of the ``setup.cfg`` file in the top-level folder of the sources.
+Non-developer requirements are listed in the `dependency-groups` section
+of the ``pyproject.toml`` file in the top-level folder of the sources.
 ```
+
+## Updating `uv.lock` ("dependency management")
+
+If any of the following occur in `pyproject.toml`, then the contents of `uv.lock`
+may no longer by valid:
+
+* Changing a dependency version number pin
+* Adding/removing a dependency
+* Changing the supported range of Python versions
+* Changing the set of supported operating systems / platforms.
+
+To rebuild the lock file:
+
+```sh
+uv lock
+```
+
+Then, commit the new lock file!
+
+### Updating individual packages in `uv.lock`
+
+One may occastionally need to update the locked version of a specific dependency.
+Currently, this happens via arguments to `uv lock`.
+Counsult the `uv` [documentation](https://docs.astral.sh/uv/) for details.
 
 ## Continuous integration (CI)
 
@@ -105,6 +139,12 @@ manually from the top-level folder of the sources.
 
 ```sh
 python -m pytest -v tests --cov=demes --cov-report=term-missing
+```
+
+or
+
+```sh
+uv run python -m pytest -v tests --cov=demes --cov-report=term-missing
 ```
 
 This will produce lots of output, indicating which tests passed, and which
