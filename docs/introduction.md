@@ -12,7 +12,7 @@ kernelspec:
 
 ```{code-cell}
 :tags: [remove-cell]
-import matplotlib.pyplot  # needed to get svg support for some reason
+from matplotlib_inline.backend_inline import set_matplotlib_formats
 from IPython.display import set_matplotlib_formats
 
 set_matplotlib_formats("svg")
