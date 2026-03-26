@@ -10,6 +10,9 @@ queue_rules:
       - check-success=tests (macos-14, 3.12)
       - check-success=tests (ubuntu-24.04, 3.12)
       - check-success=tests (windows-2022, 3.12)
+      - check-success=tests (macos-14, 3.14)
+      - check-success=tests (ubuntu-24.04, 3.14)
+      - check-success=tests (windows-2022, 3.14)
 
 pull_request_rules:
   - name: automatic merge for Dependabot pull requests
@@ -25,6 +28,9 @@ pull_request_rules:
       - check-success=tests (macos-14, 3.12)
       - check-success=tests (ubuntu-24.04, 3.12)
       - check-success=tests (windows-2022, 3.12)
+      - check-success=tests (macos-14, 3.14)
+      - check-success=tests (ubuntu-24.04, 3.14)
+      - check-success=tests (windows-2022, 3.14)
     actions:
       queue:
         name: default
