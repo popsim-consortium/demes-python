@@ -2003,6 +2003,13 @@ class Graph:
         return graph
 
     def change_time_units(self, time_units: str, generation_time: float) -> Graph:
+        """
+        Return a copy of the graph with the time units changed.
+
+        :return:
+            A demographic model with ``time_units`` in `"time_units"`.
+        :rtype: Graph
+        """
         graph = copy.deepcopy(self)
 
         if time_units == "generations" and self.time_units == "generations":
