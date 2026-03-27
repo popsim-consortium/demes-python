@@ -2002,6 +2002,38 @@ class Graph:
         graph.generation_time = 1
         return graph
 
+    def change_time_units(self, time_units: str, generation_time: float) -> Graph:
+        # stdpopsim models are always in generations
+        # assert self.time_units == "generations"
+
+        # return a copy instead of modifying the original
+        graph = copy.deepcopy(self)
+
+        if time_units == "generations":
+            # TODO: should raise
+            assert generation_time == 1
+            return graph
+
+        for deme in graph.demes:
+            deme.start_time *= generation_time
+            for epoch in deme.epochs:
+                epoch.start_time *= generation_time
+                epoch.end_time *= generation_time
+        for migration in graph.migrations:
+            migration.start_time *= generation_time
+            migration.end_time *= generation_time
+        for pulse in graph.pulses:
+            pulse.time *= generation_time
+        graph.time_units = time_units
+        graph.generation_time = generation_time
+
+        # TODO: the check below should be part of testing
+        # Check for stupid mistakes.
+        # graph2 = demes.Graph.fromdict(graph.asdict())
+        # graph2.assert_close(graph)
+
+        return graph
+
     def rename_demes(self, names: Mapping[str, str]) -> Graph:
         """
         Rename demes according to a dictionary that may contain a partial set of demes.
