@@ -1868,6 +1868,15 @@ class TestGraph:
         dg2.assert_close(dg3)
         assert dg2.asdict() == dg3.asdict()
 
+    @pytest.mark.parametrize("graph", tests.example_graphs())
+    def test_change_time_units(self, graph):
+        changed = graph.change_time_units("new_units", 23)
+        changed2 = demes.Graph.fromdict(changed.asdict())
+        changed2.assert_close(changed)
+        if graph.time_units == "generations":
+            back2gens = changed.in_generations()
+            back2gens.assert_close(graph)
+
     def test_bad_generation_time_when_time_units_are_generations(self):
         # The generation_time should be in the same units as the time_units,
         # so it doesn't make sense to set generation_time != 1 when time units
