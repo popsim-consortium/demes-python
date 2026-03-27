@@ -1881,6 +1881,8 @@ class TestGraph:
             # else we violate spec
             with pytest.raises(ValueError) as _:
                 _ = graph.change_time_units("generations", 4)
+            graph2 = graph.change_time_units("generations", 1)
+            graph2.assert_close(graph)
 
     def test_bad_generation_time_when_time_units_are_generations(self):
         # The generation_time should be in the same units as the time_units,
