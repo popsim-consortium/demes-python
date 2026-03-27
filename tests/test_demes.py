@@ -1876,6 +1876,11 @@ class TestGraph:
         if graph.time_units == "generations":
             back2gens = changed.in_generations()
             back2gens.assert_close(graph)
+            # If a graph is in generations, converting
+            # it to generations requires a generation_time = 1,
+            # else we violate spec
+            with pytest.raises(ValueError) as _:
+                _ = graph.change_time_units("generations", 4)
 
     def test_bad_generation_time_when_time_units_are_generations(self):
         # The generation_time should be in the same units as the time_units,

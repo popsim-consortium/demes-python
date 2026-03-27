@@ -2005,7 +2005,7 @@ class Graph:
     def change_time_units(self, time_units: str, generation_time: float) -> Graph:
         graph = copy.deepcopy(self)
 
-        if time_units == "generations":
+        if time_units == "generations" and self.time_units == "generations":
             if generation_time != 1:
                 raise ValueError(f"generation time must be 1, got {generation_time}")
             return graph
