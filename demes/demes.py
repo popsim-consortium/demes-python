@@ -2003,15 +2003,11 @@ class Graph:
         return graph
 
     def change_time_units(self, time_units: str, generation_time: float) -> Graph:
-        # stdpopsim models are always in generations
-        # assert self.time_units == "generations"
-
-        # return a copy instead of modifying the original
         graph = copy.deepcopy(self)
 
         if time_units == "generations":
-            # TODO: should raise
-            assert generation_time == 1
+            if generation_time != 1:
+                raise ValueError(f"generation time must be 1, got {generation_time}")
             return graph
 
         for deme in graph.demes:
