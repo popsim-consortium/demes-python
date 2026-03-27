@@ -2023,11 +2023,6 @@ class Graph:
         graph.time_units = time_units
         graph.generation_time = generation_time
 
-        # TODO: the check below should be part of testing
-        # Check for stupid mistakes.
-        # graph2 = demes.Graph.fromdict(graph.asdict())
-        # graph2.assert_close(graph)
-
         return graph
 
     def rename_demes(self, names: Mapping[str, str]) -> Graph:
