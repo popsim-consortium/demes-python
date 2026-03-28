@@ -2002,6 +2002,36 @@ class Graph:
         graph.generation_time = 1
         return graph
 
+    def change_time_units(self, time_units: str, generation_time: float) -> Graph:
+        """
+        Return a copy of the graph with the time units changed.
+
+        :return:
+            A demographic model with ``time_units`` in `"time_units"`.
+        :rtype: Graph
+        """
+        graph = copy.deepcopy(self).in_generations()
+
+        if time_units == "generations":
+            if generation_time != 1:
+                raise ValueError(f"generation time must be 1, got {generation_time}")
+            return graph
+
+        for deme in graph.demes:
+            deme.start_time *= generation_time
+            for epoch in deme.epochs:
+                epoch.start_time *= generation_time
+                epoch.end_time *= generation_time
+        for migration in graph.migrations:
+            migration.start_time *= generation_time
+            migration.end_time *= generation_time
+        for pulse in graph.pulses:
+            pulse.time *= generation_time
+        graph.time_units = time_units
+        graph.generation_time = generation_time
+
+        return graph
+
     def rename_demes(self, names: Mapping[str, str]) -> Graph:
         """
         Rename demes according to a dictionary that may contain a partial set of demes.

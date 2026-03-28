@@ -1868,6 +1868,27 @@ class TestGraph:
         dg2.assert_close(dg3)
         assert dg2.asdict() == dg3.asdict()
 
+    @pytest.mark.parametrize("graph", tests.example_graphs())
+    def test_change_time_units(self, graph):
+        changed = graph.change_time_units("new_units", 23)
+        changed2 = demes.Graph.fromdict(changed.asdict())
+        changed2.assert_close(changed)
+        if graph.time_units == "generations":
+            back2gens = changed.in_generations()
+            back2gens.assert_close(graph)
+            # If a graph is in generations, converting
+            # it to generations requires a generation_time = 1,
+            # else we violate spec
+            with pytest.raises(ValueError) as _:
+                _ = graph.change_time_units("generations", 4)
+            graph2 = graph.change_time_units("generations", 1)
+            graph2.assert_close(graph)
+        years = graph.change_time_units("years", 25)
+        months = years.change_time_units("months", 25 * 12)
+        graph.in_generations().assert_close(years.in_generations())
+        graph.in_generations().assert_close(months.in_generations())
+        graph.change_time_units("months", 25 * 12).assert_close(months)
+
     def test_bad_generation_time_when_time_units_are_generations(self):
         # The generation_time should be in the same units as the time_units,
         # so it doesn't make sense to set generation_time != 1 when time units
