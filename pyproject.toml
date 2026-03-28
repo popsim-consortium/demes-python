@@ -54,7 +54,7 @@ lint = [
 
 docs = [
     "demesdraw",
-    "jupyter-book<2",
+    "jupyter-book<3",
     "piccolo_theme",
     "sphinx_issues",
     "sphinxcontrib-programoutput",
