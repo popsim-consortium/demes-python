@@ -710,7 +710,7 @@ test = [
 
 [[package]]
 name = "demesdraw"
-version = "0.4.1"
+version = "0.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "demes" },
@@ -720,9 +720,9 @@ dependencies = [
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0a/6e/a489b1029c8a167ff461d737d9ebc60e2ce868e13455b571c567e2fa0eac/demesdraw-0.4.1.tar.gz", hash = "sha256:b0fc5d49759187aaa750a98ff60fc0821397e5876bc6fd8b7b689a75e7d00f0b", size = 299904, upload-time = "2025-10-04T10:17:54.348Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8d/78/790e69c4527ee451029bc5a22004bd86c301d82482951e76e7a43d0337ad/demesdraw-0.1.0.tar.gz", hash = "sha256:652c170f8e931d57bec7e5d685dadd24e948c4d5d4d0317c4a9fed0369595300", size = 28546, upload-time = "2021-04-19T09:49:27.393Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/3c/9a80d239cbad95418816187cb39bd946ec78b8552e8704ff692d50327674/demesdraw-0.4.1-py3-none-any.whl", hash = "sha256:023cf309ec5587b99f2edf85396e76eafd5f6492a5deaec85d91515367c4d2e5", size = 23456, upload-time = "2025-10-04T10:17:52.843Z" },
+    { url = "https://files.pythonhosted.org/packages/37/a5/6618515361e86d63a99c1a55cbb9b8e185a03975f1a22f056030d4e5f7bd/demesdraw-0.1.0-py3-none-any.whl", hash = "sha256:7f8d318757af1e27526e2d9593748feeaa3cd2e2d418197a857eb8d39f04a186", size = 13705, upload-time = "2021-04-19T09:49:26.118Z" },
 ]
 
 [[package]]
