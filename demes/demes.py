@@ -2010,9 +2010,9 @@ class Graph:
             A demographic model with ``time_units`` in `"time_units"`.
         :rtype: Graph
         """
-        graph = copy.deepcopy(self)
+        graph = copy.deepcopy(self).in_generations()
 
-        if time_units == "generations" and self.time_units == "generations":
+        if time_units == "generations":
             if generation_time != 1:
                 raise ValueError(f"generation time must be 1, got {generation_time}")
             return graph
