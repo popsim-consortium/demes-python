@@ -1884,10 +1884,10 @@ class TestGraph:
             graph2 = graph.change_time_units("generations", 1)
             graph2.assert_close(graph)
         years = graph.change_time_units("years", 25)
-        months = years.change_time_units("months", 25*12)
+        months = years.change_time_units("months", 25 * 12)
         graph.in_generations().assert_close(years.in_generations())
         graph.in_generations().assert_close(months.in_generations())
-        graph.change_time_units("months", 25*12).assert_close(months)
+        graph.change_time_units("months", 25 * 12).assert_close(months)
 
     def test_bad_generation_time_when_time_units_are_generations(self):
         # The generation_time should be in the same units as the time_units,
