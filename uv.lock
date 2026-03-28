@@ -48,11 +48,11 @@ wheels = [
 
 [[package]]
 name = "attrs"
-version = "25.4.0"
+version = "26.1.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6b/5c/685e6633917e101e5dcb62b9dd76946cbb57c26e133bae9e0cd36033c0a9/attrs-25.4.0.tar.gz", hash = "sha256:16d5969b87f0859ef33a48b35d55ac1be6e42ae49d5e853b597db70c35c57e11", size = 934251, upload-time = "2025-10-06T13:54:44.725Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9a/8e/82a0fe20a541c03148528be8cac2408564a6c9a0cc7e9171802bc1d26985/attrs-26.1.0.tar.gz", hash = "sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32", size = 952055, upload-time = "2026-03-19T14:22:25.026Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3a/2a/7cc015f5b9f5db42b7d48157e23356022889fc354a2813c15934b7cb5c0e/attrs-25.4.0-py3-none-any.whl", hash = "sha256:adcf7e2a1fb3b36ac48d97835bb6d8ade15b8dcce26aba8bf1d14847b57a3373", size = 67615, upload-time = "2025-10-06T13:54:43.17Z" },
+    { url = "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl", hash = "sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309", size = 67548, upload-time = "2026-03-19T14:22:23.645Z" },
 ]
 
 [[package]]
@@ -710,7 +710,7 @@ test = [
 
 [[package]]
 name = "demesdraw"
-version = "0.4.1"
+version = "0.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "demes" },
@@ -720,9 +720,9 @@ dependencies = [
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0a/6e/a489b1029c8a167ff461d737d9ebc60e2ce868e13455b571c567e2fa0eac/demesdraw-0.4.1.tar.gz", hash = "sha256:b0fc5d49759187aaa750a98ff60fc0821397e5876bc6fd8b7b689a75e7d00f0b", size = 299904, upload-time = "2025-10-04T10:17:54.348Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8d/78/790e69c4527ee451029bc5a22004bd86c301d82482951e76e7a43d0337ad/demesdraw-0.1.0.tar.gz", hash = "sha256:652c170f8e931d57bec7e5d685dadd24e948c4d5d4d0317c4a9fed0369595300", size = 28546, upload-time = "2021-04-19T09:49:27.393Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/de/3c/9a80d239cbad95418816187cb39bd946ec78b8552e8704ff692d50327674/demesdraw-0.4.1-py3-none-any.whl", hash = "sha256:023cf309ec5587b99f2edf85396e76eafd5f6492a5deaec85d91515367c4d2e5", size = 23456, upload-time = "2025-10-04T10:17:52.843Z" },
+    { url = "https://files.pythonhosted.org/packages/37/a5/6618515361e86d63a99c1a55cbb9b8e185a03975f1a22f056030d4e5f7bd/demesdraw-0.1.0-py3-none-any.whl", hash = "sha256:7f8d318757af1e27526e2d9593748feeaa3cd2e2d418197a857eb8d39f04a186", size = 13705, upload-time = "2021-04-19T09:49:26.118Z" },
 ]
 
 [[package]]
