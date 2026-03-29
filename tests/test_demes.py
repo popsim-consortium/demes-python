@@ -1883,8 +1883,8 @@ class TestGraph:
             for i, j in zip(g.migrations, b.migrations):
                 assert i.start_time * time_units == j.start_time
                 assert i.end_time * time_units == j.end_time
-            for i, j in zip(g.pulses, b.pulses):
-                assert i.time * time_units == j.time
+            for pulsei, pulsej in zip(g.pulses, b.pulses):
+                assert pulsei.time * time_units == pulsej.time
 
         changed = graph.change_time_units("new_units", 23)
         changed_by(graph, changed, 23)
