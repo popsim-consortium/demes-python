@@ -1673,7 +1673,8 @@ class TestDemeSizeAt:
                         assert math.isclose(N, expected_N)
                     else:
                         raise AssertionError(
-                            f"No tests for size_function '{epoch.size_function}'"
+                            f"No tests for size_function '{
+                                epoch.size_function}'"
                         )
 
     def test_deme_doesnt_exist_at_time(self):
@@ -1870,7 +1871,23 @@ class TestGraph:
 
     @pytest.mark.parametrize("graph", tests.example_graphs())
     def test_change_time_units(self, graph):
+        # NOTE: we can assert equality here (for now...) because these
+        # are exactly the operations done internally.
+        def changed_by(a: Graph, b: Graph, time_units: float):
+            g = a.in_generations()
+            for i, j in zip(g.demes, b.demes):
+                assert i.start_time * time_units == j.start_time
+                for k, l in zip(i.epochs, j.epochs):
+                    assert k.start_time * time_units == l.start_time
+                    assert k.end_time * time_units == l.end_time
+            for i, j in zip(g.migrations, b.migrations):
+                assert i.start_time * time_units == j.start_time
+                assert i.end_time * time_units == j.end_time
+            for i, j in zip(g.pulses, b.pulses):
+                assert i.time * time_units == j.time
+
         changed = graph.change_time_units("new_units", 23)
+        changed_by(graph, changed, 23)
         changed2 = demes.Graph.fromdict(changed.asdict())
         changed2.assert_close(changed)
         if graph.time_units == "generations":
@@ -1882,9 +1899,12 @@ class TestGraph:
             with pytest.raises(ValueError) as _:
                 _ = graph.change_time_units("generations", 4)
             graph2 = graph.change_time_units("generations", 1)
+            changed_by(graph, graph2, 1)
             graph2.assert_close(graph)
         years = graph.change_time_units("years", 25)
+        changed_by(graph, years, 25)
         months = years.change_time_units("months", 25 * 12)
+        changed_by(graph, months, 25 * 12)
         graph.in_generations().assert_close(years.in_generations())
         graph.in_generations().assert_close(months.in_generations())
         graph.change_time_units("months", 25 * 12).assert_close(months)
