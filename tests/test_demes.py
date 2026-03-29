@@ -1880,9 +1880,9 @@ class TestGraph:
                 for k, l in zip(i.epochs, j.epochs):
                     assert k.start_time * time_units == l.start_time
                     assert k.end_time * time_units == l.end_time
-            for i, j in zip(g.migrations, b.migrations):
-                assert i.start_time * time_units == j.start_time
-                assert i.end_time * time_units == j.end_time
+            for migi, migj in zip(g.migrations, b.migrations):
+                assert migi.start_time * time_units == migj.start_time
+                assert migi.end_time * time_units == migj.end_time
             for pulsei, pulsej in zip(g.pulses, b.pulses):
                 assert pulsei.time * time_units == pulsej.time
 
