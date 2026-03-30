@@ -1673,7 +1673,8 @@ class TestDemeSizeAt:
                         assert math.isclose(N, expected_N)
                     else:
                         raise AssertionError(
-                            f"No tests for size_function '{epoch.size_function}'"
+                            f"No tests for size_function '{
+                                epoch.size_function}'"
                         )
 
     def test_deme_doesnt_exist_at_time(self):
@@ -1867,6 +1868,46 @@ class TestGraph:
         dg3 = in_generations2(dg2)
         dg2.assert_close(dg3)
         assert dg2.asdict() == dg3.asdict()
+
+    @pytest.mark.parametrize("graph", tests.example_graphs())
+    def test_change_time_units(self, graph):
+        # NOTE: we can assert equality here (for now...) because these
+        # are exactly the operations done internally.
+        def changed_by(a: Graph, b: Graph, time_units: float):
+            g = a.in_generations()
+            for i, j in zip(g.demes, b.demes):
+                assert i.start_time * time_units == j.start_time
+                for k, l in zip(i.epochs, j.epochs):
+                    assert k.start_time * time_units == l.start_time
+                    assert k.end_time * time_units == l.end_time
+            for migi, migj in zip(g.migrations, b.migrations):
+                assert migi.start_time * time_units == migj.start_time
+                assert migi.end_time * time_units == migj.end_time
+            for pulsei, pulsej in zip(g.pulses, b.pulses):
+                assert pulsei.time * time_units == pulsej.time
+
+        changed = graph.change_time_units("new_units", 23)
+        changed_by(graph, changed, 23)
+        changed2 = demes.Graph.fromdict(changed.asdict())
+        changed2.assert_close(changed)
+        if graph.time_units == "generations":
+            back2gens = changed.in_generations()
+            back2gens.assert_close(graph)
+            # If a graph is in generations, converting
+            # it to generations requires a generation_time = 1,
+            # else we violate spec
+            with pytest.raises(ValueError) as _:
+                _ = graph.change_time_units("generations", 4)
+            graph2 = graph.change_time_units("generations", 1)
+            changed_by(graph, graph2, 1)
+            graph2.assert_close(graph)
+        years = graph.change_time_units("years", 25)
+        changed_by(graph, years, 25)
+        months = years.change_time_units("months", 25 * 12)
+        changed_by(graph, months, 25 * 12)
+        graph.in_generations().assert_close(years.in_generations())
+        graph.in_generations().assert_close(months.in_generations())
+        graph.change_time_units("months", 25 * 12).assert_close(months)
 
     def test_bad_generation_time_when_time_units_are_generations(self):
         # The generation_time should be in the same units as the time_units,
